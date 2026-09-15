@@ -1,3 +1,5 @@
+import MonitorPresentation
+import MonitorUI
 import OpenPocketViewCore
 import SwiftUI
 import UIKit
@@ -254,6 +256,7 @@ struct HelpBadge: View {
 }
 
 struct SettingsInlineRow<Trailing: View>: View {
+    @Environment(\.monitorInspectorHelp) private var inspectorHelp
     let title: String
     var help: String? = nil
     var showTopDivider = true
@@ -279,6 +282,13 @@ struct SettingsInlineRow<Trailing: View>: View {
                     stackedRow
                 }
             }
+            if inspectorHelp == true, let help, !help.isEmpty {
+                Text(help)
+                    .font(MonitorTheme.font(10)).foregroundStyle(MonitorTheme.muted)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.bottom, 10)
+            }
         }
     }
 
@@ -295,12 +305,17 @@ struct SettingsInlineRow<Trailing: View>: View {
     private var labelRow: some View {
         HStack(spacing: 6) {
             Text(title)
-                .font(LiveType.ui(size: 12.5, weight: .semibold))
+                .font(
+                    LiveType.ui(
+                        size: CGFloat(MonitorSettingsCardMetrics.rowTitlePointSize),
+                        weight: .semibold)
+                )
                 .foregroundStyle(LiveDesign.text)
                 .lineLimit(stacked ? 2 : 1)
-                .fixedSize(horizontal: !stacked, vertical: false)
+                .fixedSize(horizontal: !stacked, vertical: true)
                 .layoutPriority(1)
-            if let help { HelpBadge(text: help) }
+                .accessibilityIdentifier("monitor.settings.row.title")
+            if inspectorHelp == nil, let help { HelpBadge(text: help) }
             if !stacked { Spacer(minLength: 0) }
         }
     }
@@ -310,7 +325,7 @@ struct SettingsValueText: View {
     let value: String
     var body: some View {
         Text(value)
-            .font(.system(size: 12.5, weight: .medium, design: .monospaced))
+            .font(MonitorTheme.font(12.5, weight: .medium)).monospacedDigit()
             .foregroundStyle(LiveDesign.muted)
             .lineLimit(1)
             .minimumScaleFactor(0.7)
@@ -354,7 +369,10 @@ private struct SettingsNumberPadInput: UIViewRepresentable {
         let field = UITextField()
         field.keyboardType = .numberPad
         field.textAlignment = .center
-        field.font = UIFont.monospacedSystemFont(ofSize: 12, weight: .semibold)
+        _ = MonitorTheme.font(12, weight: .semibold)
+        field.font =
+            UIFont(name: "Sora-SemiBold", size: 12)
+            ?? UIFont.monospacedSystemFont(ofSize: 12, weight: .semibold)
         field.textColor = UIColor(LiveDesign.text)
         field.tintColor = UIColor(LiveDesign.accent)
         field.backgroundColor = .clear
@@ -442,8 +460,7 @@ private struct SettingsNumberPadInput: UIViewRepresentable {
 
 struct SettingsActionPill: View {
     let title: String
-    var systemImage: String? = nil
-    var slashesIcon = false
+    var icon: OpcIcon? = nil
     var tint: Color = LiveDesign.accent
     var background: Color = LiveDesign.accentDim
     var fillsHeight = false
@@ -452,25 +469,11 @@ struct SettingsActionPill: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 6) {
-                if let systemImage {
-                    Image(systemName: systemImage)
-                        .font(.system(size: 13, weight: .semibold))
-                        .overlay {
-                            if slashesIcon {
-                                ZStack {
-                                    Capsule()
-                                        .fill(background)
-                                        .frame(width: 4.2, height: 19)
-                                    Capsule()
-                                        .fill(tint)
-                                        .frame(width: 1.7, height: 19)
-                                }
-                                .rotationEffect(.degrees(-45))
-                            }
-                        }
+                if let icon {
+                    icon.frame(width: 13, height: 13)
                 }
                 Text(title.uppercased())
-                    .font(.system(size: 10.5, weight: .bold, design: .monospaced))
+                    .font(MonitorTheme.font(10.5, weight: .bold)).monospacedDigit()
                     .kerning(0.6)
                     .lineLimit(1)
             }
@@ -541,6 +544,7 @@ struct SettingsSwitchInlineRow: View {
     var showTopDivider = true
     var stacked: Bool = false
     let isOn: Bool
+    var identifier: String? = nil
     let action: () -> Void
 
     var body: some View {
@@ -554,6 +558,26 @@ struct SettingsSwitchInlineRow: View {
                 SettingsSwitchGraphic(isOn: isOn)
             }
             .buttonStyle(.zcTapTarget)
+            .modifier(SettingsSwitchAccess(identifier: identifier, title: title, isOn: isOn))
+        }
+    }
+}
+
+private struct SettingsSwitchAccess: ViewModifier {
+    let identifier: String?
+    let title: String
+    let isOn: Bool
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if let identifier {
+            content
+                .accessibilityIdentifier(identifier)
+                .accessibilityLabel(title)
+                .accessibilityValue(isOn ? "On" : "Off")
+                .accessibilityAddTraits(.isButton)
+        } else {
+            content
         }
     }
 }
@@ -566,44 +590,14 @@ struct SettingsSegmented: View {
     let onSelect: (String) -> Void
 
     var body: some View {
-        HStack(spacing: 3) {
-            ForEach(options, id: \.self) { option in
-                let active = option == selected
-                Button {
-                    guard option != selected else { return }
-                    OperatorSettingsHaptics.selection(enabled: OperatorPrefs.hapticsEnabled)
-                    onSelect(option)
-                } label: {
-                    Text(option)
-                        .font(
-                            LiveType.ui(
-                                size: stacked ? 12 : 11, weight: active ? .semibold : .medium)
-                        )
-                        .foregroundStyle(active ? LiveDesign.text : LiveDesign.muted)
-                        .lineLimit(1)
-                        .minimumScaleFactor(compact ? 0.85 : 1)
-                        .padding(.horizontal, stacked || compact ? 8 : 11)
-                        .padding(.vertical, stacked ? 7 : 6)
-                        .frame(maxWidth: compact || stacked ? .infinity : nil)
-                        .frame(minHeight: stacked ? 32 : nil)
-                        .background(
-                            active ? LiveDesign.surface : Color.clear,
-                            in: RoundedRectangle(
-                                cornerRadius: DesignTokens.cornerRadius, style: .continuous)
-                        )
-                }
-                .buttonStyle(.zcTapTarget)
+        MonitorSegmentedControl(
+            options: options, selection: Binding(get: { selected }, set: onSelect),
+            compact: compact, stacked: stacked, title: { $0 },
+            onSelectionFeedback: {
+                OperatorSettingsHaptics.selection(enabled: OperatorPrefs.hapticsEnabled)
             }
-        }
-        .padding(3)
-        .background(
-            LiveDesign.background.opacity(0.5),
-            in: RoundedRectangle(cornerRadius: DesignTokens.cornerRadius, style: .continuous)
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: DesignTokens.cornerRadius, style: .continuous)
-                .stroke(LiveDesign.hairline, lineWidth: 1)
-        )
+        .buttonStyle(.zcTapTarget)
     }
 }
 
@@ -655,9 +649,42 @@ struct GimbalStickSensitivitySlider: View {
             .accessibilityLabel("Joystick sensitivity")
             .accessibilityValue("\(value)")
             Text("\(value)")
-                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .font(MonitorTheme.font(12, weight: .medium)).monospacedDigit()
                 .foregroundStyle(LiveDesign.text)
                 .frame(width: 24, alignment: .trailing)
+                .monospacedDigit()
+        }
+    }
+}
+
+struct VirtualJoystickDeadzoneSlider: View {
+    @Binding var value: Int
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        HStack(spacing: 9) {
+            Slider(
+                value: Binding(
+                    get: { Double(value) },
+                    set: {
+                        let next = GimbalStick.clampedDeadzonePercent(Int($0.rounded()))
+                        guard next != value else { return }
+                        OperatorSettingsHaptics.selection(enabled: model.hapticsEnabled)
+                        value = next
+                    }),
+                in: Double(
+                    GimbalStick.deadzonePercentRange.lowerBound)...Double(
+                        GimbalStick.deadzonePercentRange.upperBound),
+                step: 1
+            )
+            .tint(LiveDesign.accent)
+            .accessibilityIdentifier("gimbal.virtual.deadzone")
+            .accessibilityLabel("Dead zone")
+            .accessibilityValue("\(value)%")
+            Text("\(value)%")
+                .font(MonitorTheme.font(12, weight: .medium)).monospacedDigit()
+                .foregroundStyle(LiveDesign.text)
+                .frame(width: 40, alignment: .trailing)
                 .monospacedDigit()
         }
     }
@@ -676,13 +703,13 @@ enum OperatorSettingsHaptics {
 struct SettingsRowCard<Content: View>: View {
     var title: String? = nil
     var onReset: (() -> Void)? = nil
-    var chrome: SettingsRowChrome = .liquidGlass
+    var chrome: SettingsRowChrome = .surface
     @ViewBuilder let content: Content
 
     init(
         title: String? = nil,
         onReset: (() -> Void)? = nil,
-        chrome: SettingsRowChrome = .liquidGlass,
+        chrome: SettingsRowChrome = .surface,
         @ViewBuilder content: () -> Content
     ) {
         self.title = title
@@ -696,20 +723,28 @@ struct SettingsRowCard<Content: View>: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: CGFloat(MonitorSettingsCardMetrics.titleContentGap)) {
             if let title {
-                HStack(alignment: .firstTextBaseline) {
+                HStack(alignment: .center, spacing: 8) {
                     Text(title)
-                        .font(LiveType.ui(size: 13, weight: .semibold))
+                        .font(
+                            LiveType.ui(
+                                size: CGFloat(MonitorSettingsCardMetrics.titlePointSize),
+                                weight: .semibold)
+                        )
                         .foregroundStyle(LiveDesign.text)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("monitor.settings.card.title")
                     Spacer(minLength: 0)
                     if let onReset {
                         SettingsResetButton(action: onReset)
                     }
                 }
-                .frame(minHeight: 24, alignment: .topLeading)
-                .padding(.top, 11)
-                .padding(.bottom, 2)
+                .frame(
+                    minHeight: CGFloat(MonitorSettingsCardMetrics.titleMinHeight),
+                    alignment: .leading
+                )
+                .padding(.top, CGFloat(MonitorSettingsCardMetrics.titleTopPadding))
             }
             content
         }
@@ -730,8 +765,7 @@ private struct SettingsRowChromeStyle: ViewModifier {
             content.liquidGlass(in: shape)
         case .surface:
             content
-                .background(LiveDesign.surface, in: shape)
-                .overlay(shape.stroke(LiveDesign.hairline, lineWidth: 1))
+                .monitorCardSurface()
         }
     }
 }
@@ -787,7 +821,7 @@ struct ScrollMoreCue: View {
         VStack(spacing: 1) {
             Spacer(minLength: 0)
             Text("MORE")
-                .font(.system(size: 9.5, weight: .bold, design: .monospaced))
+                .font(MonitorTheme.font(9.5, weight: .bold)).monospacedDigit()
                 .kerning(1.2)
                 .foregroundStyle(LiveDesign.muted)
             OpcIcon.chevronDown
@@ -811,17 +845,10 @@ struct SettingsDashScale: View {
     let caption: String
     let score: Int
 
-    private enum Band { case poor, watch, stable }
-    private var band: Band { score >= 80 ? .stable : (score >= 50 ? .watch : .poor) }
-    /// Watch band — orange, not the DJI sky-blue accent.
-    private static let watch = Color(red: 0.96, green: 0.52, blue: 0.12)
+    private var band: MonitorLinkHealthBand { .init(score: score) }
 
     private var bandColor: Color {
-        switch band {
-        case .poor: LiveDesign.rec
-        case .watch: Self.watch
-        case .stable: LiveDesign.good
-        }
+        MonitorTheme.linkHealthColor(band)
     }
     private var bandName: String {
         switch band {
@@ -851,7 +878,7 @@ struct SettingsDashScale: View {
                 .font(LiveType.ui(size: 13, weight: .semibold))
                 .foregroundStyle(LiveDesign.text)
             Text(caption)
-                .font(.system(size: 11.5, weight: .medium, design: .monospaced))
+                .font(MonitorTheme.font(11.5, weight: .medium)).monospacedDigit()
                 .foregroundStyle(LiveDesign.muted)
             HStack(spacing: 0) {
                 ForEach(0..<3, id: \.self) { slot in
@@ -883,7 +910,7 @@ struct SettingsDashScale: View {
 
     private var marker: some View {
         Text(bandName)
-            .font(.system(size: 9.5, weight: .bold, design: .monospaced))
+            .font(MonitorTheme.font(9.5, weight: .bold)).monospacedDigit()
             .kerning(0.5)
             .foregroundStyle(bandColor)
             .padding(.horizontal, 10)
@@ -894,9 +921,9 @@ struct SettingsDashScale: View {
 
     private func dashColor(_ index: Int) -> Color {
         guard index < litCount else { return LiveDesign.hairlineStrong }
-        if index < 4 { return LiveDesign.rec.opacity(0.8) }
-        if index < 8 { return Self.watch.opacity(0.85) }
-        return LiveDesign.good.opacity(0.9)
+        if index < 4 { return MonitorTheme.linkHealthColor(.poor).opacity(0.8) }
+        if index < 8 { return MonitorTheme.linkHealthColor(.watch).opacity(0.85) }
+        return MonitorTheme.linkHealthColor(.stable).opacity(0.9)
     }
 
     private func legend(_ name: String, _ sub: String) -> some View {
@@ -905,7 +932,7 @@ struct SettingsDashScale: View {
                 .font(LiveType.ui(size: 10, weight: .semibold))
                 .foregroundStyle(LiveDesign.muted)
             Text(sub)
-                .font(.system(size: 9, weight: .regular, design: .monospaced))
+                .font(MonitorTheme.font(9, weight: .regular)).monospacedDigit()
                 .foregroundStyle(LiveDesign.faint)
         }
     }
@@ -916,17 +943,18 @@ struct SettingsLinkHealthCard: View {
 
     var body: some View {
         let bars = model.session.liveSignalBars
-        let score = min(100, max(0, bars * 25))
+        let score = min(4, max(0, bars)) * 25
         SettingsDashScale(title: "Link Health", caption: caption, score: score)
     }
 
     private var caption: String {
         if !model.isLive { return "No live path." }
-        switch model.session.liveSignalBars {
-        case 3...: return "Link is clean. · Stable"
-        case 2: return "Some loss on the link. · Watch"
-        case 1: return "Link is weak. · Poor"
-        default: return "Waiting for the link."
+        let bars = model.session.liveSignalBars
+        guard bars > 0 else { return "Waiting for the link." }
+        switch MonitorLinkHealthBand(bars: bars) {
+        case .stable: return "Link is clean. · Stable"
+        case .watch: return "Some loss on the link. · Watch"
+        case .poor: return "Link is weak. · Poor"
         }
     }
 }
@@ -976,7 +1004,7 @@ struct SettingsLiveTile: View {
                     .lineLimit(1)
                     .fixedSize()
                 Text(isLinked ? detail : model.session.phase.label)
-                    .font(.system(size: 10.5, weight: .medium, design: .monospaced))
+                    .font(MonitorTheme.font(10.5, weight: .medium)).monospacedDigit()
                     .foregroundStyle(LiveDesign.muted)
                     .lineLimit(1)
                     .minimumScaleFactor(0.62)
@@ -1108,17 +1136,19 @@ enum OperatorPanelMetrics {
         )
     }
 
-    /// SwiftUI reports 0 after a parent `ignoresSafeArea`; the window still has the island lane.
-    /// Keep a one-sided SwiftUI cutout even when UIKit reports the lane on both short edges.
-    @MainActor
-    static func resolvedDeviceSafeArea(_ proposed: EdgeInsets) -> EdgeInsets {
-        let window = LiveMonitorLayout.sceneSafeArea
-        let proposedCut = max(proposed.leading, proposed.trailing)
-        let windowCut = max(window.leading, window.trailing)
-        if proposedCut >= LiveChromeMetrics.cutoutMinimum || proposedCut >= windowCut {
-            return proposed
-        }
-        return window
+    /// Merge the host's layout clearance with an observed physical window snapshot.
+    /// Never query UIKit here: its getter can reenter SwiftUI layout on iOS 26.
+    static func resolvedDeviceSafeArea(
+        _ proposed: EdgeInsets, window: EdgeInsets
+    ) -> EdgeInsets {
+        // A full-screen overlay may erase all SwiftUI safe insets. Resolve each
+        // edge so portrait camera islands and home indicators receive the same
+        // protection as the landscape camera cutout.
+        return EdgeInsets(
+            top: max(proposed.top, window.top),
+            leading: max(proposed.leading, window.leading),
+            bottom: max(proposed.bottom, window.bottom),
+            trailing: max(proposed.trailing, window.trailing))
     }
 }
 

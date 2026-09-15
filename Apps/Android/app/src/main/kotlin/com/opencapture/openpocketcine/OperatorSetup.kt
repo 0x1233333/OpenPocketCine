@@ -14,7 +14,6 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,10 +26,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 
 import androidx.compose.material3.AlertDialog
@@ -48,19 +50,25 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.opencapture.monitorui.MonitorLinkHealth
 import com.opencapture.openpocketcine.assists.CrushClipCompensation
+import com.opencapture.openpocketcine.settings.SettingsFalseColorKey
 import com.opencapture.openpocketcine.assists.FalseColorScale
 import com.opencapture.openpocketcine.assists.HistogramAssist
 import com.opencapture.openpocketcine.assists.LiveAssistState
@@ -78,13 +86,17 @@ import com.opencapture.openpocketcine.assists.ZebraPaint
 import com.opencapture.openpocketcine.assists.ZebraUnit
 import com.opencapture.openpocketcine.core.ConnectionPhase
 import com.opencapture.openpocketcine.diagnostics.DiagnosticCenter
+import com.opencapture.openpocketcine.diagnostics.ManualProblemReport
+import com.opencapture.openpocketcine.diagnostics.ManualProblemReportDialog
+import com.opencapture.openpocketcine.diagnostics.ManualProblemReportDelivery
+import com.opencapture.openpocketcine.diagnostics.ReliabilityReporting
 import com.opencapture.openpocketcine.feed.FeedUpscaler
 import com.opencapture.openpocketcine.feed.LutLookResolver
 import com.opencapture.openpocketcine.feed.MonitorTransfer
 import com.opencapture.openpocketcine.lut.LUTPicker
 import com.opencapture.openpocketcine.settings.DisplayToggleItem
-import com.opencapture.openpocketcine.settings.GlassPillSlider
 import com.opencapture.openpocketcine.settings.PanelCloseButton
+import com.opencapture.openpocketcine.settings.SettingsValueSlider
 import com.opencapture.openpocketcine.settings.SettingsActionPill
 import com.opencapture.openpocketcine.settings.SettingsColorDot
 import com.opencapture.openpocketcine.settings.SettingsColorDots
@@ -92,12 +104,10 @@ import com.opencapture.openpocketcine.settings.SettingsCrushClipSegmented
 import com.opencapture.openpocketcine.settings.SettingsDashScale
 import com.opencapture.openpocketcine.settings.SettingsGroupCard
 import com.opencapture.openpocketcine.settings.SettingsInlineRow
-import com.opencapture.openpocketcine.settings.SettingsNumberField
 import com.opencapture.openpocketcine.settings.SettingsPalette
 import com.opencapture.openpocketcine.settings.SettingsPercentSlider
 import com.opencapture.openpocketcine.settings.SettingsRowCard
 import com.opencapture.openpocketcine.settings.SettingsSegmented
-import com.opencapture.openpocketcine.settings.SettingsSwitchGraphic
 import com.opencapture.openpocketcine.settings.SettingsSwitchInlineRow
 import com.opencapture.openpocketcine.settings.SettingsSwitchRow
 import com.opencapture.openpocketcine.settings.SettingsValueText
@@ -125,15 +135,31 @@ object SettingsHelpCopy {
         "Short confirmation pulses for switches, settings, and gimbal limits. A connected controller also rumbles at a stop."
     const val JOYSTICK_SENSITIVITY =
         "How far a stick throw moves the gimbal — on-screen and a connected game controller. Small throws crawl; full throw is fastest. 4 is the captured feel. 5 reaches full speed sooner; 1 is the slowest."
+    const val VIRTUAL_JOYSTICK_INVERT_PAN =
+        "Reverse left and right on the on-screen stick. Off is the default. A game controller is unchanged."
+    const val VIRTUAL_JOYSTICK_INVERT_TILT =
+        "Reverse up and down on the on-screen stick. Off is the default. A game controller is unchanged."
+    const val VIRTUAL_JOYSTICK_DEADZONE =
+        "Ignore small movements near the center. The default is 8%. Increase it to make the center less sensitive."
+    const val VIRTUAL_JOYSTICK_RESPONSE =
+        "Standard keeps the current feel. Linear responds evenly. Fine makes small movements gentler."
+    const val GIMBAL_JOYSTICK =
+        "Which analog stick pans and tilts. Left is the default. The other stick does not move the gimbal."
     const val GAMEPAD =
-        "A connected game controller. Left stick pans and tilts. Cross/A records. Circle/B recenters. Square/X is rotate-180. Triangle/Y tracks a face. L1/R1 jump zoom out/in. L2/R2 hold-to-zoom (deeper is faster). D-pad up/down ISO, left/right shutter. Unplug rests the stick. On-screen stick wins while you hold it."
+        "A connected game controller. The selected gimbal joystick pans and tilts. Cross/A records. Circle/B recenters. Square/X is rotate-180. Triangle/Y tracks a face. L1/R1 jump zoom out/in. L2/R2 hold-to-zoom (deeper is faster). D-pad up/down ISO, left/right shutter. Unplug rests the stick. On-screen stick wins while you hold it."
     const val KEEP_SCREEN_AWAKE =
         "Prevents auto-lock while OpenPocketCine is open. A monitor should stay lit. Android may still dim when the device overheats."
     const val THEME = "Charcoal field-monitor chrome with Sky Blue accents, tuned for low reflection on set."
     const val SUPPORT = "Connection, live view, controls, and troubleshooting."
     const val REPORT = "Opens a public issue form on GitHub for this project."
+    const val REPORT_PROBLEM =
+        "Tell us what happened. Technical details stay off unless you include them. You can attach up to three photos. Sending does not turn on automatic reports."
     const val SHARE_DIAGNOSTICS =
         "Saves a report with connection events, warnings, and crashes. No name, location, or Wi-Fi password. Paste the copied text into a bug report."
+    const val RELIABILITY_REPORTS =
+        "Optional: send crash, hang, live-feed reports and session health counts to OpenCapture through Sentry. Off by default. Turn off anytime without losing app features. Uploads wait until you leave camera Wi-Fi. Automatic reports exclude all images. No footage or GPS location. Sentry receives the connection IP; stored event IP and derived geography are removed. See Reporting Privacy below."
+    const val RELIABILITY_UNAVAILABLE =
+        "This build cannot send automatic reports. You can still share or delete reports stored on this phone."
     const val FEATURE = "Start an idea in this project's feature-request discussion."
     const val SOURCE =
         "View the OpenPocketCine project on GitHub. Opening this may leave the camera Wi-Fi if that is the only network."
@@ -215,15 +241,15 @@ internal object OperatorLinkHealth {
         }
     }
 
-    fun score(bars: Int): Int = (bars * 25).coerceIn(0, 100)
+    fun score(bars: Int): Int = MonitorLinkHealth.score(bars)
 
     fun caption(isLive: Boolean, bars: Int): String {
         if (!isLive) return "No live path."
-        return when (bars) {
-            in 3..Int.MAX_VALUE -> "Link is clean. · Stable"
-            2 -> "Some loss on the link. · Watch"
-            1 -> "Link is weak. · Poor"
-            else -> "Waiting for the link."
+        if (bars <= 0) return "Waiting for the link."
+        return when (MonitorLinkHealth.band(score(bars))) {
+            MonitorLinkHealth.Band.STABLE -> "Link is clean. · Stable"
+            MonitorLinkHealth.Band.WATCH -> "Some loss on the link. · Watch"
+            MonitorLinkHealth.Band.POOR -> "Link is weak. · Poor"
         }
     }
 
@@ -447,97 +473,68 @@ fun OperatorSetupScreen(model: AppModel, onClose: () -> Unit) {
         model.chromeEditorReturnMode = null
     }
 
-    val density = LocalDensity.current
-    val bar = LocalImmersiveBarInsets.current
     CompositionLocalProvider(LocalMonitorGlass provides null) {
     Box(
         Modifier
             .fillMaxSize()
             .background(LiveDesign.background)
             .pointerInput(Unit) { detectTapGestures {} }
-            .windowInsetsPadding(WindowInsets.safeDrawing)
-            .padding(
-                start = with(density) { bar.left.toDp() },
-                top = with(density) { bar.top.toDp() },
-                end = with(density) { bar.right.toDp() },
-                bottom = with(density) { bar.bottom.toDp() },
-            ),
+            .windowInsetsPadding(WindowInsets.safeDrawing),
     ) {
-        BoxWithConstraints(Modifier.fillMaxSize()) {
-            val portrait = maxHeight > maxWidth
-            val stackedTop = portrait || maxWidth < 560.dp
-            Column(
-                Modifier
-                    .fillMaxSize()
-                    .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                if (portrait) {
-                    SettingsTabStrip(model, hapticsEnabled, view, Modifier.padding(start = 45.dp))
-                    SettingsTopBar(
-                        stacked = true,
-                        isLive = isLive,
-                        phaseLabel = phaseLabel,
-                        bars = bars,
-                        cameraName = liveCameraName(model),
-                        fpsLabel = fpsLabel,
-                        hasVideoFormat = model.session.hasVideoFormat,
-                        onDisconnect = model::disconnect,
-                    )
-                    SettingsContentPane(
-                        model = model,
-                        isLive = isLive,
-                        phaseLabel = phaseLabel,
-                        bars = bars,
-                        statusColorMode = status.colorMode,
-                        expandedDisp = expandedDisp,
-                        onExpandDisp = { expandedDisp = it },
-                        onLegal = { legalKind = it },
-                        onClearCache = { confirmClearCache = true },
-                        onOpenLut = { showLutPicker = true },
-                        modifier = Modifier.weight(1f),
-                    )
-                } else {
-                    SettingsTopBar(
-                        stacked = stackedTop,
-                        isLive = isLive,
-                        phaseLabel = phaseLabel,
-                        bars = bars,
-                        cameraName = liveCameraName(model),
-                        fpsLabel = fpsLabel,
-                        hasVideoFormat = model.session.hasVideoFormat,
-                        onDisconnect = model::disconnect,
-                        modifier = Modifier.padding(start = 45.dp),
-                    )
-                    Row(
-                        Modifier.weight(1f).fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        SettingsTabRail(model, hapticsEnabled, view)
-                        SettingsContentPane(
-                            model = model,
-                            isLive = isLive,
-                            phaseLabel = phaseLabel,
-                            bars = bars,
-                            statusColorMode = status.colorMode,
-                            expandedDisp = expandedDisp,
-                            onExpandDisp = { expandedDisp = it },
-                            onLegal = { legalKind = it },
-                            onClearCache = { confirmClearCache = true },
-                            onOpenLut = { showLutPicker = true },
-                            modifier = Modifier.weight(1f).fillMaxHeight(),
-                        )
+        com.opencapture.openpocketcine.monitor.MonitorPageScaffold(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            heading = { com.opencapture.openpocketcine.monitor.MonitorPageHeading("Operator Setup", "OPENPOCKETCINE") },
+            navigation = { portrait ->
+                Column(
+                    if (portrait) Modifier.fillMaxWidth() else Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(if (portrait) 9.dp else 8.dp),
+                ) {
+                    if (portrait) {
+                        SettingsTabStrip(model, hapticsEnabled, view)
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            SettingsSessionStatus(isLive, phaseLabel, Modifier.weight(1f))
+                            if (isLive) {
+                                SettingsActionPill(
+                                    "Disconnect",
+                                    OpcIcon.LINK_2_OFF,
+                                    LiveDesign.rec,
+                                    LiveDesign.rec.copy(alpha = .12f),
+                                    onClick = model::disconnect,
+                                )
+                            }
+                        }
+                    } else {
+                        Column(
+                            Modifier.weight(1f).verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(3.dp),
+                        ) {
+                            OperatorSettingsTab.entries.forEach { tab ->
+                                SettingsTabButton(tab, model, hapticsEnabled, view, Modifier.fillMaxWidth())
+                            }
+                        }
+                        SettingsSessionStatus(isLive, phaseLabel, Modifier.fillMaxWidth())
+                        if (isLive) {
+                            SettingsActionPill(
+                                "Disconnect",
+                                OpcIcon.LINK_2_OFF,
+                                LiveDesign.rec,
+                                LiveDesign.rec.copy(alpha = .12f),
+                                onClick = model::disconnect,
+                            )
+                        }
                     }
                 }
-            }
+            },
+        ) {
+            SettingsContentPane(model = model, isLive = isLive, phaseLabel = phaseLabel,
+                bars = bars, statusColorMode = status.monitorColorMode, expandedDisp = expandedDisp,
+                onExpandDisp = { expandedDisp = it }, onLegal = { legalKind = it },
+                onClearCache = { confirmClearCache = true }, onOpenLut = { showLutPicker = true })
         }
-        OperatorCloseButton(
-            onClose = onClose,
-            modifier =
-                Modifier
-                    .align(Alignment.TopStart)
-                    .padding(start = 16.dp, top = 22.dp),
-        )
         legalKind?.let { kind ->
             LegalDocumentScreen(kind = kind, onClose = { legalKind = null })
         }
@@ -613,7 +610,7 @@ private fun SettingsTopBar(
                     color = LiveDesign.accent,
                 )
                 Text(
-                    "Operator Setup",
+                    "Settings",
                     style = LiveType.title(24f, FontWeight.SemiBold),
                     color = LiveDesign.text,
                     maxLines = 1,
@@ -687,13 +684,14 @@ private fun SettingsTabStrip(
     Row(
         modifier
             .fillMaxWidth()
-            .panelGlass(ChromeShape)
+            .height(44.dp)
             .horizontalScroll(scroll)
-            .padding(6.dp),
-        horizontalArrangement = Arrangement.spacedBy(5.dp),
+            .testTag("monitor.settings.tabs"),
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         OperatorSettingsTab.entries.forEach { tab ->
-            SettingsTabButton(tab, model, hapticsEnabled, view, Modifier.widthIn(min = 128.dp))
+            SettingsTabButton(tab, model, hapticsEnabled, view, Modifier.wrapContentWidth())
         }
     }
 }
@@ -707,10 +705,18 @@ private fun SettingsTabButton(
     modifier: Modifier = Modifier,
 ) {
     val selected = model.operatorSettingsTab == tab
+    val bringIntoView = remember { BringIntoViewRequester() }
+    LaunchedEffect(selected) { if (selected) bringIntoView.bringIntoView() }
     Row(
         modifier
-            .height(43.dp)
-            .background(if (selected) LiveDesign.surface else LiveDesign.surface.copy(alpha = 0f), ChromeShape)
+            .height(44.dp)
+            .background(if (selected) Color.White.copy(alpha = .08f) else Color.Transparent, RoundedCornerShape(9.dp))
+            .bringIntoViewRequester(bringIntoView)
+            .testTag("monitor.settings.tab.${tab.title}")
+            .semantics {
+                contentDescription = tab.title
+                this.selected = selected
+            }
             .settingsClickable(role = Role.Tab) {
                 if (tab != model.operatorSettingsTab) operatorHaptic(view, hapticsEnabled)
                 model.operatorSettingsTab = tab
@@ -721,25 +727,25 @@ private fun SettingsTabButton(
     ) {
         Box(
             Modifier
-                .width(6.dp)
-                .height(26.dp)
+                .width(4.dp)
+                .height(24.dp)
                 .background(
                     if (selected) LiveDesign.accent else LiveDesign.accent.copy(alpha = 0f),
-                    CircleShape,
+                    RoundedCornerShape(3.dp),
                 ),
         )
-        Column(Modifier.weight(1f, fill = false), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
                 tab.title,
-                style = LiveType.ui(13f, FontWeight.SemiBold),
+                style = LiveType.ui(12.5f, FontWeight.SemiBold),
                 color = if (selected) LiveDesign.text else LiveDesign.muted,
                 maxLines = 1,
             )
             Text(
                 tab.rail,
-                style = LiveType.ui(10.5f),
+                style = LiveType.ui(10f),
                 color = LiveDesign.faint,
-                maxLines = 2,
+                maxLines = 1,
             )
         }
     }
@@ -761,17 +767,12 @@ private fun SettingsContentPane(
 ) {
     val tab = model.operatorSettingsTab
     Column(
-        modifier
-            .fillMaxSize()
-            .background(LiveDesign.surface, ChromeShape)
-            .clip(ChromeShape)
-            .border(1.dp, LiveDesign.hairline, ChromeShape)
-            .padding(12.dp),
+        modifier.fillMaxSize(),
     ) {
         Row(verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text(tab.title, style = LiveType.title(24f, FontWeight.SemiBold), color = LiveDesign.text)
-                Text(tab.subtitle, style = LiveType.ui(12.5f), color = LiveDesign.muted, maxLines = 2)
+                Text(tab.title, style = LiveType.title(17f, FontWeight.SemiBold), color = LiveDesign.text)
+                Text(tab.subtitle, style = LiveType.ui(10.5f), color = LiveDesign.muted, maxLines = 2)
             }
             Text(
                 tab.pill.uppercase(),
@@ -791,14 +792,14 @@ private fun SettingsContentPane(
                         .fillMaxSize()
                         .verticalScroll(scroll)
                         .padding(bottom = 22.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     when (tab) {
                         OperatorSettingsTab.LINK ->
                             LinkRows(model, isLive, phaseLabel, bars)
                         OperatorSettingsTab.SHARING -> SharingRows()
                         OperatorSettingsTab.ASSIST -> AssistRows(model, statusColorMode, onOpenLut)
-                        OperatorSettingsTab.CONTROLS -> ControlsRows(model, isLive)
+                        OperatorSettingsTab.CONTROLS -> ControlsRows(model)
                         OperatorSettingsTab.DISPLAY ->
                             DisplayRows(model, isLive, expandedDisp, onExpandDisp)
                         OperatorSettingsTab.STORAGE -> StorageRows(model, onClearCache)
@@ -843,6 +844,7 @@ private fun LinkRows(model: AppModel, isLive: Boolean, phaseLabel: String, bars:
                     options = FeedUpscaler.supported.map { it.label },
                     selected = upscaler.label,
                     compact = true,
+                    fillWidth = false,
                 ) { label ->
                     val next = FeedUpscaler.fromStored(label)
                     upscaler = next
@@ -886,7 +888,7 @@ private fun AssistRows(model: AppModel, statusColorMode: Int, onOpenLut: () -> U
 
     if (isPortrait) {
         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            FalseColorAssistCard(assist)
+            FalseColorAssistCard(assist, statusColorMode)
             ZebraAssistCard(assist, statusColorMode)
             WaveformAssistCard(assist)
             ParadeAssistCard(assist)
@@ -902,7 +904,7 @@ private fun AssistRows(model: AppModel, statusColorMode: Int, onOpenLut: () -> U
             verticalAlignment = Alignment.Top,
         ) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                FalseColorAssistCard(assist)
+                FalseColorAssistCard(assist, statusColorMode)
                 WaveformAssistCard(assist)
                 HistogramAssistCard(assist)
                 PeakingAssistCard(assist)
@@ -935,7 +937,7 @@ private fun AssistRows(model: AppModel, statusColorMode: Int, onOpenLut: () -> U
 }
 
 @Composable
-private fun FalseColorAssistCard(assist: LiveAssistState) {
+private fun FalseColorAssistCard(assist: LiveAssistState, colorMode: Int) {
     SettingsRowCard(
         title = "False Color",
         onReset = {
@@ -955,7 +957,10 @@ private fun FalseColorAssistCard(assist: LiveAssistState) {
                 assist.setFalseColor(scale = FalseColorScale.fromMenuLabel(label))
             }
         }
-        SettingsSwitchRow(
+        SettingsInlineRow(title = "Reference key", stacked = true) {
+            SettingsFalseColorKey(assist.falseColorScale, colorMode)
+        }
+        SettingsSwitchInlineRow(
             title = "Reference Display",
             isOn = assist.falseColorReference,
             help = SettingsHelpCopy.FALSE_COLOR_REFERENCE,
@@ -1065,17 +1070,22 @@ private fun ZebraZoneRow(
     onValue: (Int) -> Unit,
     onColor: (String) -> Unit,
 ) {
-    SettingsInlineRow(title = title, help = help, stacked = true) {
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(Modifier.settingsClickable(role = Role.Switch, onClick = onEnabled)) {
-                SettingsSwitchGraphic(isOn = enabled)
-            }
-            SettingsNumberField(value = value.coerceIn(0, maximum), maximum = maximum, onChange = onValue)
-            Spacer(Modifier.weight(1f))
+    SettingsSwitchInlineRow(title = title, help = help, isOn = enabled, onToggle = onEnabled)
+    Column(
+        Modifier
+            .padding(start = 14.dp)
+            .alpha(if (enabled) 1f else 0.4f),
+    ) {
+        SettingsInlineRow(title = "Threshold") {
+            SettingsValueSlider(
+                value = value.coerceIn(0, maximum),
+                range = 0..maximum,
+                label = "$value",
+                labelWidth = 34,
+                onChange = onValue,
+            )
+        }
+        SettingsInlineRow(title = "Colour") {
             SettingsColorDots(dots = palette, selectedName = selectedColor, onSelect = onColor)
         }
     }
@@ -1221,58 +1231,17 @@ private fun ScopeGuideRows(guides: ScopeGuides, onChange: (ScopeGuides) -> Unit)
     }
 }
 
-/**
- * Shooting-mode picker, mirroring the iOS capture sheet.
- *
- * Laid out as two strips of three rather than one six-wide segment so "HyperLapse" and
- * "SuperNight" stay readable, keeping the camera's own carousel order reading left to right,
- * top to bottom. Selection comes from the camera's `0x02/0x80` status push, so it follows a
- * mode changed on the body itself; [CameraCommands.shootingModeCarousel] is the only source of
- * values written back.
- */
 @Composable
-private fun ShootingModeRow(model: AppModel, view: View) {
-    val status by model.session.status.collectAsState()
-    val cameraName = model.session.connectedCamera?.model?.name
-    val carousel = remember(cameraName) { CameraCommands.shootingModeCarousel(cameraName) }
-    val selectedLabel = CameraCommands.shootingModeLabel(status.shootingMode)
-    SettingsInlineRow(
-        title = "Shooting Mode",
-        help = SettingsHelpCopy.SHOOTING_MODE,
-        showTopDivider = false,
-        stacked = true,
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            carousel.chunked(3).forEach { row ->
-                val labels = row.mapNotNull { CameraCommands.shootingModeLabel(it) }
-                SettingsSegmented(
-                    options = labels,
-                    // Blank keeps the whole strip unselected when the mode lives in the other row.
-                    selected = if (selectedLabel in labels) selectedLabel.orEmpty() else "",
-                    compact = true,
-                ) { label ->
-                    val raw = row.firstOrNull { CameraCommands.shootingModeLabel(it) == label }
-                    if (raw != null && raw != status.shootingMode) {
-                        operatorHaptic(view, model.hapticsEnabled)
-                        model.setShootingMode(raw)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ControlsRows(model: AppModel, isLive: Boolean) {
+private fun ControlsRows(model: AppModel) {
     val view = LocalView.current
-    if (isLive) {
-        SettingsRowCard(title = "Capture") {
-            ShootingModeRow(model, view)
-        }
+    val context = LocalContext.current
+    val status by model.session.status.collectAsState()
+    var gimbalGamepadStick by remember {
+        mutableStateOf(OperatorPrefs.gimbalGamepadStick(context))
     }
-    SettingsRowCard {
+    SettingsRowCard(title = "Touch & safety") {
         SettingsSwitchInlineRow(
-            title = "Record Confirmation",
+            title = "Record confirmation",
             help = SettingsHelpCopy.RECORD_CONFIRMATION,
             showTopDivider = false,
             isOn = model.recordConfirmationEnabled,
@@ -1289,45 +1258,113 @@ private fun ControlsRows(model: AppModel, isLive: Boolean) {
             operatorHaptic(view, model.hapticsEnabled)
             model.updateHapticsEnabled(next)
         }
-        SettingsInlineRow(
-            title = "Joystick Sensitivity",
-            help = SettingsHelpCopy.JOYSTICK_SENSITIVITY,
-            stacked = true,
+        SettingsSwitchInlineRow(
+            title = "Keep screen awake",
+            help = SettingsHelpCopy.KEEP_SCREEN_AWAKE,
+            isOn = model.keepScreenAwake,
         ) {
-            Row(
-                Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(9.dp),
+            operatorHaptic(view, model.hapticsEnabled)
+            model.updateKeepScreenAwake(!model.keepScreenAwake)
+        }
+    }
+    if (model.monitorCapabilities(status).gimbal) {
+        SettingsRowCard(title = "Gimbal") {
+            SettingsInlineRow(
+                title = "Joystick sensitivity",
+                help = SettingsHelpCopy.JOYSTICK_SENSITIVITY,
+                showTopDivider = false,
+                stacked = true,
             ) {
-                GlassPillSlider(
+                SettingsValueSlider(
                     value = model.gimbalStickSensitivity,
                     range = 1..5,
+                    label = "${model.gimbalStickSensitivity}",
+                    labelWidth = 24,
                     onChange = { next ->
                         if (next != model.gimbalStickSensitivity) {
                             operatorHaptic(view, model.hapticsEnabled)
                             model.updateGimbalStickSensitivity(next)
                         }
                     },
-                    modifier = Modifier.weight(1f),
                 )
-                Text(
-                    "${model.gimbalStickSensitivity}",
-                    style = LiveType.mono(12f),
-                    color = LiveDesign.text,
-                    modifier = Modifier.width(24.dp),
-                )
+            }
+        }
+        SettingsRowCard(title = "On-screen joystick") {
+            SettingsSwitchInlineRow(
+                title = "Invert pan",
+                help = SettingsHelpCopy.VIRTUAL_JOYSTICK_INVERT_PAN,
+                showTopDivider = false,
+                isOn = model.virtualJoystickInvertPan,
+                testTag = "gimbal.virtual.invertPan",
+            ) {
+                operatorHaptic(view, model.hapticsEnabled)
+                model.updateVirtualJoystickInvertPan(!model.virtualJoystickInvertPan)
+            }
+            SettingsSwitchInlineRow(
+                title = "Invert tilt",
+                help = SettingsHelpCopy.VIRTUAL_JOYSTICK_INVERT_TILT,
+                isOn = model.virtualJoystickInvertTilt,
+                testTag = "gimbal.virtual.invertTilt",
+            ) {
+                operatorHaptic(view, model.hapticsEnabled)
+                model.updateVirtualJoystickInvertTilt(!model.virtualJoystickInvertTilt)
+            }
+            SettingsInlineRow(
+                title = "Dead zone",
+                help = SettingsHelpCopy.VIRTUAL_JOYSTICK_DEADZONE,
+                stacked = true,
+            ) {
+                Box(Modifier.testTag("gimbal.virtual.deadzone")) {
+                    SettingsPercentSlider(
+                        value = model.virtualJoystickDeadzonePercent,
+                        range = 0..25,
+                        onChange = { next ->
+                            if (next != model.virtualJoystickDeadzonePercent) {
+                                operatorHaptic(view, model.hapticsEnabled)
+                                model.updateVirtualJoystickDeadzonePercent(next)
+                            }
+                        },
+                    )
+                }
+            }
+            SettingsInlineRow(
+                title = "Response curve",
+                help = SettingsHelpCopy.VIRTUAL_JOYSTICK_RESPONSE,
+                stacked = true,
+            ) {
+                SettingsSegmented(
+                    options = CameraCommands.VirtualJoystickCurve.entries.map { it.label },
+                    selected = model.virtualJoystickResponseCurve.label,
+                    compact = true,
+                    testTag = "gimbal.virtual.response",
+                ) { label ->
+                    val next = CameraCommands.VirtualJoystickCurve.fromLabel(label)
+                    if (next != model.virtualJoystickResponseCurve) {
+                        operatorHaptic(view, model.hapticsEnabled)
+                        model.updateVirtualJoystickResponseCurve(next)
+                    }
+                }
+            }
+        }
+    }
+    SettingsRowCard(title = "Controller") {
+        SettingsInlineRow("Gimbal joystick", SettingsHelpCopy.GIMBAL_JOYSTICK, showTopDivider = false, stacked = true) {
+            SettingsSegmented(
+                options = GamepadGimbalStick.entries.map { it.label },
+                selected = gimbalGamepadStick.label,
+                compact = true,
+            ) { label ->
+                val next = GamepadGimbalStick.fromLabel(label)
+                if (next != gimbalGamepadStick) {
+                    operatorHaptic(view, model.hapticsEnabled)
+                    OperatorPrefs.setGimbalGamepadStick(context, next)
+                    gimbalGamepadStick = next
+                    model.gimbalGamepad.noteStickSelectionChanged(model)
+                }
             }
         }
         SettingsInlineRow("Gamepad", SettingsHelpCopy.GAMEPAD) {
             SettingsValueText(if (model.gamepadConnected) "Connected" else "Not connected")
-        }
-        SettingsSwitchInlineRow(
-            title = "Keep Screen Awake",
-            help = SettingsHelpCopy.KEEP_SCREEN_AWAKE,
-            isOn = model.keepScreenAwake,
-        ) {
-            operatorHaptic(view, model.hapticsEnabled)
-            model.updateKeepScreenAwake(!model.keepScreenAwake)
         }
     }
 }
@@ -1341,20 +1378,19 @@ private fun DisplayRows(
 ) {
     val view = LocalView.current
     PocketDispMode.entries.forEach { mode ->
-        SettingsGroupCard(
+        SettingsRowCard(
             title = mode.settingsTitle,
-            caption = mode.settingsCaption,
             onReset = {
                 operatorHaptic(view, model.hapticsEnabled)
                 resetDispChrome(model, mode)
             },
-            captionMaxLines = Int.MAX_VALUE,
-            expanded = expandedDisp == mode,
-            onExpandToggle = {
-                operatorHaptic(view, model.hapticsEnabled)
-                onExpandDisp(if (expandedDisp == mode) null else mode)
-            },
         ) {
+            Text(
+                mode.settingsCaption,
+                style = LiveType.ui(10.5f),
+                color = LiveDesign.muted,
+                modifier = Modifier.padding(vertical = 5.dp),
+            )
             DispSectionBody(model, mode, isLive, view)
         }
     }
@@ -1379,8 +1415,8 @@ private fun DispSectionBody(model: AppModel, mode: PocketDispMode, isLive: Boole
             color = LiveDesign.muted,
             modifier = Modifier.padding(vertical = 6.dp),
         )
-        DispToggles(model, mode, view)
     }
+    DispToggles(model, mode, view)
     if (mode == PocketDispMode.CLEAN) {
         Text(
             "View assists that stay on in clean view",
@@ -1430,7 +1466,10 @@ private val dispToggleSpecs =
 @Composable
 private fun DispToggles(model: AppModel, mode: PocketDispMode, view: View) {
     val chrome = model.chrome(mode)
-    dispToggleSpecs.forEach { spec ->
+    val status by model.session.status.collectAsState()
+    dispToggleSpecs.filter {
+        it.section != PocketDispSection.GIMBAL_STICK || model.monitorCapabilities(status).gimbal
+    }.forEach { spec ->
         SettingsSwitchInlineRow(
             title = spec.title,
             help = spec.help,
@@ -1509,28 +1548,94 @@ private fun StorageRows(model: AppModel, onClearCache: () -> Unit) {
 @Composable
 private fun SystemRows(model: AppModel, onLegal: (LegalKind) -> Unit) {
     val context = LocalContext.current
+    val view = LocalView.current
+    var reliabilityOptIn by remember { mutableStateOf(ReliabilityReporting.isOptedIn) }
+    var diagnosticOptions by remember { mutableStateOf(false) }
+    var showReportForm by remember { mutableStateOf(false) }
+    val report by ManualProblemReport.snapshot.collectAsState()
     SettingsRowCard(title = "Help & Feedback") {
-        SettingsInlineRow("Support", SettingsHelpCopy.SUPPORT, showTopDivider = false) {
-            SettingsActionPill("Open") { openUrl(context, OpenPocketCineLinks.SUPPORT) }
+        SettingsInlineRow("Report a problem",
+            SettingsHelpCopy.REPORT_PROBLEM,
+            showTopDivider = false) {
+            SettingsActionPill("Open") { showReportForm = true }
         }
-        SettingsInlineRow("Share Diagnostics", SettingsHelpCopy.SHARE_DIAGNOSTICS) {
-            SettingsActionPill("Share") {
-                DiagnosticCenter.shareReport(context, model.session)
+        if (report.delivery != ManualProblemReportDelivery.IDLE) {
+            SettingsInlineRow(
+                "Report status",
+                report.detail ?: "This phone keeps one report until Sentry accepts it or you discard it.",
+            ) {
+                SettingsValueText(report.statusLabel)
+            }
+            report.eventId?.let { id ->
+                SettingsInlineRow("Report ID", "Use this ID if you follow up.") {
+                    SettingsValueText(id)
+                }
+            }
+            if (report.allowsDiscard) {
+                SettingsInlineRow("Queued report", "Remove the unsent report from this phone.") {
+                    SettingsActionPill("Discard") { ManualProblemReport.discard() }
+                }
             }
         }
-        SettingsInlineRow("Report a Problem", SettingsHelpCopy.REPORT) {
-            SettingsActionPill("Report") { openUrl(context, OpenPocketCineLinks.REPORT_PROBLEM) }
+        if (ReliabilityReporting.isAvailable) {
+            SettingsSwitchInlineRow(
+                title = "Automatic error reports",
+                help = SettingsHelpCopy.RELIABILITY_REPORTS,
+                isOn = reliabilityOptIn,
+            ) {
+                operatorHaptic(view, model.hapticsEnabled)
+                reliabilityOptIn = !reliabilityOptIn
+                ReliabilityReporting.setConsent(reliabilityOptIn)
+            }
+        } else {
+            SettingsInlineRow(
+                title = "Automatic error reports",
+                help = SettingsHelpCopy.RELIABILITY_UNAVAILABLE,
+            ) {
+                SettingsValueText("Off")
+            }
         }
-        SettingsInlineRow("Request a Feature", SettingsHelpCopy.FEATURE) {
-            SettingsActionPill("Request") { openUrl(context, OpenPocketCineLinks.FEATURE_REQUEST) }
+        SettingsInlineRow("Reporting Privacy", "What reports contain, retention, and how to request deletion.") {
+            SettingsActionPill("Read") { onLegal(LegalKind.PRIVACY) }
         }
     }
+    SettingsGroupCard(
+        title = "Diagnostic options",
+        caption = "Save or remove reports on this phone",
+        expanded = diagnosticOptions,
+        onExpandToggle = { diagnosticOptions = !diagnosticOptions },
+    ) {
+        SettingsInlineRow("Save diagnostic report", "Keep a copy or share it with support.", showTopDivider = false) {
+            SettingsActionPill("Save") { DiagnosticCenter.shareReport(context, model.session, copyForFeedback = false) }
+        }
+        SettingsInlineRow("Delete saved feed reports",
+            "Remove saved feed reports from this phone. Connection logs remain. Turn off automatic reporting to clear pending uploads. Reports already sent cannot be removed here.") {
+            SettingsActionPill("Delete") {
+                com.opencapture.openpocketcine.diagnostics.FeedIncidentRuntime.deleteStoredReports { deleted ->
+                    android.widget.Toast.makeText(context,
+                        if (deleted) "Saved feed reports deleted" else "Couldn't delete saved feed reports. Please try again.",
+                        android.widget.Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+    if (showReportForm) {
+        ManualProblemReportDialog(
+            model = model,
+            onClose = { showReportForm = false },
+            onPrivacy = {
+                showReportForm = false
+                onLegal(LegalKind.PRIVACY)
+            },
+        )
+    }
+
     SettingsRowCard(title = "Project & Legal") {
         SettingsInlineRow("Source Code", SettingsHelpCopy.SOURCE, showTopDivider = false) {
             SettingsActionPill("Open") { openUrl(context, OpenPocketCineLinks.SOURCE) }
         }
         SettingsInlineRow("Privacy", "What this app stores on this phone.") {
-            SettingsActionPill("Open") { openUrl(context, OpenPocketCineLinks.PRIVACY) }
+            SettingsActionPill("Open") { onLegal(LegalKind.PRIVACY) }
         }
         SettingsInlineRow("Terms", "How you can use OpenPocketCine.") {
             SettingsActionPill("Open") { openUrl(context, OpenPocketCineLinks.TERMS) }
@@ -1567,6 +1672,42 @@ private fun operatorHaptic(view: View, enabled: Boolean) {
 @Composable
 fun OperatorCloseButton(onClose: () -> Unit, modifier: Modifier = Modifier) {
     PanelCloseButton(onClick = onClose, modifier = modifier)
+}
+
+@Composable
+private fun SettingsSessionStatus(
+    isLive: Boolean,
+    phaseLabel: String,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier
+            .background(Color.White.copy(alpha = 0.04f), RoundedCornerShape(10.dp))
+            .padding(9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Box(
+            Modifier
+                .size(7.dp)
+                .background(if (isLive) LiveDesign.good else LiveDesign.faint, CircleShape),
+        )
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                if (isLive) "Active link" else "No camera connected",
+                style = LiveType.ui(11.5f, FontWeight.SemiBold),
+                color = LiveDesign.text,
+                maxLines = 1,
+            )
+            Text(
+                phaseLabel,
+                style = LiveType.ui(9f),
+                color = LiveDesign.muted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
 }
 
 @Composable

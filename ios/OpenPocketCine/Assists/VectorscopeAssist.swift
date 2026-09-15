@@ -1,3 +1,4 @@
+import MonitorPresentation
 import SwiftUI
 import UIKit
 
@@ -70,6 +71,8 @@ enum VectorscopeAssist {
         var zoom: Zoom
         var brightness: Int
         var scale: Double
+        /// False only for a fresh automatic size; legacy saved scales stay explicit.
+        var hasCustomScale: Bool
         var storedCenter: StoredCenter?
         var storedCenterPortrait: StoredCenter?
 
@@ -84,18 +87,20 @@ enum VectorscopeAssist {
             zoom: Zoom = .x1,
             brightness: Int = defaultBrightness,
             scale: Double = defaultScale,
+            hasCustomScale: Bool = false,
             storedCenter: StoredCenter? = nil,
             storedCenterPortrait: StoredCenter? = nil
         ) {
             self.zoom = zoom
             self.brightness = Self.clampedBrightness(brightness)
             self.scale = Self.clampedScale(scale)
+            self.hasCustomScale = hasCustomScale || scale != defaultScale
             self.storedCenter = storedCenter
             self.storedCenterPortrait = storedCenterPortrait
         }
 
         enum CodingKeys: String, CodingKey {
-            case zoom, brightness, scale, storedCenter, storedCenterPortrait
+            case zoom, brightness, scale, hasCustomScale, storedCenter, storedCenterPortrait
         }
 
         init(from decoder: any Decoder) throws {
@@ -105,6 +110,11 @@ enum VectorscopeAssist {
                 try c.decodeIfPresent(Int.self, forKey: .brightness) ?? defaultBrightness)
             scale = Self.clampedScale(
                 try c.decodeIfPresent(Double.self, forKey: .scale) ?? defaultScale)
+            // Old JSON cannot distinguish an untouched 1.0 from a manual 1.0.
+            // Preserve it rather than rewriting an operator's layout on upgrade.
+            hasCustomScale =
+                try c.decodeIfPresent(Bool.self, forKey: .hasCustomScale)
+                ?? true
             storedCenter = try c.decodeIfPresent(StoredCenter.self, forKey: .storedCenter)
             storedCenterPortrait = try c.decodeIfPresent(
                 StoredCenter.self, forKey: .storedCenterPortrait)
@@ -136,25 +146,16 @@ enum VectorscopeAssist {
         "MON · \(zoom.rawValue.uppercased())"
     }
 
-    /// OpenZCine `feedOutsideCenter` for the vectorscope's top-trailing default.
+    /// Unplaced tools start at the canvas center; saved/session centers win later.
     static func defaultCenter(
-        feed: CGRect,
+        feed _: CGRect,
         size: CGSize,
         bounds: CGRect,
-        chromeClearance: EdgeInsets = EdgeInsets(),
-        gap: CGFloat = 10
+        chromeClearance _: EdgeInsets = EdgeInsets(),
+        gap _: CGFloat = 10
     ) -> CGPoint {
-        let halfWidth = size.width / 2
-        let halfHeight = size.height / 2
-        let x = feed.maxX - halfWidth
-        let outside = feed.minY - gap - halfHeight
-        let y: CGFloat
-        if outside - halfHeight >= bounds.minY {
-            y = outside
-        } else {
-            y = max(feed.minY, bounds.minY + chromeClearance.top) + gap + halfHeight
-        }
-        return clamp(CGPoint(x: x, y: y), size: size, bounds: bounds)
+        clamp(
+            CGPoint(x: bounds.midX, y: bounds.midY), size: size, bounds: bounds)
     }
 
     static func clamp(_ point: CGPoint, size: CGSize, bounds: CGRect) -> CGPoint {
@@ -271,7 +272,21 @@ final class VectorscopeAssistStore {
     }
 
     func setScale(_ scale: Double) {
-        options.scale = VectorscopeAssist.Options.clampedScale(scale)
+        var next = options
+        next.scale = VectorscopeAssist.Options.clampedScale(scale)
+        next.hasCustomScale = true
+        options = next
+    }
+
+    /// Plot, hit frame and resize origin all consume the same effective size.
+    func presentationScale(
+        in bounds: CGRect, tablet: Bool? = nil
+    ) -> Double {
+        guard bounds.width > 1, bounds.height > 1 else { return options.scale }
+        return MonitorScopeSizing.scale(
+            portrait: bounds.height > bounds.width,
+            tablet: tablet ?? (UIDevice.current.userInterfaceIdiom == .pad),
+            preferred: options.hasCustomScale ? options.scale : nil)
     }
 
     func sessionCenter(in bounds: CGRect) -> CGPoint? {
@@ -398,9 +413,9 @@ struct VectorscopeMovablePanel<Content: View>: View {
     }
 
     var body: some View {
-        let options = store.options
         let size = ScopePanelPlacement.fittedSize(
-            VectorscopeAssist.panelSize(scale: options.scale), in: movementBounds)
+            VectorscopeAssist.panelSize(scale: store.presentationScale(in: canvas)),
+            in: movementBounds)
         let fallback = VectorscopeAssist.defaultCenter(
             feed: feed, size: size, bounds: canvas, chromeClearance: chromeClearance)
         let rawCenter = VectorscopeAssist.resolvedCenter(
@@ -456,7 +471,8 @@ struct VectorscopeMovablePanel<Content: View>: View {
                     x: origin.x + drag.translation.width,
                     y: origin.y + drag.translation.height)
                 let size = ScopePanelPlacement.fittedSize(
-                    VectorscopeAssist.panelSize(scale: store.options.scale), in: movementBounds)
+                    VectorscopeAssist.panelSize(scale: store.presentationScale(in: canvas)),
+                    in: movementBounds)
                 let snapped = ScopePanelPlacement.clamp(
                     VectorscopeAssist.snap(proposed), size: size, in: movementBounds)
                 let cell = VectorscopeAssist.hapticCell(snapped)
@@ -495,7 +511,7 @@ struct VectorscopeMovablePanel<Content: View>: View {
             .onChanged { drag in
                 if !isResizing {
                     isResizing = true
-                    resizeStartScale = store.options.scale
+                    resizeStartScale = store.presentationScale(in: canvas)
                 }
                 let reach = VectorscopeAssist.baseSize.width + VectorscopeAssist.baseSize.height
                 let delta = (drag.translation.width + drag.translation.height) / reach
@@ -523,8 +539,6 @@ struct VectorscopeCornerResizeGrip: Shape {
 private enum VectorscopeAssistHaptics {
     @MainActor
     static func selection() {
-        let generator = UIImpactFeedbackGenerator(style: .light)
-        generator.prepare()
-        generator.impactOccurred()
+        OperatorSettingsHaptics.selection(enabled: OperatorPrefs.hapticsEnabled)
     }
 }

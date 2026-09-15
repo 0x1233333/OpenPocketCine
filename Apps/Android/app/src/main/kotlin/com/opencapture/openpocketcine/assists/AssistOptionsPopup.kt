@@ -28,11 +28,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -56,7 +58,7 @@ import com.opencapture.openpocketcine.settings.SettingsInlineRow
 import com.opencapture.openpocketcine.settings.SettingsNumberField
 import com.opencapture.openpocketcine.settings.SettingsPalette
 import com.opencapture.openpocketcine.settings.SettingsPercentSlider
-import com.opencapture.openpocketcine.settings.SettingsSegmented
+import com.opencapture.openpocketcine.settings.SettingsSegmented as SettingsSegmentedBase
 import com.opencapture.openpocketcine.settings.SettingsSwitchGraphic
 import com.opencapture.openpocketcine.settings.SettingsSwitchInlineRow
 
@@ -80,6 +82,9 @@ fun AssistOptionsPopup(
     model: AppModel? = null,
     maxHeightDp: Float? = null,
     colorMode: Int = CameraCommands.COLOR_NORMAL,
+    embedded: Boolean = false,
+    playback: Boolean = false,
+    isPhoto: Boolean = false,
 ) {
     val width = AssistLongPress.preferredWidthDp(tool).dp
     val context = LocalContext.current
@@ -93,74 +98,87 @@ fun AssistOptionsPopup(
     val panelGap = AssistLongPress.PANEL_GAP_DP.dp
     Column(
         modifier
-            .widthIn(max = width)
-            .width(width)
+            .then(if (embedded) Modifier.fillMaxWidth() else Modifier.widthIn(max = width).width(width))
             .then(
-                if (isLut && cap != null) {
+                if ((embedded || isLut) && cap != null) {
                     Modifier.height(cap)
                 } else {
                     Modifier.wrapContentHeight(align = Alignment.Top)
                         .then(if (cap != null) Modifier.heightIn(max = cap) else Modifier)
                 },
             )
-            .pickerPanelGlass(CardShape)
-            .padding(panelPad),
+            .then(if (embedded) Modifier else Modifier.pickerPanelGlass(CardShape).padding(panelPad))
+            .then(if (embedded && !isLut) Modifier.verticalScroll(rememberScrollState()) else Modifier),
         verticalArrangement = Arrangement.spacedBy(panelGap),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            AssistToolGlyph(tool, LiveDesign.text, Modifier.size(15.dp))
-            Spacer(Modifier.width(8.dp))
-            Text(
-                tool.title.uppercase(),
-                style = LiveType.ui(15f, FontWeight.Bold).copy(letterSpacing = 1.2.sp),
-                color = LiveDesign.text,
-            )
-            Spacer(Modifier.weight(1f))
-            LivePopupCloseButton(
-                onClick = onDismiss,
-                size = AssistLongPress.CLOSE_DP.dp,
-            )
-        }
-        if (isLut) {
-            // iOS pins 50/50 under the catalog. Weight the picker so a short
-            // landscape well scrolls the drum instead of clipping the footer.
-            Box(
-                Modifier
-                    .weight(1f, fill = true)
-                    .fillMaxWidth(),
-            ) {
-                LUTPicker(
-                    selection = lutSelection,
-                    onSelect = { id ->
-                        if (model != null) {
-                            model.updateLutSelection(id)
-                        } else {
-                            fallbackLut = id
-                            OperatorPrefs.setLutSelection(context, id)
-                        }
-                        state.armLut()
-                    },
-                    embedded = true,
-                    splitComparison = state.splitComparison,
-                    splitVertical = state.splitVertical,
-                    lutExposureStops = state.lutExposureStops,
-                    onToggleSplit = { state.setSplitComparison(!state.splitComparison) },
-                    onSplitVertical = { state.setSplitComparison(state.splitComparison, it) },
-                    onNudgeExposure = { state.nudgeLutExposure(it) },
-                    onArmLut = { state.armLut() },
-                    colorMode = colorMode,
-                    family = model?.session?.connectedCamera?.model?.family ?: "pocket",
-                    cameraName = model?.session?.connectedCamera?.name,
+        if (!embedded) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                AssistToolGlyph(tool, LiveDesign.text, Modifier.size(15.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    tool.title.uppercase(),
+                    style = LiveType.ui(15f, FontWeight.SemiBold).copy(letterSpacing = .8.sp),
+                    color = LiveDesign.text,
+                )
+                Spacer(Modifier.weight(1f))
+                LivePopupCloseButton(
+                    onClick = onDismiss,
+                    size = AssistLongPress.CLOSE_DP.dp,
                 )
             }
-        } else {
-            Column(
-                Modifier
-                    .weight(1f, fill = false)
-                    .fillMaxWidth()
-                    .then(if (cap != null) Modifier.verticalScroll(rememberScrollState()) else Modifier),
-            ) {
-                AssistOptionsBody(tool, state, colorMode)
+        }
+        Column(
+            Modifier.then(if (isLut) Modifier.weight(1f).verticalScroll(rememberScrollState()) else Modifier),
+            verticalArrangement = Arrangement.spacedBy(panelGap),
+        ) {
+            if (embedded) {
+                AssistInspectorScopePreview(tool, state, colorMode, playback)
+                if (model != null) AssistInspectorImagePreview(tool, state, model, lutSelection, colorMode, playback)
+            }
+            if (isLut) {
+                // Keep a usable catalog height while the preview and catalog scroll
+                // together above the pinned exposure / comparison controls.
+                Box(
+                    Modifier
+                        .height(212.dp)
+                        .fillMaxWidth(),
+                ) {
+                    LUTPicker(
+                        selection = lutSelection,
+                        onSelect = { id ->
+                            if (model != null) {
+                                model.updateLutSelection(id)
+                            } else {
+                                fallbackLut = id
+                                OperatorPrefs.setLutSelection(context, id)
+                            }
+                            state.armLut()
+                        },
+                        embedded = true,
+                        splitComparison = state.splitComparison,
+                        splitVertical = state.splitVertical,
+                        lutExposureStops = state.lutExposureStops,
+                        onToggleSplit = { state.setSplitComparison(!state.splitComparison) },
+                        onSplitVertical = { state.setSplitComparison(state.splitComparison, it) },
+                        onExposure = { state.updateLutExposure(it) },
+                        onArmLut = { state.armLut() },
+                        colorMode = colorMode,
+                        family = model?.session?.connectedCamera?.model?.family ?: "pocket",
+                        cameraName = model?.session?.connectedCamera?.name,
+                        isPhoto = isPhoto && !playback,
+                    )
+                }
+            } else {
+                Column(
+                    Modifier
+                        .then(if (embedded) Modifier else Modifier.weight(1f, fill = false))
+                        .fillMaxWidth()
+                        .then(if (!embedded && cap != null) Modifier.verticalScroll(rememberScrollState()) else Modifier),
+                ) {
+                    if (tool == LiveAssistTool.WAVE || tool == LiveAssistTool.PARADE) {
+                        AssistOptionsBody(tool, state, colorMode)
+                    } else com.opencapture.monitorui.MonitorOptionGroup { AssistOptionsBody(tool, state, colorMode) }
+                }
             }
         }
         if (isLut) {
@@ -170,7 +188,7 @@ fun AssistOptionsPopup(
                 lutExposureStops = state.lutExposureStops,
                 onToggleSplit = { state.setSplitComparison(!state.splitComparison) },
                 onSplitVertical = { state.setSplitComparison(state.splitComparison, it) },
-                onNudgeExposure = { state.nudgeLutExposure(it) },
+                onExposure = { state.updateLutExposure(it) },
             )
         }
     }
@@ -181,7 +199,7 @@ private fun AssistOptionsBody(tool: LiveAssistTool, state: LiveAssistState, colo
     when (tool) {
         LiveAssistTool.LUT -> Spacer(Modifier.height(0.dp))
         LiveAssistTool.PEAK -> PeakingOptions(state)
-        LiveAssistTool.FALSE -> FalseColorOptions(state)
+        LiveAssistTool.FALSE -> FalseColorOptions(state, colorMode)
         LiveAssistTool.ZEBRA -> ZebraOptions(state, colorMode)
         LiveAssistTool.WAVE -> WaveformOptions(state)
         LiveAssistTool.PARADE -> ParadeOptions(state)
@@ -193,9 +211,25 @@ private fun AssistOptionsBody(tool: LiveAssistTool, state: LiveAssistState, colo
         LiveAssistTool.GRID -> GridOptions(state)
         LiveAssistTool.CROSS -> OptionCopy(CrosshairAssist.HELP)
         LiveAssistTool.MIRROR -> OptionCopy(MirrorAssist.EXPLANATION)
-        LiveAssistTool.AUDIO -> OptionCopy(AudioAssist.HELP)
+        LiveAssistTool.AUDIO -> {
+            SettingsInlineRow("Orientation", help = AudioAssist.HELP, showTopDivider = false, stacked = true) {
+                SettingsSegmented(com.opencapture.monitorui.MonitorAudioOrientation.entries.map { it.label },
+                    state.audioOrientation.label) { label ->
+                    com.opencapture.monitorui.MonitorAudioOrientation.entries.firstOrNull { it.label == label }
+                        ?.let(state::updateAudioOrientation)
+                }
+            }
+            SettingsSwitchInlineRow("Show dB values", isOn = state.audioShowDB, stacked = false) {
+                state.updateAudioShowDB(!state.audioShowDB)
+            }
+        }
     }
 }
+
+@Composable
+private fun SettingsSegmented(options: List<String>, selected: String, compact: Boolean = true,
+    onSelect: (String) -> Unit) = SettingsSegmentedBase(options, selected, compact,
+        accentSelection = true, onSelect = onSelect)
 
 @Composable
 private fun PeakingOptions(state: LiveAssistState) {
@@ -221,7 +255,7 @@ private fun PeakingOptions(state: LiveAssistState) {
 }
 
 @Composable
-private fun FalseColorOptions(state: LiveAssistState) {
+private fun FalseColorOptions(state: LiveAssistState, colorMode: Int) {
     val haptics = LocalOperatorHaptics.current
     SettingsInlineRow(
         "Scale",
@@ -244,11 +278,14 @@ private fun FalseColorOptions(state: LiveAssistState) {
             state.setFalseColor(scale = FalseColorScale.fromMenuLabel(label))
         }
     }
+    Text("REFERENCE KEY", style = LiveType.ui(8f, FontWeight.Medium).copy(letterSpacing = 1.sp),
+        color = LiveDesign.faint, modifier = Modifier.padding(top = 10.dp, bottom = 6.dp))
+    FalseColorReferenceRuler(state, colorMode, Modifier.fillMaxWidth().height(52.dp))
     SettingsSwitchInlineRow(
         title = "Reference Display",
         isOn = state.falseColorReference,
         help = "Show a compact color key over live view while False Color is active.",
-        stacked = true,
+        stacked = false,
     ) {
         haptics.selection()
         state.setFalseColor(reference = !state.falseColorReference)
@@ -329,17 +366,18 @@ private fun ZebraZoneRow(
     onValue: (Int) -> Unit,
     onColor: (String) -> Unit,
 ) {
-    SettingsInlineRow(title = title, help = help, stacked = true) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Box(Modifier.chromeClickable(onClick = onEnabled).semantics { role = Role.Switch }) {
-                SettingsSwitchGraphic(isOn = enabled)
+    SettingsSwitchInlineRow(title, isOn = enabled, help = help, stacked = false, onToggle = onEnabled)
+    Column(Modifier.padding(start = 14.dp).alpha(if (enabled) 1f else .35f)) {
+        SettingsInlineRow("Threshold", showTopDivider = false, stacked = true) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                com.opencapture.monitorui.MonitorSlider(value.toFloat(), 0f..maximum.toFloat(),
+                    Modifier.weight(1f), enabled = enabled) { onValue(it.toInt()) }
+                Text(value.toString(), style = LiveType.ui(12f, FontWeight.Medium), color = LiveDesign.text,
+                    modifier = Modifier.width(34.dp))
             }
-            SettingsNumberField(value = value.coerceIn(0, maximum), maximum = maximum, onChange = onValue)
-            Spacer(Modifier.weight(1f))
-            SettingsColorDots(dots = palette, selectedName = selected, onSelect = onColor)
+        }
+        SettingsInlineRow("Color", showTopDivider = false, stacked = true) {
+            SettingsColorDots(dots = palette, selectedName = selected, enabled = enabled, onSelect = onColor)
         }
     }
 }
@@ -347,41 +385,36 @@ private fun ZebraZoneRow(
 @Composable
 private fun WaveformOptions(state: LiveAssistState) {
     val haptics = LocalOperatorHaptics.current
-    SettingsInlineRow("Mode", showTopDivider = false, stacked = true) {
-        SettingsSegmented(options = listOf("Luma", "RGB"), selected = state.waveMode.label) {
-            haptics.selection()
-            state.setWaveform(mode = WaveformMode.fromPersisted(it))
-        }
-    }
-    SettingsInlineRow("Brightness", help = "Raise trace intensity when the waveform is hard to read in bright light.", stacked = true) {
-        SettingsPercentSlider(value = state.waveBrightness, range = 0..200) {
-            state.setWaveform(brightness = it)
-        }
-    }
-    GuideToggles(state.waveGuides) {
-        haptics.selection()
-        state.setWaveform(guides = it)
-    }
+    ScopeTraceOptions(listOf("Luma", "RGB"), state.waveMode.label,
+        { haptics.selection(); state.setWaveform(mode = WaveformMode.fromPersisted(it)) },
+        state.waveBrightness, { state.setWaveform(brightness = it) }, state.waveGuides,
+        { haptics.selection(); state.setWaveform(guides = it) })
 }
 
 @Composable
 private fun ParadeOptions(state: LiveAssistState) {
     val haptics = LocalOperatorHaptics.current
-    SettingsInlineRow("Mode", showTopDivider = false, stacked = true) {
-        SettingsSegmented(options = listOf("RGB", "YRGB"), selected = state.paradeMode.label) {
-            haptics.selection()
-            state.setParade(mode = ParadeMode.fromPersisted(it))
+    ScopeTraceOptions(listOf("RGB", "YRGB"), state.paradeMode.label,
+        { haptics.selection(); state.setParade(mode = ParadeMode.fromPersisted(it)) },
+        state.paradeBrightness, { state.setParade(brightness = it) }, state.paradeGuides,
+        { haptics.selection(); state.setParade(guides = it) })
+}
+
+@Composable
+private fun ScopeTraceOptions(modes: List<String>, mode: String, onMode: (String) -> Unit,
+    brightness: Int, onBrightness: (Int) -> Unit, guides: ScopeGuides, onGuides: (ScopeGuides) -> Unit) {
+    com.opencapture.monitorui.MonitorOptionGroup {
+        SettingsInlineRow("Mode", showTopDivider = false) {
+            SettingsSegmented(modes, mode, compact = false, onSelect = onMode)
+        }
+        SettingsInlineRow("Brightness", help = "Raise trace intensity in bright light.", stacked = true) {
+            SettingsPercentSlider(brightness, 0..200, onBrightness)
         }
     }
-    SettingsInlineRow("Brightness", help = "Raise trace intensity when channel separation is hard to see.", stacked = true) {
-        SettingsPercentSlider(value = state.paradeBrightness, range = 0..200) {
-            state.setParade(brightness = it)
-        }
-    }
-    GuideToggles(state.paradeGuides) {
-        haptics.selection()
-        state.setParade(guides = it)
-    }
+    Spacer(Modifier.height(11.dp))
+    Text("GUIDE LINES", modifier = Modifier.padding(start = 12.dp, bottom = 5.dp),
+        style = LiveType.ui(7.5f, FontWeight.Medium).copy(letterSpacing = 1.sp), color = LiveDesign.faint)
+    com.opencapture.monitorui.MonitorOptionGroup { GuideToggles(guides, onGuides) }
 }
 
 @Composable
@@ -392,7 +425,7 @@ private fun HistogramOptions(state: LiveAssistState) {
         isOn = state.histoTrafficLights,
         help = HistogramAssist.TRAFFIC_LIGHTS_HELP,
         showTopDivider = false,
-        stacked = true,
+        stacked = false,
     ) {
         haptics.selection()
         state.setHistogram(traffic = !state.histoTrafficLights)
@@ -483,13 +516,13 @@ private fun GuidesOptions(state: LiveAssistState) {
             val on = aspect in state.selectedGuides
             Text(
                 aspect.label,
-                color = if (on) LiveDesign.accent else LiveDesign.text,
+                color = if (on) Color(0xFF08191F) else LiveDesign.text,
                 fontSize = 14.sp,
-                fontFamily = FontFamily.Monospace,
+                fontFamily = com.opencapture.openpocketcine.OpcFonts.sora,
                 modifier =
                     Modifier
                         .clip(CardShape)
-                        .background(if (on) LiveDesign.accentDim else LiveDesign.glassBright)
+                        .background(if (on) LiveDesign.accent else LiveDesign.glassBright)
                         .border(1.dp, if (on) LiveDesign.accentDim else LiveDesign.hairline, CardShape)
                         .assistClick {
                             haptics.selection()
@@ -500,7 +533,7 @@ private fun GuidesOptions(state: LiveAssistState) {
         }
     }
     Spacer(Modifier.height(10.dp))
-    SettingsSwitchInlineRow("Mask outside frame", isOn = state.guideMask, showTopDivider = false, stacked = true) {
+    SettingsSwitchInlineRow("Mask outside frame", isOn = state.guideMask, showTopDivider = false, stacked = false) {
         haptics.selection()
         state.updateGuideMask(!state.guideMask)
     }
@@ -509,49 +542,32 @@ private fun GuidesOptions(state: LiveAssistState) {
 @Composable
 private fun GridOptions(state: LiveAssistState) {
     val haptics = LocalOperatorHaptics.current
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-        GridAssist.optionLabels.forEach { label ->
-            val on =
-                when (label) {
-                    "Thirds" -> state.gridThirds
-                    "Phi Grid" -> state.gridPhi
-                    else -> state.gridDiagonal
-                }
-            Text(
-                label,
-                color = if (on) LiveDesign.accent else LiveDesign.text,
-                fontSize = 14.sp,
-                fontFamily = FontFamily.Monospace,
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .clip(CardShape)
-                        .background(if (on) LiveDesign.accentDim else LiveDesign.glassBright)
-                        .border(1.dp, if (on) LiveDesign.accentDim else LiveDesign.hairline, CardShape)
-                        .assistClick {
-                            haptics.selection()
-                            when (label) {
-                                "Thirds" -> state.setGridOption(thirds = !state.gridThirds)
-                                "Phi Grid" -> state.setGridOption(phi = !state.gridPhi)
-                                else -> state.setGridOption(diagonal = !state.gridDiagonal)
-                            }
-                        }
-                        .padding(vertical = 16.dp),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            )
+    GridAssist.optionLabels.forEachIndexed { index, label ->
+        val on = when (label) {
+            "Thirds" -> state.gridThirds
+            "Phi Grid" -> state.gridPhi
+            else -> state.gridDiagonal
+        }
+        SettingsSwitchInlineRow(label, isOn = on, showTopDivider = index > 0, stacked = false) {
+            haptics.selection()
+            when (label) {
+                "Thirds" -> state.setGridOption(thirds = !state.gridThirds)
+                "Phi Grid" -> state.setGridOption(phi = !state.gridPhi)
+                else -> state.setGridOption(diagonal = !state.gridDiagonal)
+            }
         }
     }
 }
 
 @Composable
 private fun GuideToggles(guides: ScopeGuides, onChange: (ScopeGuides) -> Unit) {
-    SettingsSwitchInlineRow("Safe Border Clip", isOn = guides.clip, stacked = true) {
+    SettingsSwitchInlineRow("Safe clip", isOn = guides.clip, showTopDivider = false, stacked = false) {
         onChange(guides.copy(clip = !guides.clip))
     }
-    SettingsSwitchInlineRow("Safe Border Crush", isOn = guides.crush, stacked = true) {
+    SettingsSwitchInlineRow("Safe crush", isOn = guides.crush, stacked = false) {
         onChange(guides.copy(crush = !guides.crush))
     }
-    SettingsSwitchInlineRow("Middle Gray", isOn = guides.middle, stacked = true) {
+    SettingsSwitchInlineRow("Middle gray", isOn = guides.middle, stacked = false) {
         onChange(guides.copy(middle = !guides.middle))
     }
 }
@@ -561,6 +577,7 @@ private fun CompensationPicker(selected: CrushClipCompensation, onSelect: (Crush
     SettingsCrushClipSegmented(
         options = CrushClipCompensation.entries.map { it.label to it.compactLabel },
         selectedLabel = selected.label,
+        accentSelection = true,
     ) { label ->
         CrushClipCompensation.entries.firstOrNull { it.label == label }?.let(onSelect)
     }

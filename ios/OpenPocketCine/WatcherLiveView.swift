@@ -86,6 +86,27 @@ struct WatcherLiveView: View {
                 }
             }
             .coordinateSpace(name: LiveCanvasSpace.name)
+            .monitorVideoBackdrop(
+                renderer: model.liveBackdrop,
+                configuration: [
+                    MonitorVideoBackdropConfiguration(
+                        source: ObjectIdentifier(client.decoder),
+                        generation: Int(client.samples.inspectorSourceEpoch),
+                        effects: model.assist.effects,
+                        geometry: [feed.minX, feed.minY, feed.width, feed.height, mirrored ? 1 : 0])
+                ],
+                enabled: model.isWatchingFeed && !model.assist.gradesClip, surroundRGB: 0x000000
+            ) { _ in
+                guard let buffer = client.decoder.backdropSource else { return [] }
+                let effects = client.decoder.backdropEffects
+                return [
+                    MonitorVideoBackdropSource(
+                        buffer: buffer, effects: effects,
+                        frame: MonitorVideoBackdropSource.displayedFrame(
+                            sourceAspect: client.decoder.pictureAspect, effects: effects, in: feed),
+                        clip: feed)
+                ]
+            }
         }
         .ignoresSafeArea()
         .preferredColorScheme(.dark)
@@ -114,7 +135,7 @@ struct WatcherLiveView: View {
         client.decoder.incomingColorMode = client.colorMode
         model.assist.syncLUT(
             to: client.colorMode, family: client.state.isNano == true ? .nano : .pocket,
-            cameraName: client.state.cameraModel)
+            cameraName: client.state.cameraModel, persistLast: false)
     }
 
     private var header: some View {

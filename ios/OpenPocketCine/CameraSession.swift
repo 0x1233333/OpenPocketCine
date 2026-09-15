@@ -3,6 +3,7 @@ import CoreGraphics
 import Foundation
 import Observation
 import OpenPocketViewCore
+import UIKit
 import os
 
 /// Orchestrates the whole Phase-0 spine: scan -> GATT -> pair -> read Wi-Fi creds -> join AP ->
@@ -88,6 +89,11 @@ final class CameraSession {
     @ObservationIgnored private var firstPictureFormatPokeTask: Task<Void, Never>?
     @ObservationIgnored private var firstPictureFormatPokeGeneration = 0
     /// One `0x09/0xa8` write in flight. Overlapping enables are a black well.
+    @ObservationIgnored private var incidentSessionActive = false
+    @ObservationIgnored private var incidentPrevious: (at: Double, counts: [Int])?
+    @ObservationIgnored private var incidentSocketGeneration = 0
+    @ObservationIgnored var incidentSettingsCovered = false
+
     @ObservationIgnored private var liveEnableGate = SerialSessionGate()
     /// `0x09/0xa8` sends while `awaitingIDR` is still true. Caps the mid-session
     /// IDR retry at one extra enable so a missed keyframe cannot 1 Hz loop.
@@ -436,9 +442,19 @@ final class CameraSession {
     @ObservationIgnored private var audioPin: AudioPin?
     /// After a local res+fps / color SET, ignore subscribe snapshots that have not caught up.
     @ObservationIgnored private var formatPin: (expected: VideoFormat, deadline: Date)?
+    @ObservationIgnored private var captureModeGeneration: UInt64 = 0
+    @ObservationIgnored private var formatRequestGeneration: UInt64 = 0
     /// FORMAT sheet: skip reseat while `0x02/0x18` is in flight.
     var isFormatPinActive: Bool { formatPin != nil }
     @ObservationIgnored private var colorPin: (expected: ColorMode, deadline: Date)?
+    @ObservationIgnored private var gimbalFollowFamilyConfirmed = false
+    @ObservationIgnored private var gimbalModePin: CameraValuePin<GimbalMode>?
+    @ObservationIgnored private var gimbalSpeedPin: CameraValuePin<GimbalSpeed>?
+    @ObservationIgnored private var shootingModePin: CameraValuePin<Int>?
+    @ObservationIgnored private var whiteBalancePin: CameraValuePin<WhiteBalance>?
+    @ObservationIgnored private var focusModePin: CameraValuePin<FocusMode>?
+    @ObservationIgnored private var focusTrackPin: CameraValuePin<FocusTrackMode>?
+    @ObservationIgnored private var isoLimitPin: CameraValuePin<IsoLimit>?
     @ObservationIgnored private var gimbalStickMapping = GimbalStickMapping()
     @ObservationIgnored private var gimbalLimitWatch = GimbalLimitWatch()
     @ObservationIgnored private var lastGimbalCommand = (x: 0.0, y: 0.0)
@@ -619,6 +635,7 @@ final class CameraSession {
         }
         // One `run` at a time. A second tap (or Cancel→tap) used to leave the old
         // unstructured Task sending 0x07/45 while the new one started GetSSID.
+        ReliabilityReporting.setCameraSessionActive(true)
         connectGeneration += 1
         let generation = connectGeneration
         LocalVPNProbe.noteIfActive()
@@ -627,6 +644,7 @@ final class CameraSession {
         reconnectTarget = nil
         isReconnecting = preserveMonitor
         connectedCamera = camera
+        if !incidentSessionActive { beginFeedIncidentSession(cameraFamily: camera.model.name) }
         connectionTargetID = camera.id
         phase = .connectingGatt
         runTask = Task {
@@ -656,6 +674,10 @@ final class CameraSession {
             releaseMultiview()
             return
         }
+        ReliabilityReporting.setCameraSessionActive(false)
+        FeedIncidentRuntime.endSession(now: ProcessInfo.processInfo.systemUptime)
+        incidentSessionActive = false
+        incidentPrevious = nil
         connectGeneration += 1
         reconnectTarget = nil
         connectionTargetID = nil
@@ -706,6 +728,13 @@ final class CameraSession {
         audioPin = nil
         formatPin = nil
         colorPin = nil
+        gimbalModePin = nil
+        gimbalSpeedPin = nil
+        shootingModePin = nil
+        whiteBalancePin = nil
+        focusModePin = nil
+        focusTrackPin = nil
+        isoLimitPin = nil
         resetGimbalPoseForNewStream()
         resetGimbalControls()
         controlBusy = false
@@ -1238,48 +1267,88 @@ final class CameraSession {
     // ---- Camera control (Osmosis §10–14) ---------------------------------------------------------
 
     var currentShootingMode: ShootingMode? {
-        guard (0...255).contains(status.shootingMode) else { return nil }
-        return ShootingMode(rawValue: UInt8(status.shootingMode))
+        ShootingMode.fromStatus(status.shootingMode)
     }
 
-    /// Rec lamp: start/stop video, or fire a still in Photo / SuperNight.
+    /// Rec lamp: start/stop video, or fire a still in Photo.
+    /// SuperNight / Low-Light is video. Pocket 3 TimeLapse uses `0x02/0x01`.
     /// The rec button stays disabled (`controlBusy`) until the ACK or the
     /// `rec_state` telemetry confirms — record must never lie.
     func pressShutter() {
-        if currentShootingMode?.isPhoto == true {
-            controlBusy = true
+        let mode = currentShootingMode
+        let starting = !status.isRecording
+        let frame = CaptureCommand.frame(
+            mode: mode, model: connectedCamera?.model, isRecording: status.isRecording)
+        controlBusy = true
+        if mode?.isPhoto == true {
             fireCamera(
-                Commands.shootPhoto(), name: "Photo", retransmits: false,
+                frame, name: "Photo", retransmits: false,
                 onSettle: { [weak self] _ in self?.controlBusy = false })
             return
         }
-        let starting = !status.isRecording
-        controlBusy = true
+        let name: String
+        if connectedCamera?.model.isPocket3 == true, mode?.usesShutterTriggerOnPocket3 == true {
+            name = starting ? "TimeLapse" : "Stop"
+        } else {
+            name = starting ? "Record" : "Stop"
+        }
         fireCamera(
-            starting ? Commands.recordStart() : Commands.recordStop(),
-            name: starting ? "Record" : "Stop",
-            expect: .recording(starting),
+            frame, name: name, expect: .recording(starting),
             onSettle: { [weak self] _ in self?.controlBusy = false }
         )
     }
 
     func setShootingMode(_ mode: ShootingMode) {
-        let previous = status.shootingMode
-        status.shootingMode = Int(mode.rawValue)
+        captureModeGeneration &+= 1
+        let modeGeneration = captureModeGeneration
+        let sessionGeneration = controlGeneration
+        let previousMode = status.shootingMode
+        let previousFormats = status.availableVideoFormats
+        let previousShutter = status.availableShutterDenoms
+        let previousIso = status.availableIsoIndices
+        let previousColor = status.availableColorModes
+        let wire = Int(mode.wireByte(for: connectedCamera?.model))
+        let pin = CameraValuePin(wire, now: Date.timeIntervalSinceReferenceDate)
+        shootingModePin = pin
+        var next = status
+        if previousMode != wire {
+            next.clearModeDependentCapabilities()
+        }
+        next.shootingMode = wire
+        status = next
+        formatPin = nil
         fireCamera(
-            Commands.setShootingMode(mode), name: mode.label,
+            Commands.setShootingMode(mode, model: connectedCamera?.model), name: mode.label,
             onFail: { [weak self] in
-                self?.status.shootingMode = previous
+                guard let self, self.shootingModePin?.id == pin.id,
+                    self.captureModeGeneration == modeGeneration,
+                    self.controlGeneration == sessionGeneration,
+                    self.status.shootingMode == wire
+                else { return }
+                self.captureModeGeneration &+= 1
+                self.shootingModePin = nil
+                self.formatPin = nil
+                self.status.shootingMode = previousMode
+                self.status.availableVideoFormats = previousFormats
+                self.status.availableShutterDenoms = previousShutter
+                self.status.availableIsoIndices = previousIso
+                self.status.availableColorModes = previousColor
             })
     }
 
     func setIsoLimit(_ limit: IsoLimit) {
         let previous = status.isoLimit
+        let pin = CameraValuePin(limit, now: Date.timeIntervalSinceReferenceDate)
+        isoLimitPin = pin
         status.isoLimit = limit
         let base = (status.colorMode ?? .normal).isoAutoBase(for: connectedCamera?.model) ?? 100
         fireCamera(
             Commands.setIsoLimit(limit), name: "ISO \(limit.label(base: base))",
-            onFail: { [weak self] in self?.status.isoLimit = previous },
+            onFail: { [weak self] in
+                guard let self, self.isoLimitPin?.id == pin.id else { return }
+                self.isoLimitPin = nil
+                self.status.isoLimit = previous
+            },
             onSettle: { [weak self] ok in
                 ControlLiveLog.line(
                     "iso: limit \(limit.label(base: base)) ack=\(ok ? "ok" : (self?.controlNote ?? "failed"))"
@@ -1332,10 +1401,15 @@ final class CameraSession {
     }
 
     func setExpoMode(_ mode: ExpoMode) {
+        let previous = status.expoMode
         pinExpo(mode: mode)
+        status.expoMode = mode
         fireCamera(
             Commands.setExpoMode(mode), name: "ExpoMode", expect: .expo(mode),
-            onFail: { [weak self] in self?.clearExpoPin(mode: true) })
+            onFail: { [weak self] in
+                self?.clearExpoPin(mode: true)
+                self?.status.expoMode = previous
+            })
     }
 
     /// Journal `cam_expo_param` only when decoded fields move (not every 1–5 Hz push).
@@ -1357,8 +1431,19 @@ final class CameraSession {
     }
 
     /// Chip label. Pinch preview, then the chip-tap target, then `cam_fov`.
+    /// Stays on live 1× while D-Log2→D-Log is in flight — the body ignores zoom.
     var zoomReadout: Double {
         CamFov.readout(
+            live: status.zoomFactor,
+            preview: zoomColorHopPending ? nil : zoomPinchPreview,
+            fallback: zoomStop,
+            optimistic: zoomColorHopPending ? nil : zoomOptimistic)
+    }
+
+    /// Zoom disc hub. Hundredths, not the chip's 0.1× steps. Follows the finger
+    /// even while a D-Log2 hop is holding camera writes.
+    var zoomDialReadout: Double {
+        CamFov.continuousReadout(
             live: status.zoomFactor, preview: zoomPinchPreview, fallback: zoomStop,
             optimistic: zoomOptimistic)
     }
@@ -1414,15 +1499,16 @@ final class CameraSession {
             factor: factor, current: status.colorMode, hopPending: zoomColorHopPending)
         {
             pendingZoomAfterHop = factor
+            zoomPinchPreview = factor
             return
         }
         pendingZoomAfterHop = nil
         let first = zoomPinchPreview == nil
         zoomPinchPreview = factor
         let lens = CamFov.pinchLens(for: factor)
+        if first && abs(factor - zoomPinchAnchor) < 0.01 { return }
         if lastPinchLens == lens { return }
         lastPinchLens = lens
-        if first && abs(factor - zoomPinchAnchor) < 0.01 { return }
         applyPinchWrite(preview: factor)
     }
 
@@ -1792,36 +1878,73 @@ final class CameraSession {
         audioPin = audioPinIsEmpty(pin) ? nil : pin
     }
 
-    /// Drop GET / subscribe snapshots that still show the pre-SET audio row.
-    private func absorbStaleAudio(_ incoming: inout CameraStatus) {
+    /// Hold pending choices until their own telemetry confirms them.
+    private func absorbStaleChoices(_ incoming: inout CameraStatus, reported: CameraStatus) {
+        let now = Date.timeIntervalSinceReferenceDate
+        if let held = CameraValuePin.reconcile(
+            &shootingModePin, reported: reported.shootingMode >= 0 ? reported.shootingMode : nil,
+            now: now)
+        {
+            if incoming.shootingMode != held {
+                incoming.availableVideoFormats = status.availableVideoFormats
+                incoming.availableShutterDenoms = status.availableShutterDenoms
+                incoming.availableIsoIndices = status.availableIsoIndices
+                incoming.availableColorModes = status.availableColorModes
+            }
+            incoming.shootingMode = held
+        }
+        if let held = CameraValuePin.reconcile(
+            &whiteBalancePin, reported: reported.whiteBalance, now: now)
+        {
+            incoming.whiteBalance = held
+            incoming.whiteBalanceKelvin = status.whiteBalanceKelvin
+            incoming.whiteBalanceTint = held.tint
+        }
+        if let held = CameraValuePin.reconcile(
+            &focusModePin, reported: reported.focusMode, now: now)
+        {
+            incoming.focusMode = held
+        }
+        if let held = CameraValuePin.reconcile(
+            &focusTrackPin, reported: reported.focusTrack, now: now)
+        {
+            incoming.focusTrack = held
+        }
+        if let held = CameraValuePin.reconcile(&isoLimitPin, reported: reported.isoLimit, now: now)
+        {
+            incoming.isoLimit = held
+        }
+    }
+
+    private func absorbStaleAudio(_ incoming: inout CameraStatus, reported: CameraStatus) {
         guard var pin = audioPin else { return }
         if Date() >= pin.deadline {
             audioPin = nil
             return
         }
         if let expect = pin.channel {
-            if incoming.audioChannel == expect {
+            if reported.audioChannel == expect {
                 pin.channel = nil
             } else if incoming.audioChannel != nil {
                 incoming.audioChannel = status.audioChannel
             }
         }
         if let expect = pin.vocal {
-            if incoming.vocalBoost == expect {
+            if reported.vocalBoost == expect {
                 pin.vocal = nil
             } else if incoming.vocalBoost != nil {
                 incoming.vocalBoost = status.vocalBoost
             }
         }
         if let expect = pin.wind {
-            if incoming.windNR == expect {
+            if reported.windNR == expect {
                 pin.wind = nil
             } else if incoming.windNR != nil {
                 incoming.windNR = status.windNR
             }
         }
         if let expect = pin.directional {
-            if incoming.directionalAudio == expect {
+            if reported.directionalAudio == expect {
                 pin.directional = nil
             } else if incoming.directionalAudio != nil {
                 incoming.directionalAudio = status.directionalAudio
@@ -1868,7 +1991,7 @@ final class CameraSession {
     }
 
     /// Drop `cam_expo_param` snapshots that still show the pre-SET ISO / shutter / EV / mode.
-    private func absorbStaleExpo(_ incoming: inout CameraStatus) {
+    private func absorbStaleExpo(_ incoming: inout CameraStatus, reported: CameraStatus) {
         guard var pin = expoPin else { return }
         if Date() >= pin.deadline {
             expoPin = nil
@@ -1876,8 +1999,8 @@ final class CameraSession {
         }
         if let expectIdx = pin.isoIndex {
             let matched =
-                incoming.isoIndex == expectIdx
-                || (expectIdx.isoValue.map { incoming.iso == $0 } ?? false)
+                reported.isoIndex == expectIdx
+                || (expectIdx.isoValue.map { reported.iso == $0 } ?? false)
             if matched {
                 pin.isoIndex = nil
                 pin.iso = nil
@@ -1887,21 +2010,21 @@ final class CameraSession {
             }
         }
         if let expectShutter = pin.shutter {
-            if incoming.shutterDenom == expectShutter {
+            if reported.shutterDenom == expectShutter {
                 pin.shutter = nil
             } else {
                 incoming.shutterDenom = status.shutterDenom
             }
         }
         if let expectEv = pin.ev {
-            if incoming.evComp == expectEv {
+            if reported.evComp == expectEv {
                 pin.ev = nil
             } else {
                 incoming.evComp = status.evComp
             }
         }
         if let expectMode = pin.mode {
-            if incoming.expoMode == expectMode {
+            if reported.expoMode == expectMode {
                 pin.mode = nil
             } else {
                 incoming.expoMode = status.expoMode
@@ -1923,13 +2046,13 @@ final class CameraSession {
         }
     }
 
-    private func absorbStaleColor(_ incoming: inout CameraStatus) {
+    private func absorbStaleColor(_ incoming: inout CameraStatus, reported: CameraStatus) {
         guard let pin = colorPin else { return }
         if Date() >= pin.deadline {
             colorPin = nil
             return
         }
-        if incoming.colorMode == pin.expected {
+        if reported.colorMode == pin.expected {
             colorPin = nil
             return
         }
@@ -1983,6 +2106,11 @@ final class CameraSession {
     }
 
     private func fireWhiteBalance(_ wb: WhiteBalance) {
+        let previous = status.whiteBalance
+        let previousKelvin = status.whiteBalanceKelvin
+        let previousTint = status.whiteBalanceTint
+        let pin = CameraValuePin(wb, now: Date.timeIntervalSinceReferenceDate)
+        whiteBalancePin = pin
         status.whiteBalance = wb
         if wb.mode == .custom {
             status.whiteBalanceKelvin = wb.kelvin
@@ -1999,6 +2127,13 @@ final class CameraSession {
         fireCamera(
             frame, name: name, expect: .wb(wb),
             coalesce: true,
+            onFail: { [weak self] in
+                guard let self, self.whiteBalancePin?.id == pin.id else { return }
+                self.whiteBalancePin = nil
+                self.status.whiteBalance = previous
+                self.status.whiteBalanceKelvin = previousKelvin
+                self.status.whiteBalanceTint = previousTint
+            },
             onSettle: { [weak self] ok in
                 ControlLiveLog.line(
                     "wb: SET \(name) ack=\(ok ? "ok" : (self?.controlNote ?? "failed"))")
@@ -2011,10 +2146,16 @@ final class CameraSession {
     func setFocusMode(_ mode: FocusMode) {
         guard supportsFocusMode else { return }
         let previous = status.focusMode
+        let pin = CameraValuePin(mode, now: Date.timeIntervalSinceReferenceDate)
+        focusModePin = pin
         status.focusMode = mode
         fireCamera(
             Commands.setFocusMode(mode), name: "Focus \(mode.label)", expect: .focus(mode),
-            onFail: { [weak self] in self?.status.focusMode = previous },
+            onFail: { [weak self] in
+                guard let self, self.focusModePin?.id == pin.id else { return }
+                self.focusModePin = nil
+                self.status.focusMode = previous
+            },
             onSettle: { [weak self] ok in
                 ControlLiveLog.line(
                     "focus: SET \(mode.label) ack=\(ok ? "ok" : (self?.controlNote ?? "failed"))")
@@ -2024,6 +2165,8 @@ final class CameraSession {
     func setFocusTrack(_ track: FocusTrackMode) {
         guard supportsFocusMode else { return }
         let previous = status.focusTrack
+        let pin = CameraValuePin(track, now: Date.timeIntervalSinceReferenceDate)
+        focusTrackPin = pin
         status.focusTrack = track
         lastFocusTrackAt = Date()
         // Same 0x8E waiter as audio / glamour GETs. fireCamera on this opcode
@@ -2032,7 +2175,10 @@ final class CameraSession {
             self.lastFocusTrackAt = Date()
             let ok = await self.requestCamera(
                 Commands.setFocusTrack(track), name: "AF-C \(track.label)")
-            if !ok { self.status.focusTrack = previous }
+            if !ok, self.focusTrackPin?.id == pin.id {
+                self.focusTrackPin = nil
+                self.status.focusTrack = previous
+            }
             ControlLiveLog.line(
                 "focus: track \(track.label) ack=\(ok ? "ok" : (self.controlNote ?? "failed"))")
         }
@@ -2183,11 +2329,25 @@ final class CameraSession {
     }
 
     /// `0x02/0x18` via `Commands.setVideoFormat(resolution:frameRate:)`.
-    func setVideoFormat(resolution: VideoResolution, frameRate: VideoFrameRate) {
+    func setVideoFormat(
+        resolution: VideoResolution, frameRate: VideoFrameRate, fromOperator: Bool = true
+    ) {
+        guard currentShootingMode?.offersVideoFormat != false else { return }
         let format = VideoFormat(resolution: resolution, frameRate: frameRate)
+        if fromOperator,
+            !CamCapVideoFormat.allowsOperatorSet(
+                format, available: status.availableVideoFormats,
+                model: connectedCamera?.model, shootingMode: status.shootingMode)
+        {
+            return
+        }
         let previousFormat = status.videoFormat
         let previousRes = status.videoResolution
         let previousFps = status.fps
+        formatRequestGeneration &+= 1
+        let requestGeneration = formatRequestGeneration
+        let modeGeneration = captureModeGeneration
+        let sessionGeneration = controlGeneration
         formatPin = (format, Date().addingTimeInterval(2))
         var next = status
         next.videoResolution = format.resolution
@@ -2195,11 +2355,17 @@ final class CameraSession {
         next.fps = format.frameRate.fps
         status = next
         fireCamera(
-            Commands.setVideoFormat(resolution: format.resolution, frameRate: format.frameRate),
+            Commands.setVideoFormat(
+                resolution: format.resolution, frameRate: format.frameRate,
+                shootingMode: VideoFormat.formatSetMode(
+                    model: connectedCamera?.model, statusMode: currentShootingMode)),
             name: format.chipLabel,
             expect: .format(format),
             onFail: { [weak self] in
-                guard let self else { return }
+                guard let self, self.formatRequestGeneration == requestGeneration,
+                    self.captureModeGeneration == modeGeneration,
+                    self.controlGeneration == sessionGeneration
+                else { return }
                 self.status.videoFormat = previousFormat
                 self.status.videoResolution = previousRes
                 self.status.fps = previousFps
@@ -2257,7 +2423,8 @@ final class CameraSession {
     /// 180, XOR MIRROR assist).
     func updateGimbalStick(
         x: Double, y: Double, sensitivity: Int = GimbalStick.defaultSensitivity,
-        assistMirror: Bool = false, linear: Bool = false
+        assistMirror: Bool = false, linear: Bool = false,
+        mapping: GimbalStick.Mapping = .defaults
     ) {
         guard !isLocked else { return }
         guard datalink != nil else { return }
@@ -2267,13 +2434,14 @@ final class CameraSession {
             endGimbalStick(cancelMove: true)
             return
         }
-        if !linear, hypot(x, y) > GimbalStick.deadzone { cancelNativeHeadTrack() }
+        let restZone = linear ? GimbalStick.deadzone : mapping.deadzone
+        if !linear, hypot(x, y) > restZone { cancelNativeHeadTrack() }
         if isLiveVideoStale, !moveDriving {
             endGimbalStick(cancelMove: true)
             return
         }
         if gimbalMoveRunning, !linear {
-            if hypot(x, y) > GimbalStick.deadzone {
+            if hypot(x, y) > restZone {
                 cancelProgrammedMove()
             } else {
                 return
@@ -2297,7 +2465,8 @@ final class CameraSession {
             ? false
             : GimbalStick.liveInvertPan(poseInvert: gimbalPoseInvertPan, assistMirror: assistMirror)
         let axes = GimbalStick.encode(
-            x: throwX, y: throwY, invertPan: invert, sensitivity: sensitivity, linear: linear)
+            x: throwX, y: throwY, invertPan: invert, sensitivity: sensitivity, linear: linear,
+            mapping: linear ? .defaults : mapping)
         pendingGimbalAxes = axes
         lastGimbalCommand = (x, y)
         lastGimbalStickAt = Date()
@@ -2396,6 +2565,8 @@ final class CameraSession {
     func setGimbalMode(_ mode: GimbalMode) {
         guard canSetGimbalConfiguration else { return }
         cancelProgrammedMove()
+        gimbalFollowFamilyConfirmed = false
+        gimbalModePin = CameraValuePin(mode, now: Date.timeIntervalSinceReferenceDate)
         gimbalMode = mode
         for frame in GimbalControl.setModeFrames(mode) {
             let seq = datalink?.sendUntracked(frame) ?? 0
@@ -2408,6 +2579,7 @@ final class CameraSession {
     func setGimbalSpeed(_ speed: GimbalSpeed) {
         guard canSetGimbalConfiguration else { return }
         cancelProgrammedMove()
+        gimbalSpeedPin = CameraValuePin(speed, now: Date.timeIntervalSinceReferenceDate)
         gimbalSpeed = speed
         let frame = Commands.setGimbalSpeed(speed)
         let seq = datalink?.sendUntracked(frame) ?? 0
@@ -2778,6 +2950,14 @@ final class CameraSession {
             let next = CamCapShutter.steppedDenom(
                 from: current, steps: steps, available: status.availableShutterDenoms)
         else { return }
+        if GamepadShutterSync.shouldPersistPreferredAngle(
+            usesAngle: OperatorPrefs.shutterUsesAngle,
+            isPhoto: status.isPhoto,
+            expoIsAuto: status.expoMode == .auto)
+        {
+            OperatorPrefs.shutterAngleDegrees = GamepadShutterSync.preferredAngle(
+                afterDenom: next, fps: status.fps)
+        }
         setShutterDenom(next)
     }
 
@@ -3047,7 +3227,9 @@ final class CameraSession {
         else { return }
         lastFacePriorityEVAt = now
         let transfer = MonitorTransfer.resolved(
-            status.monitorTransfer, colorMode: status.colorMode)
+            LiveMonitorColorScience.transfer(status: status),
+            colorMode: LiveMonitorColorScience.colorMode(
+                isPhoto: status.isPhoto, colorMode: status.colorMode))
         guard
             let encoded = FacePriorityExposure.medianEncoded(
                 bytes: packed.bytes, width: packed.width, height: packed.height,
@@ -3404,15 +3586,16 @@ final class CameraSession {
         late: Bool = false, announce: Bool = true
     ) -> Bool {
         var next = status
-        let priorFormat = next.videoFormat
-        let priorRes = next.videoResolution
-        let priorFps = next.fps
         _ = CameraStatusDecoder.apply(reply, to: &next, model: connectedCamera?.model)
-        absorbStaleAudio(&next)
+        var reported = CameraStatus()
+        _ = CameraStatusDecoder.apply(reply, to: &reported, model: connectedCamera?.model)
+        absorbStaleChoices(&next, reported: reported)
+        absorbStaleAudio(&next, reported: reported)
+        absorbStaleExpo(&next, reported: reported)
+        absorbStaleColor(&next, reported: reported)
         let formatReported =
-            next.videoFormat != priorFormat
-            || next.videoResolution != priorRes
-            || next.fps != priorFps
+            reported.videoFormat != nil
+            || reported.videoResolution != nil || reported.fps > 0
         absorbStaleFormat(&next, reportedThisFrame: formatReported)
         status = next
         let parsed = CameraReply.parse(reply.payload)
@@ -3485,6 +3668,101 @@ final class CameraSession {
         }
     }
 
+    private func beginFeedIncidentSession(cameraFamily: String) {
+        incidentSessionActive = true
+        incidentPrevious = nil
+        let info = Bundle.main.infoDictionary ?? [:]
+        FeedIncidentRuntime.beginSession(
+            FeedIncidentSessionContext(
+                sessionID: UUID().uuidString,
+                appVersion: info["CFBundleShortVersionString"] as? String ?? "unknown",
+                appBuild: info["CFBundleVersion"] as? String ?? "unknown",
+                sourceRevision: info["OPCSourceRevision"] as? String ?? "unknown",
+                osName: "iOS", osVersion: UIDevice.current.systemVersion,
+                hardwareClass: DiagnosticCenter.machineIdentifier,
+                cameraFamily: cameraFamily,
+                testSource: FeedIncidentOrigin.currentTestSource(),
+                buildIdentity: FeedIncidentOrigin.currentBuildIdentity()))
+    }
+
+    func recordFeedBreadcrumb(_ kind: FeedIncidentBreadcrumbKind, detail: String = "") {
+        FeedIncidentRuntime.recordBreadcrumb(
+            FeedIncidentBreadcrumb(
+                monotonicAt: ProcessInfo.processInfo.systemUptime, kind: kind, detail: detail))
+    }
+
+    private func recordFeedRepair(_ action: String, phase: FeedRepairPhase, reason: String? = nil) {
+        FeedIncidentRuntime.recordRepair(
+            FeedRepairRecord(
+                monotonicAt: ProcessInfo.processInfo.systemUptime, action: action, phase: phase,
+                reason: reason))
+    }
+
+    private func publishFeedIncidentSnapshot() {
+        guard incidentSessionActive else { return }
+        let now = ProcessInfo.processInfo.systemUptime
+        let wall = Date()
+        let decode = decoder.incidentDecodeSnapshot
+        let counts = [
+            datalink?.videoPackets ?? 0, datalink?.accessUnits ?? 0,
+            decode.submitted, decode.accepted, decode.output, decode.assistOutput,
+            decoder.incidentPresentations, datalink?.incidentACKs ?? 0,
+        ]
+        let previous = incidentPrevious
+        let elapsed = previous.map { now - $0.at } ?? 0
+        let rates = counts.enumerated().map { index, count -> Double in
+            guard let previous, elapsed > 0 else { return 0 }
+            return Double(max(0, count - previous.counts[index])) / elapsed
+        }
+        incidentPrevious = (now, counts)
+        let currentError = decoder.isDecoderWedged
+        FeedIncidentRuntime.noteDecoderGeneration(decoder.sourceFrameGeneration)
+        FeedIncidentRuntime.ingestSnapshot(
+            FeedIncidentSnapshot(
+                monotonicNow: now, wallClock: wall,
+                rates: FeedIncidentRates(
+                    packetHz: rates[0], accessUnitHz: rates[1],
+                    decodeSubmitHz: rates[2], decodeAcceptHz: rates[3], decodedOutputHz: rates[4],
+                    assistOutputHz: rates[5], presentHz: rates[6], ackHz: rates[7]),
+                ages: FeedIncidentAges(
+                    packetAge: datalink?.lastVideoPacketAt.map { wall.timeIntervalSince($0) },
+                    accessUnitAge: datalink?.lastAccessUnitAt.map { wall.timeIntervalSince($0) },
+                    decodeAcceptAge: decode.acceptedAge, decodedOutputAge: decode.outputAge,
+                    assistOutputAge: decode.assistOutputAge,
+                    presentAge: decoder.monitorPresentedAt.map { wall.timeIntervalSince($0) }),
+                queue: datalink?.incidentQueue ?? FeedIncidentQueue(),
+                decoder: FeedIncidentDecoder(
+                    generation: decoder.sourceFrameGeneration,
+                    formatGeneration: decoder.vtRebuildCount,
+                    codec: decoder.incidentCodec,
+                    width: Int(decoder.pictureSize.width), height: Int(decoder.pictureSize.height),
+                    lastStatus: decoder.lastDecodeStatus, lastFlags: decoder.lastDecodeFlags,
+                    origin: decoder.lastDecodeOrigin == "submit"
+                        ? .sync
+                        : FeedDecoderErrorOrigin(rawValue: decoder.lastDecodeOrigin) ?? .none,
+                    errorClass: currentError ? "nativeDecoder" : nil,
+                    errorCount: decoder.decoderErrors,
+                    decoderFailed: currentError,
+                    errorAge: decoder.lastDecodeErrorAt.map { wall.timeIntervalSince($0) },
+                    receivedIrap: decoder.sawKeyframe,
+                    awaitingIrap: decoder.awaitingIDR,
+                    hasDecodableReferences: decoder.canReleaseIDRHold,
+                    lastIrapAge: decoder.lastKeyframeAt.map { wall.timeIntervalSince($0) },
+                    lastSuccessfulOutputAge: decode.outputAge),
+                lifecycle: FeedIncidentLifecycle(
+                    foreground: gimbalControlSceneActive, settingsCovered: incidentSettingsCovered,
+                    playbackActive: status.inPlayback || isBrowsingMedia,
+                    connected: connectedCamera != nil,
+                    liveEstablished: decoder.lastPresentedAt != nil,
+                    thermalState: String(ProcessInfo.processInfo.thermalState.rawValue),
+                    lowPower: ProcessInfo.processInfo.isLowPowerModeEnabled,
+                    sceneActive: gimbalControlSceneActive,
+                    assistState: decoder.effects.replacesIdentityFeed ? "replacement" : "identity",
+                    outputObservable: decoder.videoToolboxActive,
+                    presentationExpected: !incidentSettingsCovered),
+                watchdogAction: feedWatchdog.stage.rawValue))
+    }
+
     /// Interface loss while BLE remains up needs its own session handoff.
     /// Sample at 1 Hz and allow the same reassociation grace as Android; an
     /// address-list flicker with fresh video must not tear down a live socket.
@@ -3509,6 +3787,7 @@ final class CameraSession {
     }
 
     private func publishPipelineStats() {
+        publishFeedIncidentSnapshot()
         ControlLiveLog.line(decoder.takePipelineTimingLine())
         videoPackets = datalink?.videoPackets ?? 0
         accessUnits = rawAccessUnits
@@ -3689,13 +3968,16 @@ final class CameraSession {
             log.info("control: SET timeouts during AF-C grace — leave UDP")
             return
         }
-        if CamFov.shouldHoldWatchdog(secondsSinceSet: secondsSinceZoomSet) {
+        if CamFov.shouldHoldWatchdog(
+            secondsSinceSet: secondsSinceZoomSet, pinchActive: zoomPinchPreview != nil)
+        {
             log.info("control: SET timeouts during zoom grace — leave UDP")
             return
         }
         if GimbalStick.shouldHoldWatchdog(
             secondsSinceThrow: secondsSinceGimbalThrow,
-            lastVideoPacketAge: datalink?.lastVideoPacketAt.map { now.timeIntervalSince($0) })
+            lastVideoPacketAge: datalink?.lastVideoPacketAt.map { now.timeIntervalSince($0) },
+            stickHeld: gimbalStickHeld)
         {
             log.info("control: SET timeouts during gimbal grace — leave UDP")
             return
@@ -3729,12 +4011,15 @@ final class CameraSession {
         if FocusTrackMode.shouldHoldWatchdog(secondsSinceSet: secondsSinceFocusTrackSet) {
             return false
         }
-        if CamFov.shouldHoldWatchdog(secondsSinceSet: secondsSinceZoomSet) {
+        if CamFov.shouldHoldWatchdog(
+            secondsSinceSet: secondsSinceZoomSet, pinchActive: zoomPinchPreview != nil)
+        {
             return false
         }
         if GimbalStick.shouldHoldWatchdog(
             secondsSinceThrow: secondsSinceGimbalThrow,
-            lastVideoPacketAge: datalink?.lastVideoPacketAt.map { now.timeIntervalSince($0) })
+            lastVideoPacketAge: datalink?.lastVideoPacketAt.map { now.timeIntervalSince($0) },
+            stickHeld: gimbalStickHeld)
         {
             return false
         }
@@ -3841,10 +4126,11 @@ final class CameraSession {
         ControlLiveLog.line(
             "feed: Pocket 3 format poke \(original.chipLabel) → \(kick.chipLabel) → \(original.chipLabel) legal=\(legal ? 1 : 0) formats=\(status.availableVideoFormats.count)"
         )
-        setVideoFormat(resolution: kick.resolution, frameRate: kick.frameRate)
+        setVideoFormat(resolution: kick.resolution, frameRate: kick.frameRate, fromOperator: false)
         await waitForRecordingFormatPokeSettle()
         guard !Task.isCancelled else { return }
-        setVideoFormat(resolution: original.resolution, frameRate: original.frameRate)
+        setVideoFormat(
+            resolution: original.resolution, frameRate: original.frameRate, fromOperator: false)
         await waitForRecordingFormatPokeSettle()
         guard !Task.isCancelled, !isBrowsingMedia else { return }
         guard startCapturedLiveView(reason: "first-picture format poke") else { return }
@@ -4022,14 +4308,21 @@ final class CameraSession {
             secondsSinceLastEnable: now.timeIntervalSince(lastIdrRequest),
             secondsSinceFocusTrackSet: secondsSinceFocusTrackSet,
             secondsSinceZoomSet: secondsSinceZoomSet,
+            zoomPinchActive: zoomPinchPreview != nil,
             secondsSinceGimbalThrow: secondsSinceGimbalThrow,
-            secondsSinceCameraSet: datalink?.secondsSinceLastCommand
+            gimbalStickHeld: gimbalStickHeld,
+            secondsSinceCameraSet: datalink?.secondsSinceLastCommand,
+            lastDecoderOutputAge: decoder.nativeOutputAge,
+            decoderOutputExpected: decoder.nativeOutputExpected,
+            repairReady: decoder.isDisplayReady && !isBrowsingMedia && !status.inPlayback
+                && !liveEnableGate.inFlight
         )
+        let watchdogBeforeTick = feedWatchdog
         let action = feedWatchdog.tick(snap)
         feedRecovering = feedWatchdog.isRecovering || feedRecoveryTask != nil
         switch action {
         case .none:
-            if decoder.awaitingIDR,
+            if decoder.awaitingIDR, decoder.canReleaseIDRHold,
                 FeedWatchdog.shouldReleaseIDRHold(
                     awaitingIDR: true,
                     udpReceiveAlive: FeedWatchdog.udpReceiveAlive(snap),
@@ -4070,7 +4363,9 @@ final class CameraSession {
                 )
                 logFeedObserve(snap: snap, watchdog: action)
             } else if !FeedWatchdog.udpReceiveAlive(snap),
-                CamFov.shouldHoldWatchdog(secondsSinceSet: snap.secondsSinceZoomSet)
+                CamFov.shouldHoldWatchdog(
+                    secondsSinceSet: snap.secondsSinceZoomSet,
+                    pinchActive: snap.zoomPinchActive)
             {
                 log.info(
                     "feed: hold UDP rebuild — zoom grace lastSet=\(snap.secondsSinceZoomSet ?? -1, format: .fixed(precision: 1), privacy: .public)s lastVideo=\(snap.lastVideoPacketAge ?? -1, format: .fixed(precision: 1), privacy: .public)s"
@@ -4082,10 +4377,11 @@ final class CameraSession {
             } else if !FeedWatchdog.udpReceiveAlive(snap),
                 GimbalStick.shouldHoldWatchdog(
                     secondsSinceThrow: snap.secondsSinceGimbalThrow,
-                    lastVideoPacketAge: snap.lastVideoPacketAge)
+                    lastVideoPacketAge: snap.lastVideoPacketAge,
+                    stickHeld: snap.gimbalStickHeld)
             {
                 ControlLiveLog.line(
-                    "feed: hold enable — gimbal grace lastThrow=\(String(format: "%.1f", snap.secondsSinceGimbalThrow ?? -1))s"
+                    "feed: hold enable — gimbal stick held=\(snap.gimbalStickHeld ? 1 : 0) lastThrow=\(String(format: "%.1f", snap.secondsSinceGimbalThrow ?? -1))s"
                 )
                 logFeedObserve(snap: snap, watchdog: action)
             } else if !FeedWatchdog.udpReceiveAlive(snap),
@@ -4106,13 +4402,68 @@ final class CameraSession {
             log.info("\(line, privacy: .public)")
             ControlLiveLog.line(line)
             logFeedObserve(snap: snap, watchdog: action)
-            sendRecoverEnable(force: true, reason: "watchdog")
+            if !sendRecoverEnable(force: true, reason: "watchdog") {
+                feedWatchdog = watchdogBeforeTick
+            }
         case .rebuildVTSession:
-            // UDP pause is not a wedged decoder. Rebuild the socket; keep VT.
-            log.info("\(self.feedWatchdog.stallLogLine(snap), privacy: .public)")
-            ControlLiveLog.line(feedWatchdog.stallLogLine(snap))
+            endGimbalStick(cancelMove: true)
+            recordFeedRepair("decoder", phase: .requested, reason: "outputSilence")
+            ControlLiveLog.line("recovery: action=decoder effect=requested reason=outputSilence")
             logFeedObserve(snap: snap, watchdog: action)
-            rebuildUDPKeepingVT()
+            startFeedRecovery { [weak self] in
+                guard let self else { return }
+                let started = Date()
+                _ = self.decoder.rebuildPresentation()
+                // The rebuild is a real attempt, but a temporarily detached
+                // display or in-flight enable is not a failed connection.
+                // Keep this owner and its bounded deadline while gates settle.
+                var sent = false
+                while !Task.isCancelled,
+                    Date().timeIntervalSince(started) < FeedWatchdog.decoderRepairDeadline
+                {
+                    if self.decoder.isPresentationReady, WiFiJoiner.isCameraPathReady(),
+                        !self.isBrowsingMedia, !self.status.inPlayback,
+                        !self.liveEnableGate.inFlight
+                    {
+                        sent = self.sendRecoverEnable(force: true, reason: "watchdog decoder")
+                        if sent { break }
+                    }
+                    try? await Task.sleep(for: .milliseconds(250))
+                }
+                guard !Task.isCancelled else { return }
+                guard sent else {
+                    self.recordFeedRepair("decoder", phase: .blocked, reason: "notReady")
+                    ControlLiveLog.line("recovery: action=decoder effect=blocked reason=notReady")
+                    // No wire attempt was sent. Preserve the held frame; the
+                    // existing watchdog deadline/path owner handles escalation.
+                    return
+                }
+                let restored = await self.waitForRecoveryPicture(
+                    since: started, timeout: .seconds(FeedWatchdog.decoderRepairDeadline))
+                guard !Task.isCancelled else { return }
+                if restored {
+                    self.recordFeedRepair(
+                        "decoder", phase: .pictureRestored, reason: "outputResumed")
+                    ControlLiveLog.line(
+                        "recovery: action=decoder effect=freshPicture reason=outputResumed")
+                    self.feedWatchdog = FeedWatchdog()
+                } else {
+                    if self.decoder.nativeOutputExpected,
+                        (self.decoder.nativeOutputAge ?? .infinity) < FeedWatchdog.stallThreshold
+                    {
+                        self.recordFeedRepair(
+                            "decoder", phase: .blocked, reason: "presentationOnly")
+                        ControlLiveLog.line(
+                            "recovery: action=decoder effect=blocked reason=presentationOnly")
+                        self.feedWatchdog = FeedWatchdog()
+                        return
+                    }
+                    FeedIncidentRuntime.noteExhausted(now: ProcessInfo.processInfo.systemUptime)
+                    ControlLiveLog.line(
+                        "recovery: action=decoder effect=exhausted reason=pictureDeadline")
+                    await self.rejoinDatalinkKeepingLive()
+                }
+            }
         case .reopenDatalink:
             endGimbalStick(cancelMove: true)
             log.info("\(self.feedWatchdog.stallLogLine(snap), privacy: .public)")
@@ -4143,27 +4494,40 @@ final class CameraSession {
     }
 
     /// Re-enable only after SoftAP + VT/display are ready. Holds P-frames until IDR.
-    private func sendRecoverEnable(force: Bool, reason: String = "recover") {
+    @discardableResult
+    private func sendRecoverEnable(force: Bool, reason: String = "recover") -> Bool {
+        recordFeedRepair("enable", phase: .requested)
+        ControlLiveLog.line("recovery: action=enable effect=requested")
         endGimbalStick(cancelMove: true)
-        if isBrowsingMedia { return }
+        if isBrowsingMedia {
+            recordFeedRepair("enable", phase: .blocked, reason: "mediaBrowsing")
+            return false
+        }
         if status.inPlayback {
             sendExitPlayback()
             ControlLiveLog.line("feed: hold enable — camera still in playback (\(reason))")
-            return
+            recordFeedRepair("enable", phase: .blocked, reason: "playback")
+            return false
         }
         let pathReady = WiFiJoiner.isCameraPathReady()
         let decoderReady = decoder.isPresentationReady
         guard FeedWatchdog.shouldSendRecoverEnable(pathReady: pathReady, decoderReady: decoderReady)
         else {
+            recordFeedRepair(
+                "enable", phase: .blocked, reason: pathReady ? "decoderNotReady" : "pathNotReady")
             log.info(
                 "feed: hold enable path=\(pathReady ? 1 : 0) decoder=\(decoderReady ? 1 : 0) reason=\(reason, privacy: .public)"
             )
-            return
+            return false
         }
         if !force, Date().timeIntervalSince(lastIdrRequest) < FeedWatchdog.escalateAfter {
-            return
+            recordFeedRepair("enable", phase: .blocked, reason: "cooldown")
+            return false
         }
-        guard startCapturedLiveView(reason: reason) else { return }
+        guard startCapturedLiveView(reason: reason) else {
+            recordFeedRepair("enable", phase: .blocked, reason: "enableGate")
+            return false
+        }
         lastIdrRequest = Date()
         liveViewEnableSends += 1
         if !decoder.awaitingIDR { idrHoldEnableCount = 0 }
@@ -4174,6 +4538,9 @@ final class CameraSession {
         )
         ControlLiveLog.line(
             "feed: recover 0x09/0xa8 reason=\(reason) #\(liveViewEnableSends)")
+        recordFeedRepair("enable", phase: .locallySent)
+        ControlLiveLog.line("recovery: action=enable effect=sent")
+        return true
     }
 
     func resetFeedWatchdog() {
@@ -4253,6 +4620,7 @@ final class CameraSession {
     }
 
     private func refreshLinkHealth() {
+        frameRate.age(at: Date.timeIntervalSinceReferenceDate)
         noteTransportFailures()
         applyLinkPresentation()
     }
@@ -4339,6 +4707,7 @@ final class CameraSession {
 
     func noteSceneBecameInactive() {
         cameraPathRecovery.reset()
+        recordFeedBreadcrumb(.sceneActivity, detail: "inactive")
         gimbalControlSceneActive = false
         cancelProgrammedMove()
         foregroundGeneration += 1
@@ -4348,6 +4717,7 @@ final class CameraSession {
     }
 
     func noteSceneBecameActive() {
+        recordFeedBreadcrumb(.sceneActivity, detail: "active")
         gimbalControlSceneActive = true
         guard needsForegroundRecover else { return }
         needsForegroundRecover = false
@@ -4407,6 +4777,14 @@ final class CameraSession {
         ControlLiveLog.line("session: foreground fresh video, repairing presentation")
         decoder.prepareAfterForeground()
         endGimbalStick(cancelMove: true)
+        if decoder.nativeOutputExpected {
+            // This task suppresses keepalive/watchdog ticks while it exists.
+            // Release it so the existing native-output repair owner can run;
+            // waiting here cannot revive an invalid VT session and would force
+            // a full reconnect before the watchdog ever sees the stall.
+            ControlLiveLog.line("session: foreground native output handed to watchdog")
+            return
+        }
         let repaired = await waitForRecoveryPicture(
             since: now, timeout: .seconds(CameraSoftAP.foregroundPictureGrace))
         guard !Task.isCancelled else { return }
@@ -4538,6 +4916,8 @@ final class CameraSession {
             log.info("session: drop (\(reason, privacy: .public)) — no camera to recover")
             return
         }
+        FeedIncidentRuntime.noteUnexpectedDisconnect(now: ProcessInfo.processInfo.systemUptime)
+        recordFeedRepair("session", phase: .requested, reason: "connectionInterrupted")
         recoveryCameraID = cameraID
         if recoveryDeviceName.isEmpty {
             recoveryDeviceName =
@@ -4835,6 +5215,7 @@ final class CameraSession {
         datalink = nil
         guard let link else { return }
         link.onAccessUnit = nil
+        link.onVideoDiscontinuity = nil
         link.onStatusFrame = nil
         link.close()
     }
@@ -4851,6 +5232,12 @@ final class CameraSession {
     }
 
     private func wireDatalink(_ dl: DatalinkDriver) {
+        incidentSocketGeneration += 1
+        FeedIncidentRuntime.noteSocketGeneration(incidentSocketGeneration)
+        dl.onVideoDiscontinuity = { [weak self, weak dl] in
+            guard let self, let dl, self.datalink === dl else { return }
+            self.decoder.noteCompressedDiscontinuity()
+        }
         dl.onStatusFrame = { [weak self, weak dl] frame in
             guard let self, let dl, self.datalink === dl else { return }
             self.applyIncomingStatus(frame)
@@ -4863,7 +5250,7 @@ final class CameraSession {
 
     /// Android parity: offer every datalink frame to the opcode waiter.
     /// Restricting to flags == 0xC0 dropped 0x80 / same-opcode ACKs.
-    private func applyIncomingStatus(_ frame: Duml.Frame) {
+    func applyIncomingStatus(_ frame: Duml.Frame) {
         route(frame)
         if frame.cmdSet == 0x00, frame.cmdId == 0x27 {
             if isBrowsingMedia { ingestMediaListFrame(frame) }
@@ -4873,10 +5260,17 @@ final class CameraSession {
             applyLiveTrackingPush(frame.payload)
         }
         var s = status
-        let priorFormat = s.videoFormat
-        let priorRes = s.videoResolution
-        let priorFps = s.fps
+        let priorMode = s.shootingMode
         let applied = CameraStatusDecoder.apply(frame, to: &s, model: connectedCamera?.model)
+        // Decode only reported fields while a control is settling. The merged
+        // snapshot already contains optimistic values and cannot confirm a SET.
+        var reported = CameraStatus()
+        if shootingModePin != nil || whiteBalancePin != nil || focusModePin != nil
+            || focusTrackPin != nil || isoLimitPin != nil || expoPin != nil
+            || audioPin != nil || formatPin != nil || colorPin != nil
+        {
+            _ = CameraStatusDecoder.apply(frame, to: &reported, model: connectedCamera?.model)
+        }
         let flipReply = CameraParam.isSelfieFlipGetReply(
             set: frame.cmdSet, cmd: frame.cmdId, payload: frame.payload)
         if flipReply, let parsed = CameraParam.parseGetReply(frame.payload) {
@@ -4884,18 +5278,30 @@ final class CameraSession {
             s.selfieFlip = SelfieFlip(rawValue: parsed.value)
         }
         guard applied || flipReply else { return }
-        absorbStaleExpo(&s)
-        absorbStaleAudio(&s)
+        absorbStaleChoices(&s, reported: reported)
+        if s.shootingMode != priorMode {
+            captureModeGeneration &+= 1
+            formatPin = nil
+        }
+        absorbStaleExpo(&s, reported: reported)
+        absorbStaleAudio(&s, reported: reported)
         let formatReported =
-            s.videoFormat != priorFormat
-            || s.videoResolution != priorRes
-            || s.fps != priorFps
+            reported.videoFormat != nil
+            || reported.videoResolution != nil || reported.fps > 0
         absorbStaleFormat(&s, reportedThisFrame: formatReported)
-        absorbStaleColor(&s)
+        absorbStaleColor(&s, reported: reported)
         if frame.cmdSet == 0x04, frame.cmdId == 0x05 {
             requestGimbalParams()
             if frame.payload.count == 50, let family = s.gimbalModeFamily {
-                gimbalMode = GimbalControl.modeFromFamily(family, current: gimbalMode)
+                gimbalFollowFamilyConfirmed = family == .follow
+                let resolved = GimbalControl.modeFromFamily(family, current: gimbalMode)
+                // Follow-family alone cannot confirm the tilt-lock choice.
+                let reportedMode: GimbalMode? = family == .follow ? nil : resolved
+                gimbalMode =
+                    CameraValuePin.reconcile(
+                        &gimbalModePin, reported: reportedMode,
+                        now: Date.timeIntervalSinceReferenceDate
+                    ) ?? resolved
             }
             lastGimbalAttitudeHex = Duml.hex(frame.payload, limit: 80)
             lastGimbalAttitudeDump = GimbalStick.attitudeAngleDump(frame.payload)
@@ -4958,8 +5364,20 @@ final class CameraSession {
         if frame.cmdSet == 0x04, frame.cmdId == 0x50,
             let params = GimbalParamState.parseGetReply(frame.payload)
         {
-            gimbalMode = GimbalControl.modeFromGet(params, commanded: gimbalMode)
-            if let speed = params.speed { gimbalSpeed = speed }
+            let resolved = GimbalControl.modeFromGet(params, commanded: gimbalMode)
+            let reportedMode: GimbalMode? =
+                gimbalFollowFamilyConfirmed && (gimbalMode == .follow || gimbalMode == .tiltLocked)
+                ? resolved : nil
+            gimbalMode =
+                CameraValuePin.reconcile(
+                    &gimbalModePin, reported: reportedMode, now: Date.timeIntervalSinceReferenceDate
+                ) ?? resolved
+            if let speed = params.speed {
+                gimbalSpeed =
+                    CameraValuePin.reconcile(
+                        &gimbalSpeedPin, reported: speed, now: Date.timeIntervalSinceReferenceDate
+                    ) ?? speed
+            }
         }
         status = s
         confirmZoomColorHopIfReady()

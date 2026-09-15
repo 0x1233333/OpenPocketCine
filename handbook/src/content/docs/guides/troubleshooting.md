@@ -5,7 +5,7 @@ description: Pairing, camera Wi-Fi, live view, and local VPNs or ad blockers tha
 
 Pairing and live view need a **physical** phone and the camera. The Simulator has no Bluetooth or camera Wi-Fi.
 
-If a step fails: Connection setup **Share Diagnostics**, or Operator Setup → System → **Share Diagnostics**. The report has no name, location, or Wi-Fi password.
+If a step fails: Connection setup **Share Diagnostics**, or Operator Setup → System → **Report a problem**. The report has no name, location, or Wi-Fi password.
 
 ## Live view never starts
 
@@ -36,6 +36,24 @@ Approve the Join prompt for the camera SoftAP. On 5.8 GHz in a DFS region the ca
 
 Stay on the camera Wi-Fi. Session recovery holds the last frame under **Reconnecting**. If chrome still moves (timecode, storage) while the well is black, send **Share Diagnostics**.
 
+If it happens when opening or leaving Operator Setup, say so and about when.
+Share Diagnostics can include a local freeze summary (packet, decoder, and
+presentation counters, recovery attempts, Settings enter/exit) when one was
+captured. Keep the app open briefly after a dropout so that summary can finish.
+The last held picture is not live video. Opening Settings is a reported trigger
+from testers; it is not a proven decoder error. In builds with reporting configured, **Operator Setup → System → Automatic
+error reports** lets you opt in to crash, hang and feed-incident reports.
+It is off by default. Reports include recent feed measurements and recovery
+actions, not footage, camera credentials or operator identity. Uploads wait
+until you leave the camera Wi-Fi. Turning it off clears pending automatic
+uploads; locally saved reports remain available through **Share Diagnostics**.
+An Off-only row means this build has no automatic reporting destination.
+You can use every camera feature without opting in. **Reporting Privacy** opens
+the [privacy policy](https://openpocketcine.app/privacy/) with retention and rights
+information. Turning reporting off does not delete reports already received.
+Contact [OpenCapture support](mailto:support@openpocketcine.app) privately for
+access or deletion requests; never post personal details or reports publicly.
+
 Recovery shows its current step and keeps **Retry connection** and **Operator
 menu** available. It waits for a new picture before clearing the recovery card.
 Automatic full reconnect stops after eight attempts or three minutes total;
@@ -61,3 +79,24 @@ investigation on both iPhone and Android, including the
 [Redmi report](https://github.com/erik-sutton95/OpenPocketCine/issues/334).
 
 More: [Camera Wi-Fi](../protocol/wifi/), [iOS app](../apps/ios/), [Android app](../apps/android/).
+
+On iOS, returning from the background with arriving video but an invalid native
+decoder now hands recovery to the feed watchdog. It can rebuild the decoder
+without forcing a full camera reconnect. A short picture hold can still occur
+while it waits for a new random-access frame. If a hold persists, keep the app
+open briefly and share diagnostics so the incident's recovery timeline is saved.
+
+Use **Operator Setup → System → Report a problem** to describe what happened
+without leaving the app. Add an email if you would like a reply. Technical details
+are optional and can be reviewed before you send. You can add up to three photos
+or screenshots, preview them and remove any before sending. Only choose images
+you have permission to share. Location metadata is removed; images are never
+attached automatically.
+The app saves your report while camera Wi-Fi is in use; keep it open with internet
+access afterward to send. Waiting to send is not a delivery confirmation. Unsent
+reports expire after seven days and can be removed from the form.
+
+The first-launch prompt asks whether to enable automatic error reports. You can
+choose Not now and still report a problem manually, or enable automatic reports
+later in System. **Diagnostic options** expands with a chevron for local export
+and deletion. No GitHub account or email application is needed.

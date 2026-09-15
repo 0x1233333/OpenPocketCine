@@ -4,11 +4,6 @@ import XCTest
 @testable import OpenPocketCine
 
 final class AssistBarChromeTests: XCTestCase {
-    override func setUp() {
-        super.setUp()
-        LiveChromeMetrics.scale = 1
-    }
-
     func testToolbarOmitsLevelAndDesqueeze() {
         XCTAssertEqual(
             LiveAssistTool.toolbarCases,
@@ -25,12 +20,12 @@ final class AssistBarChromeTests: XCTestCase {
     }
 
     func testLongPressEnabledForRemainingTools() {
-        let tapOnly: Set<LiveAssistTool> = [.audioMeters, .mirror]
+        let tapOnly: Set<LiveAssistTool> = [.mirror]
         for tool in LiveAssistTool.settingsCases where !tapOnly.contains(tool) {
             XCTAssertTrue(tool.hasConfiguration, "\(tool.rawValue) should open options")
         }
-        // OpenZCine AUDIO / MIRROR are tap-only — no channel picker, no H/V flip.
-        XCTAssertFalse(LiveAssistTool.audioMeters.hasConfiguration)
+        // Audio has local presentation options; mirror remains tap-only.
+        XCTAssertTrue(LiveAssistTool.audioMeters.hasConfiguration)
         XCTAssertFalse(LiveAssistTool.mirror.hasConfiguration)
         XCTAssertFalse(LiveAssistTool.level.hasConfiguration)
         XCTAssertFalse(LiveAssistTool.desqueeze.hasConfiguration)

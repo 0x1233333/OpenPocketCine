@@ -6,11 +6,6 @@ import XCTest
 
 /// Golden pins from OpenZCine `MonitorLiveViewModuleLayout` on the auditor's 874×402 phone.
 final class LiveMonitorLayoutTests: XCTestCase {
-    override func setUp() {
-        super.setUp()
-        LiveChromeMetrics.scale = 1
-    }
-
     func testAuditorPhonePinsLeadingIsland() {
         let layout = LiveMonitorLayout.fit(
             viewportWidth: 874,
@@ -78,18 +73,20 @@ final class LiveMonitorLayoutTests: XCTestCase {
         )
 
         let calibrate = layout.gimbalCalibrate
-        XCTAssertEqual(calibrate.midX, layout.viewport.width / 2, accuracy: 0.5)
+        XCTAssertEqual(calibrate.maxX, stick.maxX, accuracy: 0.2)
         XCTAssertEqual(
-            calibrate.maxY + LiveChromeMetrics.gimbalStickGap,
-            min(layout.assist.minY, layout.capture.minY),
-            accuracy: 0.5)
-        XCTAssertEqual(calibrate.width, LiveChromeMetrics.headTrackCalibrateWidth, accuracy: 0.05)
+            calibrate.maxY + LiveChromeMetrics.gimbalStickGap, zoom.minY, accuracy: 0.2)
+        XCTAssertEqual(calibrate.width, LiveChromeMetrics.zoomButtonSize, accuracy: 0.05)
+        XCTAssertEqual(calibrate.height, LiveChromeMetrics.zoomButtonSize, accuracy: 0.05)
         XCTAssertFalse(
             calibrate.intersects(stick.insetBy(dx: -1, dy: -1)),
-            "Calibrate Head Lock stays clear of the gimbal stick")
+            "Head Lock compass stays clear of the gimbal stick")
+        XCTAssertFalse(
+            calibrate.intersects(zoom.insetBy(dx: -1, dy: -1)),
+            "Head Lock compass stays clear of the zoom chip")
     }
 
-    func testHeadTrackCalibrateCenteredAboveFeedWhenBarsOff() {
+    func testHeadTrackCompassParksAboveTheClusterWhenBarsOff() {
         let layout = LiveMonitorLayout.fit(
             viewportWidth: 874,
             viewportHeight: 402,
@@ -98,15 +95,36 @@ final class LiveMonitorLayoutTests: XCTestCase {
             showsBottomBars: false,
             mirrored: false
         )
+        let zoom = layout.zoomButton
+        let stick = layout.gimbalStick
         let calibrate = layout.gimbalCalibrate
-        XCTAssertEqual(calibrate.midX, layout.viewport.width / 2, accuracy: 0.5)
+        XCTAssertEqual(calibrate.maxX, stick.maxX, accuracy: 0.2)
         XCTAssertEqual(
-            calibrate.maxY + LiveChromeMetrics.gimbalStickGap, layout.feed.maxY, accuracy: 0.5)
-        let portrait = LiveMonitorLayout.headTrackCalibrateFrame(
-            canvasWidth: 390, barTopY: 720)
-        XCTAssertEqual(portrait.midX, 195, accuracy: 0.05)
+            calibrate.maxY + LiveChromeMetrics.gimbalStickGap, zoom.minY, accuracy: 0.2)
+        XCTAssertEqual(calibrate.width, LiveChromeMetrics.zoomButtonSize, accuracy: 0.05)
+    }
+
+    func testFieldMonitorHeadTrackCompassParksAboveTheCluster() {
+        let layout = LiveMonitorLayout.fieldMonitor(
+            size: CGSize(width: 852, height: 393),
+            safeArea: EdgeInsets(top: 0, leading: 0, bottom: 21, trailing: 59),
+            sourceAspect: 16 / 9, fill: false, showsValues: true, showsBottomBars: true)
+        let stick = layout.gimbalStick
+        let zoom = layout.zoomButton
+        let calibrate = layout.gimbalCalibrate
+        XCTAssertEqual(calibrate.maxX, stick.maxX, accuracy: 0.05)
+        XCTAssertEqual(calibrate.width, 44, accuracy: 0.05)
+        XCTAssertEqual(calibrate.height, 44, accuracy: 0.05)
+        XCTAssertEqual(calibrate.maxY, zoom.minY - 8, accuracy: 0.05)
+        XCTAssertFalse(calibrate.intersects(stick))
+        XCTAssertFalse(calibrate.intersects(zoom))
+        let portrait = LiveMonitorLayout.fieldMonitor(
+            size: CGSize(width: 393, height: 852),
+            safeArea: EdgeInsets(top: 59, leading: 0, bottom: 34, trailing: 0),
+            sourceAspect: 16 / 9, fill: false, showsValues: true, showsBottomBars: true)
+        XCTAssertEqual(portrait.gimbalCalibrate.maxX, portrait.gimbalStick.maxX, accuracy: 0.05)
         XCTAssertEqual(
-            portrait.maxY, 720 - LiveChromeMetrics.gimbalStickGap, accuracy: 0.05)
+            portrait.gimbalCalibrate.maxY, portrait.zoomButton.minY - 8, accuracy: 0.05)
     }
 
     func testChromeScaleFloorsCompactPhonesAndLeavesProMaxAlone() {
@@ -507,7 +525,7 @@ final class LiveMonitorLayoutTests: XCTestCase {
             viewport: layout.viewport,
             safeArea: layout.safeArea
         )
-        XCTAssertEqual(box.width, 420, accuracy: 0.05)
+        XCTAssertEqual(box.width, 480, accuracy: 0.05)
         XCTAssertEqual(box.y + 280, layout.capture.minY - 10, accuracy: 0.05)
         XCTAssertEqual(box.x + box.width / 2, tile.midX, accuracy: 1.0)
         XCTAssertGreaterThanOrEqual(box.x, 59 + 4)

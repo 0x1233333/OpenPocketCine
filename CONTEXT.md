@@ -7,7 +7,26 @@ code and in `docs/`; this file is the glossary only.
 
 **Core**:
 The portable Swift protocol and business-logic package (`OpenPocketViewCore`).
-_Avoid_: SDK, engine, shared module
+_Avoid_: SDK; using engine or shared module as a synonym for this protocol target
+
+**Shared monitor engine**:
+The multi-brand architecture spanning reusable monitoring presentation, assists,
+media/playback and delivery. It is a direction, not another name for the Osmo
+protocol core. Current extraction: `MonitorPresentation` and `MonitorUI`.
+See [Shared Monitor Engine](docs/SHARED-MONITOR-ENGINE.md) and the
+[implemented boundary](docs/ARCHITECTURE.md#shared-monitor-presentation).
+_Avoid_: claiming the full engine migration is complete from shared styling alone
+
+**Monitor presentation**:
+`MonitorPresentation` owns portable geometry, capability gates and screen value
+models. `MonitorUI` supplies native SwiftUI pages and controls consuming those
+values and injected actions. Neither owns camera connection or signal mapping.
+_Avoid_: duplicating a page per camera brand
+
+**Capability**:
+An explicit backend-reported feature that controls a shared presentation slot,
+such as gimbal, focus, zoom or iris. Identity is display data, not a feature gate.
+_Avoid_: switching shared UI on manufacturer names
 
 **Shell**:
 The platform app that owns I/O and UI: SwiftUI on iOS, Compose on Android.
@@ -117,8 +136,10 @@ _Avoid_: follow speed, follow deadband
 
 **Head tracking**:
 iOS-only AirPods IMU (`CMHeadphoneMotionManager`). Controls **Head
-Tracking (Experimental)**, off by default. **Calibrate Head Lock** captures
-shared forward: a still head quaternion and a fresh camera-native pose.
+Tracking (Experimental)**, off by default. Live chrome is a Lucide compass
+above the right-side joystick cluster; VoiceOver still says **Calibrate Head
+Lock**. That action captures shared forward: a still head quaternion and a
+fresh camera-native pose.
 Look uses nose azimuth/elevation (`HeadTrack.look`), not Euler differences.
 `HeadTrackNative` maps that look to native timed-angle targets, with a
 100 ms command horizon. Neither native path has an artificial speed ceiling.
@@ -162,7 +183,7 @@ A monitor tool on the picture (LUT, peaking, zebra, scopes, grids).
 _Avoid_: filter, effect
 
 **ND suggestion**:
-View-assist HUD chip on the live picture (toolbar **ND**, next to LIGHTS). Parks bottom-left above the assist bar; hold-drag to move. Long-press **Units** switches Stops (`+5.0`), filter factor (`ND32`), and optical density (`ND 0.3` / `ND 0.4`). Reads luma vs middle gray. Not a camera SET. Off unless the operator turns the chip on.
+View-assist HUD chip on the live picture (toolbar **ND**, next to LIGHTS). Starts centered until placed; drag to move. Long-press **Units** switches Stops (`+5.0`), filter factor (`ND32`), and optical density (`ND 0.3` / `ND 0.4`). Reads luma vs middle gray. Not a camera SET. Off unless the operator turns the chip on.
 _Avoid_: auto ND, ND SET, shutter-sheet nag
 
 **LUT exposure compensation**:

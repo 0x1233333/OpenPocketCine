@@ -1,15 +1,20 @@
+import MonitorUI
 import OpenPocketViewCore
 import SwiftUI
 
 /// OpenZCine `MonitorSystemCluster.settingsButton` (`MonitorUnified.swift` ~1098).
 struct LiveSettingsButton: View {
+    @Environment(\.interfaceLocked) private var locked
+    var size: CGFloat = LiveChromeMetrics.auxiliaryButtonSize
     var onOpen: () -> Void
 
     var body: some View {
-        Button(action: onOpen) {
-            LiveRailCircle(icon: .settings)
+        MonitorChromeButton(
+            "Open Operator Setup", size: CGSize(width: size, height: size), action: onOpen
+        ) {
+            OpcIcon.settings.frame(width: size * 29 / 54, height: size * 29 / 54)
         }
-        .buttonStyle(.zcTapTarget)
+        .disabled(locked)
         .accessibilityLabel("Open Operator Setup")
         .accessibilityIdentifier("monitor.system.settings")
     }
@@ -17,13 +22,15 @@ struct LiveSettingsButton: View {
 
 /// OpenZCine `MonitorSystemCluster.mediaButton` (`MonitorUnified.swift` ~1114).
 struct LiveMediaButton: View {
+    @Environment(\.interfaceLocked) private var locked
+    var size: CGFloat = LiveChromeMetrics.auxiliaryButtonSize
     var onOpen: () -> Void
 
     var body: some View {
-        Button(action: onOpen) {
-            LiveRailCircle(icon: .layers)
+        MonitorChromeButton("Open Media", size: CGSize(width: size, height: size), action: onOpen) {
+            OpcIcon.film.frame(width: size * 29 / 54, height: size * 29 / 54)
         }
-        .buttonStyle(.zcTapTarget)
+        .disabled(locked)
         .accessibilityLabel("Open Media")
         .accessibilityIdentifier("monitor.system.media")
     }
@@ -86,7 +93,7 @@ struct HeadTrackAxisPose: Equatable {
     var locked: Bool
 }
 
-/// Calibrate Head Lock starts tracking; STOP ends it.
+/// Compass Head Lock starts tracking; the same control becomes STOP.
 struct LiveHeadTrackCalibrateButton: View {
     static let calibrateTitle = "Calibrate Head Lock"
     static let stopTitle = "STOP"
@@ -94,39 +101,42 @@ struct LiveHeadTrackCalibrateButton: View {
     var title: String
     var onTap: () -> Void
 
+    private var isStop: Bool { title == Self.stopTitle }
+    private var size: CGFloat { LiveChromeMetrics.zoomButtonSize }
+
     var body: some View {
         Button(action: onTap) {
-            Text(title)
-                .font(LiveType.ui(size: 12, weight: .semibold, design: .rounded))
-                .foregroundStyle(LiveDesign.text)
-                .lineLimit(1)
-                .minimumScaleFactor(0.78)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(.black.opacity(0.55), in: Capsule())
-                .overlay(Capsule().strokeBorder(LiveDesign.hairline, lineWidth: 1))
+            OpcIcon.compass
+                .frame(width: 18, height: 18)
+                .foregroundStyle(isStop ? LiveDesign.background : LiveDesign.text)
+                .frame(width: size, height: size)
+                .background { plateFill }
+                .overlay { plateStroke }
         }
         .buttonStyle(.zcTapTarget)
-        .accessibilityLabel(
-            title == Self.stopTitle ? "Stop head tracking" : "Calibrate Head Lock"
-        )
+        .accessibilityLabel(isStop ? "Stop head tracking" : "Calibrate Head Lock")
         .accessibilityHint(
-            title == Self.stopTitle
+            isStop
                 ? "Stops AirPods gimbal tracking" : "Sets the current heading as forward"
         )
         .accessibilityIdentifier("monitor.system.headTrackCalibrate")
     }
-}
 
-/// Rail circle with a Lucide glyph (no copyrighted rail assets, no SF Symbols).
-private struct LiveRailCircle: View {
-    let icon: OpcIcon
+    @ViewBuilder private var plateFill: some View {
+        if isStop {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(LiveDesign.accent)
+        } else {
+            Circle().fill(.black.opacity(0.55))
+        }
+    }
 
-    var body: some View {
-        let size = LiveChromeMetrics.auxiliaryButtonSize
-        icon
-            .frame(width: size * 0.36, height: size * 0.36)
-            .foregroundStyle(LiveDesign.text.opacity(0.86))
-            .frame(width: size, height: size)
-            .liveChromeCircle()
+    @ViewBuilder private var plateStroke: some View {
+        if isStop {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(LiveDesign.hairline, lineWidth: 1)
+        } else {
+            Circle().strokeBorder(LiveDesign.hairline, lineWidth: 1)
+        }
     }
 }

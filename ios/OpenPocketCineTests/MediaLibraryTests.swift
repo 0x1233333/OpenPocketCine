@@ -1,4 +1,5 @@
 import AVFoundation
+import MonitorPresentation
 import OpenPocketViewCore
 import XCTest
 
@@ -60,6 +61,31 @@ final class MediaLibraryTests: XCTestCase {
             MediaLibraryQuery.filtered(all, tab: .all, formats: ["MP4"]).count, 2)
         XCTAssertEqual(
             MediaLibraryQuery.filtered(all, tab: .all, resolutions: ["3840x2160"]).count, 1)
+        XCTAssertEqual(
+            MediaLibraryQuery.filtered(all, tab: .all, dateStart: "20260801").map(\.filename),
+            ["DJI_20260814125250_0034_D.MP4", "DJI_20260801000000_0002_D.JPG"])
+        XCTAssertEqual(
+            MediaLibraryQuery.filtered(all, tab: .all, dateEnd: "20260501").map(\.filename),
+            ["DJI_20260404103742_0001_D.MP4"])
+        XCTAssertEqual(
+            MediaLibraryQuery.filtered(
+                all, tab: .all, dateStart: "20260801", dateEnd: "20260801"
+            ).map(\.filename),
+            ["DJI_20260801000000_0002_D.JPG"])
+        let colors: [String: UInt8] = [
+            videos[0].path: ColorMode.dLog2.rawValue,
+            videos[1].path: ColorMode.dLog.rawValue,
+            photo.path: ColorMode.normal.rawValue,
+        ]
+        XCTAssertEqual(
+            MediaLibraryQuery.filtered(
+                all, tab: .all, colors: [ColorMode.dLog2.rawValue], shotColors: colors
+            ).map(\.filename),
+            ["DJI_20260814125250_0034_D.MP4"])
+        XCTAssertEqual(
+            MediaLibraryQuery.dateKey(
+                from: MediaLibraryQuery.date(fromKey: "20260814")!),
+            "20260814")
 
         let oldest = MediaLibraryQuery.sorted(all, by: .oldest)
         XCTAssertEqual(oldest.first?.filename, "DJI_20260404103742_0001_D.MP4")
@@ -322,11 +348,15 @@ final class MediaLibraryTests: XCTestCase {
     }
 
     func testPlaybackTransportFitsNarrowestPhone() {
-        let needed = MediaPlayerView.PlaybackChrome.transportRowWidth()
-        let usable =
-            MediaPlayerView.PlaybackChrome.narrowestScreenWidth
-            - MediaPlayerView.PlaybackChrome.chromeHorizontalPadding * 2
-        XCTAssertLessThanOrEqual(needed, usable)
+        let portrait = MonitorPlaybackLayout(width: 375, height: 667, tablet: false)
+        XCTAssertTrue(portrait.portrait)
+        XCTAssertLessThanOrEqual(MonitorPlaybackLayout.transportWidth, portrait.contentWidth)
+        XCTAssertLessThanOrEqual(MonitorPlaybackLayout.actionsWidth, portrait.contentWidth)
+        let landscape = MonitorPlaybackLayout(width: 667, height: 375, tablet: false)
+        XCTAssertFalse(landscape.portrait)
+        let balancedRow =
+            MonitorPlaybackLayout.actionsWidth * 2 + MonitorPlaybackLayout.transportWidth + 20
+        XCTAssertLessThanOrEqual(balancedRow, landscape.contentWidth)
     }
 
     @MainActor

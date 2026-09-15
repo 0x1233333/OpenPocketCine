@@ -11,6 +11,65 @@ import XCTest
 /// tests pin the plumbing, throttle, layer handoff, and effect compositing.
 @MainActor
 final class LiveFrameSampleTests: XCTestCase {
+    func testVideoFallbackStillInfersLogFromTap() async {
+        let engine = LiveAssistEngine()
+        var effects = LiveImageEffects()
+        effects.histogram = true
+        let sampled = expectation(description: "Unknown video scope sample")
+        let buffer = ScopeTestBuffers.makeBGRA { x, _ in x < 64 ? 16 : 247 }
+        engine.updatePolicy(effects: effects, transfer: .rec709)
+        engine.submit(buffer) { result in
+            guard let bundle = result.bundle else { return }
+            XCTAssertEqual(bundle.transfer, .dlog2)
+            sampled.fulfill()
+        }
+        await fulfillment(of: [sampled], timeout: 2)
+    }
+
+    func testPhotoScopesDoNotInferLogFromSceneBrightness() async {
+        let assist = LiveAssistState()
+        assist.syncLUT(to: .dLog2, isPhoto: true)
+        var effects = assist.effects
+        effects.histogram = true
+        effects.waveform = true
+        let engine = LiveAssistEngine()
+        let sampled = expectation(description: "Photo scope sample")
+        let buffer = ScopeTestBuffers.makeBGRA { x, _ in x < 64 ? 16 : 247 }
+        engine.updatePolicy(effects: effects, transfer: .rec709)
+        engine.submit(buffer) { result in
+            guard let bundle = result.bundle else { return }
+            XCTAssertEqual(result.transfer, .rec709)
+            XCTAssertEqual(result.colorMode, .normal)
+            XCTAssertEqual(bundle.transfer, .rec709)
+            sampled.fulfill()
+        }
+        await fulfillment(of: [sampled], timeout: 2)
+    }
+
+    func testImageInspectorReceivesLatestRawPictureWithAllScopesOff() async throws {
+        let bus = LiveFrameSampleBus()
+        let decoder = HevcDecoder()
+        let effects = LiveImageEffects().withInspectorDemand(.peaking)
+        decoder.attach(sampleBus: bus, effects: { effects }, transfer: { .dlog2 })
+        XCTAssertFalse(effects.needsScopes)
+        XCTAssertFalse(effects.needsGPUFeed)
+
+        for _ in 0..<2 {
+            let source = ScopeTestBuffers.makeEdgeBuffer()
+            decoder.handleDecodedFrame(source, effects: effects, transfer: .dlog2)
+            let deadline = Date().addingTimeInterval(1)
+            while bus.inspectorSource?.buffer !== source, Date() < deadline {
+                try await Task.sleep(for: .milliseconds(10))
+            }
+            XCTAssertTrue(
+                bus.inspectorSource?.buffer === source,
+                "The inspector must borrow the newest raw main-feed buffer without a scope")
+            XCTAssertEqual(bus.inspectorSource?.transfer, .dlog2)
+        }
+        XCTAssertEqual(bus.generation, 0, "Raw picture retention must not invalidate scope views")
+        XCTAssertEqual(bus.publishedScopes, 0, "Image previews must not perform scope work")
+    }
+
     func testFailedPresentationDoesNotEmitPictureHeartbeat() async throws {
         let bus = LiveFrameSampleBus()
         let decoder = HevcDecoder()

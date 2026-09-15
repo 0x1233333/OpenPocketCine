@@ -106,34 +106,56 @@ class LiveAssistState(
     var waveGuides by mutableStateOf(ScopeGuides())
     var waveScale by mutableDoubleStateOf(1.0)
     var waveCenter by mutableStateOf<StoredCenter?>(null)
+    var waveCenterPortrait by mutableStateOf<StoredCenter?>(null)
 
     var paradeMode by mutableStateOf(ParadeMode.RGB)
     var paradeBrightness by mutableStateOf(100)
     var paradeGuides by mutableStateOf(ScopeGuides())
     var paradeScale by mutableDoubleStateOf(1.0)
     var paradeCenter by mutableStateOf<StoredCenter?>(null)
+    var paradeCenterPortrait by mutableStateOf<StoredCenter?>(null)
 
     var histoTrafficLights by mutableStateOf(true)
     var histoScale by mutableDoubleStateOf(1.0)
     var histoCenter by mutableStateOf<StoredCenter?>(null)
+    var histoCenterPortrait by mutableStateOf<StoredCenter?>(null)
 
     var vectorZoom by mutableStateOf(VectorscopeZoom.X1)
     var vectorBrightness by mutableStateOf(100)
     var vectorScale by mutableDoubleStateOf(1.0)
     var vectorCenter by mutableStateOf<StoredCenter?>(null)
+    var vectorCenterPortrait by mutableStateOf<StoredCenter?>(null)
 
     var crushClipCompensation by mutableStateOf(CrushClipCompensation.ZERO)
     var lightsScale by mutableDoubleStateOf(1.0)
     var lightsCenter by mutableStateOf<StoredCenter?>(null)
+    var lightsCenterPortrait by mutableStateOf<StoredCenter?>(null)
     var ndScale by mutableDoubleStateOf(1.0)
     var ndCenter by mutableStateOf<StoredCenter?>(null)
+    var ndCenterPortrait by mutableStateOf<StoredCenter?>(null)
     var ndNotation by mutableStateOf(NDFilterNotation.FACTOR)
+    /** Last written slot, for reading pre-schema saves only. Overlay placement uses [audioCenterFor]. */
+    var audioCenter by mutableStateOf<StoredCenter?>(null)
+        private set
+    var audioPortraitCenter by mutableStateOf<StoredCenter?>(null)
+        private set
+    var audioLandscapeCenter by mutableStateOf<StoredCenter?>(null)
+        private set
+    var audioShowDB by mutableStateOf(false)
+        private set
+    var audioOrientation by mutableStateOf(com.opencapture.monitorui.MonitorAudioOrientation.VERTICAL)
+        private set
+    var falseColorReferenceCenter by mutableStateOf<StoredCenter?>(null)
+    var falseColorReferenceCenterPortrait by mutableStateOf<StoredCenter?>(null)
 
     /** Last-moved / last-selected is last. Compose and Vulkan draw in this order. */
     var scopeStack by mutableStateOf(defaultScopeStack)
         private set
 
     var configureTool by mutableStateOf<LiveAssistTool?>(null)
+
+    /** Mounted, resumed inspector demand; never changes a monitor visibility flag. */
+    internal var inspectorScopeDemand by mutableStateOf<InspectorScopeDemand?>(null)
 
     /** Pressed assist chip, viewport-absolute. iOS `LiveAssistState.longPressAnchor`. */
     var longPressAnchor by mutableStateOf(com.opencapture.openpocketcine.ChromeRect(0f, 0f, 0f, 0f))
@@ -199,8 +221,10 @@ class LiveAssistState(
         persist()
     }
 
-    fun nudgeLutExposure(delta: Double) {
-        val next = LutExposureCompensation.stepped(lutExposureStops, delta)
+    fun nudgeLutExposure(delta: Double) = updateLutExposure(lutExposureStops + delta)
+
+    fun updateLutExposure(stops: Double) {
+        val next = LutExposureCompensation.snap(stops)
         if (next == lutExposureStops) return
         lutExposureStops = next
         persist()
@@ -363,14 +387,56 @@ class LiveAssistState(
         persist()
     }
 
-    fun storeCenter(tool: LiveAssistTool, center: StoredCenter) {
+    fun updateAudioShowDB(value: Boolean) { audioShowDB = value; persist() }
+
+    fun updateAudioOrientation(value: com.opencapture.monitorui.MonitorAudioOrientation) {
+        audioOrientation = value
+        persist()
+    }
+
+    fun audioCenterFor(portrait: Boolean): StoredCenter? =
+        if (portrait) audioPortraitCenter else audioLandscapeCenter
+
+    fun storeAudioCenter(center: StoredCenter, portrait: Boolean) {
+        if (portrait) audioPortraitCenter = center else audioLandscapeCenter = center
+        audioCenter = center
+        persist()
+    }
+
+    fun centerFor(tool: LiveAssistTool, portrait: Boolean): StoredCenter? =
         when (tool) {
-            LiveAssistTool.WAVE -> waveCenter = center
-            LiveAssistTool.PARADE -> paradeCenter = center
-            LiveAssistTool.HISTO -> histoCenter = center
-            LiveAssistTool.VECTOR -> vectorCenter = center
-            LiveAssistTool.LIGHTS -> lightsCenter = center
-            LiveAssistTool.ND -> ndCenter = center
+            LiveAssistTool.WAVE -> if (portrait) waveCenterPortrait else waveCenter
+            LiveAssistTool.PARADE -> if (portrait) paradeCenterPortrait else paradeCenter
+            LiveAssistTool.HISTO -> if (portrait) histoCenterPortrait else histoCenter
+            LiveAssistTool.VECTOR -> if (portrait) vectorCenterPortrait else vectorCenter
+            LiveAssistTool.LIGHTS -> if (portrait) lightsCenterPortrait else lightsCenter
+            LiveAssistTool.ND -> if (portrait) ndCenterPortrait else ndCenter
+            LiveAssistTool.FALSE ->
+                if (portrait) falseColorReferenceCenterPortrait else falseColorReferenceCenter
+            LiveAssistTool.AUDIO -> audioCenterFor(portrait)
+            else -> null
+        }
+
+    /** Landscape slot is the legacy JSON key (`waveCenter`, …). Portrait is independent. */
+    fun storeCenter(tool: LiveAssistTool, center: StoredCenter, portrait: Boolean = false) {
+        when (tool) {
+            LiveAssistTool.WAVE -> if (portrait) waveCenterPortrait = center else waveCenter = center
+            LiveAssistTool.PARADE ->
+                if (portrait) paradeCenterPortrait = center else paradeCenter = center
+            LiveAssistTool.HISTO ->
+                if (portrait) histoCenterPortrait = center else histoCenter = center
+            LiveAssistTool.VECTOR ->
+                if (portrait) vectorCenterPortrait = center else vectorCenter = center
+            LiveAssistTool.LIGHTS ->
+                if (portrait) lightsCenterPortrait = center else lightsCenter = center
+            LiveAssistTool.ND -> if (portrait) ndCenterPortrait = center else ndCenter = center
+            LiveAssistTool.FALSE ->
+                if (portrait) falseColorReferenceCenterPortrait = center
+                else falseColorReferenceCenter = center
+            LiveAssistTool.AUDIO -> {
+                storeAudioCenter(center, portrait)
+                return
+            }
             else -> return
         }
         persist()
@@ -454,22 +520,36 @@ class LiveAssistState(
             .put("waveGuides", encodeGuides(waveGuides))
             .put("waveScale", waveScale)
             .put("waveCenter", encodeCenter(waveCenter))
+            .put("waveCenterPortrait", encodeCenter(waveCenterPortrait))
             .put("paradeMode", paradeMode.label)
             .put("paradeBrightness", paradeBrightness)
             .put("paradeGuides", encodeGuides(paradeGuides))
             .put("paradeScale", paradeScale)
             .put("paradeCenter", encodeCenter(paradeCenter))
+            .put("paradeCenterPortrait", encodeCenter(paradeCenterPortrait))
             .put("histoTrafficLights", histoTrafficLights)
             .put("histoScale", histoScale)
             .put("histoCenter", encodeCenter(histoCenter))
+            .put("histoCenterPortrait", encodeCenter(histoCenterPortrait))
             .put("vectorZoom", vectorZoom.label)
             .put("vectorBrightness", vectorBrightness)
             .put("vectorScale", vectorScale)
             .put("vectorCenter", encodeCenter(vectorCenter))
+            .put("vectorCenterPortrait", encodeCenter(vectorCenterPortrait))
             .put("lightsScale", lightsScale)
             .put("lightsCenter", encodeCenter(lightsCenter))
+            .put("lightsCenterPortrait", encodeCenter(lightsCenterPortrait))
             .put("ndScale", ndScale)
             .put("ndCenter", encodeCenter(ndCenter))
+            .put("ndCenterPortrait", encodeCenter(ndCenterPortrait))
+            .put("audioCenter", encodeCenter(audioCenter))
+            .put("audioCentersSchema", 1)
+            .put("audioPortraitCenter", encodeCenter(audioPortraitCenter))
+            .put("audioLandscapeCenter", encodeCenter(audioLandscapeCenter))
+            .put("audioOrientation", audioOrientation.name)
+            .put("audioShowDB", audioShowDB)
+            .put("falseColorReferenceCenter", encodeCenter(falseColorReferenceCenter))
+            .put("falseColorReferenceCenterPortrait", encodeCenter(falseColorReferenceCenterPortrait))
             .put("ndNotation", ndNotation.persisted)
             .put("scopeStack", JSONArray(scopeStack.map { it.name }))
             .toString()
@@ -530,22 +610,45 @@ class LiveAssistState(
         waveGuides = decodeGuides(obj.optJSONObject("waveGuides"))
         waveScale = MovablePanelMath.clampedScale(obj.optDouble("waveScale", 1.0))
         waveCenter = decodeCenter(obj.optJSONObject("waveCenter"))
+        waveCenterPortrait = decodeCenter(obj.optJSONObject("waveCenterPortrait"))
         paradeMode = ParadeMode.fromPersisted(obj.optString("paradeMode", ParadeMode.RGB.label))
         paradeBrightness = obj.optInt("paradeBrightness", 100).coerceIn(0, 200)
         paradeGuides = decodeGuides(obj.optJSONObject("paradeGuides"))
         paradeScale = MovablePanelMath.clampedScale(obj.optDouble("paradeScale", 1.0))
         paradeCenter = decodeCenter(obj.optJSONObject("paradeCenter"))
+        paradeCenterPortrait = decodeCenter(obj.optJSONObject("paradeCenterPortrait"))
         histoTrafficLights = obj.optBoolean("histoTrafficLights", true)
         histoScale = MovablePanelMath.clampedScale(obj.optDouble("histoScale", 1.0))
         histoCenter = decodeCenter(obj.optJSONObject("histoCenter"))
+        histoCenterPortrait = decodeCenter(obj.optJSONObject("histoCenterPortrait"))
         vectorZoom = VectorscopeZoom.fromPersisted(obj.optString("vectorZoom", VectorscopeZoom.X1.label))
         vectorBrightness = obj.optInt("vectorBrightness", 100).coerceIn(0, 200)
         vectorScale = MovablePanelMath.clampedScale(obj.optDouble("vectorScale", 1.0))
         vectorCenter = decodeCenter(obj.optJSONObject("vectorCenter"))
+        vectorCenterPortrait = decodeCenter(obj.optJSONObject("vectorCenterPortrait"))
         lightsScale = MovablePanelMath.clampedScale(obj.optDouble("lightsScale", 1.0))
         lightsCenter = decodeCenter(obj.optJSONObject("lightsCenter"))
+        lightsCenterPortrait = decodeCenter(obj.optJSONObject("lightsCenterPortrait"))
         ndScale = MovablePanelMath.clampedScale(obj.optDouble("ndScale", 1.0))
         ndCenter = decodeCenter(obj.optJSONObject("ndCenter"))
+        ndCenterPortrait = decodeCenter(obj.optJSONObject("ndCenterPortrait"))
+        audioCenter = decodeCenter(obj.optJSONObject("audioCenter"))
+        val hasOrientationSlots = obj.has("audioCentersSchema") ||
+            obj.has("audioPortraitCenter") || obj.has("audioLandscapeCenter")
+        if (hasOrientationSlots) {
+            audioPortraitCenter = decodeCenter(obj.optJSONObject("audioPortraitCenter"))
+            audioLandscapeCenter = decodeCenter(obj.optJSONObject("audioLandscapeCenter"))
+        } else {
+            audioPortraitCenter = audioCenter
+            audioLandscapeCenter = audioCenter
+        }
+        audioShowDB = obj.optBoolean("audioShowDB", false)
+        audioOrientation = com.opencapture.monitorui.MonitorAudioOrientation.entries.firstOrNull {
+            it.name == obj.optString("audioOrientation")
+        } ?: com.opencapture.monitorui.MonitorAudioOrientation.VERTICAL
+        falseColorReferenceCenter = decodeCenter(obj.optJSONObject("falseColorReferenceCenter"))
+        falseColorReferenceCenterPortrait =
+            decodeCenter(obj.optJSONObject("falseColorReferenceCenterPortrait"))
         ndNotation = NDFilterNotation.fromPersisted(obj.optString("ndNotation", NDFilterNotation.FACTOR.persisted))
         scopeStack = decodeScopeStack(obj.optJSONArray("scopeStack"))
     }
@@ -644,3 +747,6 @@ class LiveAssistState(
         }
     }
 }
+
+/** Owner identity prevents one disappearing host from cancelling another preview. */
+internal data class InspectorScopeDemand(val owner: Any, val tool: LiveAssistTool, val playback: Boolean)

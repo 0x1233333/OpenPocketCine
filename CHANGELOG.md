@@ -17,6 +17,30 @@ separate iOS and Android lists.
 
 ### Added
 
+- UI 2.0 for the native iOS and Android shells: reusable camera, pairing,
+  settings, media and playback presentation with Sora typography, Lucide icons
+  and the custom View Assist glyphs. Phones and tablets adapt across rotation.
+  Blurred translucent surfaces replace the Liquid Glass treatment. Camera-value
+  drums, compact assist palettes, tabbed inspectors and the half-disc zoom
+  control retain the existing camera actions and live pipeline.
+  New windowed tools start centered; audio uses movable slim vertical/horizontal
+  bars with optional channel dB readings. Tap opens camera-control details;
+  hold/drag opens the compact dial and commits only on release. FORMAT, COLOR
+  and shooting mode open from the top; other camera values open from the bottom.
+  Top pickers leave the lower camera values available. Pocket 4 Pro zoom uses
+  single taps for 1×/3× and double taps for 6×/12×.
+  Portrait centers the fitted feed below an independent status row; View Assist,
+  FIT/FILL and the joystick cluster stay fixed above the camera values. The larger
+  zoom disc reaches the screen edge above system controls. Motion Control keeps
+  the joystick usable while editing and reduces shared updates during window
+  dragging. iOS image previews receive raw pictures even with every scope off.
+  iOS reduces repeated shadow rendering and settings-card layout work while
+  preserving the approved HUD geometry. Assist previews retain their admission
+  limit across tabs and remounts. Android settings switches announce labels and
+  on/off states. Measured performance and device qualification, including the
+  outstanding physical Android exception, are recorded in
+  [performance](docs/PERFORMANCE.md) and [parity](docs/PARITY.md#ui-20-qualification).
+
 - Scopes, LIGHTS, and ND move with a direct drag on both shells; corner grips
   resize directly. Scopes can sit partly under the top and bottom bars while
   reaching closer to the bottom and underneath the entire joystick cluster
@@ -27,8 +51,8 @@ separate iOS and Android lists.
 - Saved-camera rows now show their own connection progress and Cancel action,
   with names above availability/actions. On iOS, Watch a feed is an eye button
   beside Multiview in the camera-list header.
-- Gimbal controls use Mode / Speed / Ramp tabs with settings below. A separate
-  Gimbal tools footer opens experimental Motion Control. Both shells.
+- Gimbal controls use Mode, Speed and Ramp tabs in a wider trailing drawer.
+  Its Motion Control footer opens the experimental editor. Both shells.
 
 - Direction Lock replaces the unavailable Locked gimbal option on iOS and
   Android. It holds the camera's pointing direction while the handle rotates;

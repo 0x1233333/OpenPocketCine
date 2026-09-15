@@ -1,3 +1,5 @@
+import MonitorPresentation
+import MonitorUI
 import SwiftUI
 import UIKit
 
@@ -83,6 +85,8 @@ enum WaveformAssist {
         var brightness: Int
         var guides: GuideLines
         var scale: Double
+        /// False only for a fresh automatic size; legacy saved scales stay explicit.
+        var hasCustomScale: Bool
         var storedCenter: StoredCenter?
         var storedCenterPortrait: StoredCenter?
 
@@ -99,6 +103,7 @@ enum WaveformAssist {
             brightness: Int = defaultBrightness,
             guides: GuideLines = .default,
             scale: Double = defaultScale,
+            hasCustomScale: Bool = false,
             storedCenter: StoredCenter? = nil,
             storedCenterPortrait: StoredCenter? = nil
         ) {
@@ -106,12 +111,13 @@ enum WaveformAssist {
             self.brightness = Self.clampedBrightness(brightness)
             self.guides = guides
             self.scale = Self.clampedScale(scale)
+            self.hasCustomScale = hasCustomScale || scale != defaultScale
             self.storedCenter = storedCenter
             self.storedCenterPortrait = storedCenterPortrait
         }
 
         enum CodingKeys: String, CodingKey {
-            case mode, brightness, guides, scale, storedCenter, storedCenterPortrait
+            case mode, brightness, guides, scale, hasCustomScale, storedCenter, storedCenterPortrait
         }
 
         init(from decoder: any Decoder) throws {
@@ -122,6 +128,11 @@ enum WaveformAssist {
             guides = try c.decodeIfPresent(GuideLines.self, forKey: .guides) ?? .default
             scale = Self.clampedScale(
                 try c.decodeIfPresent(Double.self, forKey: .scale) ?? defaultScale)
+            // Old JSON cannot distinguish an untouched 1.0 from a manual 1.0.
+            // Preserve it rather than rewriting an operator's layout on upgrade.
+            hasCustomScale =
+                try c.decodeIfPresent(Bool.self, forKey: .hasCustomScale)
+                ?? true
             storedCenter = try c.decodeIfPresent(StoredCenter.self, forKey: .storedCenter)
             storedCenterPortrait = try c.decodeIfPresent(
                 StoredCenter.self, forKey: .storedCenterPortrait)
@@ -148,25 +159,16 @@ enum WaveformAssist {
             height: (baseSize.height * clamped).rounded())
     }
 
-    /// OpenZCine `feedOutsideCenter` for the waveform's top-leading default.
+    /// Unplaced tools start at the canvas center; saved/session centers win later.
     static func defaultCenter(
-        feed: CGRect,
+        feed _: CGRect,
         size: CGSize,
         bounds: CGRect,
-        chromeClearance: EdgeInsets = EdgeInsets(),
-        gap: CGFloat = 10
+        chromeClearance _: EdgeInsets = EdgeInsets(),
+        gap _: CGFloat = 10
     ) -> CGPoint {
-        let halfWidth = size.width / 2
-        let halfHeight = size.height / 2
-        let x = feed.minX + halfWidth
-        let outside = feed.minY - gap - halfHeight
-        let y: CGFloat
-        if outside - halfHeight >= bounds.minY {
-            y = outside
-        } else {
-            y = max(feed.minY, bounds.minY + chromeClearance.top) + gap + halfHeight
-        }
-        return clamp(CGPoint(x: x, y: y), size: size, bounds: bounds)
+        clamp(
+            CGPoint(x: bounds.midX, y: bounds.midY), size: size, bounds: bounds)
     }
 
     static func clamp(_ point: CGPoint, size: CGSize, bounds: CGRect) -> CGPoint {
@@ -294,7 +296,21 @@ final class WaveformAssistStore {
     }
 
     func setScale(_ scale: Double) {
-        options.scale = WaveformAssist.Options.clampedScale(scale)
+        var next = options
+        next.scale = WaveformAssist.Options.clampedScale(scale)
+        next.hasCustomScale = true
+        options = next
+    }
+
+    /// Plot, hit frame and resize origin all consume the same effective size.
+    func presentationScale(
+        in bounds: CGRect, tablet: Bool? = nil
+    ) -> Double {
+        guard bounds.width > 1, bounds.height > 1 else { return options.scale }
+        return MonitorScopeSizing.scale(
+            portrait: bounds.height > bounds.width,
+            tablet: tablet ?? (UIDevice.current.userInterfaceIdiom == .pad),
+            preferred: options.hasCustomScale ? options.scale : nil)
     }
 
     func sessionCenter(in bounds: CGRect) -> CGPoint? {
@@ -332,60 +348,65 @@ struct WaveformLongPressMenu: View {
     var compact: Bool = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            SettingsInlineRow(title: "Mode", showTopDivider: false, stacked: compact) {
-                SettingsSegmented(
-                    options: WaveformAssist.Mode.allCases.map(\.rawValue),
-                    selected: options.mode.rawValue,
-                    compact: compact,
+        VStack(alignment: .leading, spacing: 12) {
+            MonitorInspectorCard {
+                SettingsInlineRow(title: "Mode", showTopDivider: false, stacked: compact) {
+                    SettingsSegmented(
+                        options: WaveformAssist.Mode.allCases.map(\.rawValue),
+                        selected: options.mode.rawValue,
+                        compact: compact,
+                        stacked: compact
+                    ) {
+                        guard let mode = WaveformAssist.Mode(rawValue: $0), mode != options.mode
+                        else {
+                            return
+                        }
+                        options.mode = mode
+                    }
+                }
+                SettingsInlineRow(
+                    title: "Brightness",
+                    help: WaveformAssist.brightnessHelp,
                     stacked: compact
                 ) {
-                    guard let mode = WaveformAssist.Mode(rawValue: $0), mode != options.mode else {
-                        return
-                    }
-                    WaveformAssistHaptics.selection()
-                    options.mode = mode
+                    WaveformPercentSlider(
+                        value: Binding(
+                            get: { options.brightness },
+                            set: {
+                                let next = WaveformAssist.Options.clampedBrightness($0)
+                                guard next != options.brightness else { return }
+                                WaveformAssistHaptics.selection()
+                                options.brightness = next
+                            }),
+                        range: WaveformAssist.brightnessRange)
                 }
             }
-            SettingsInlineRow(
-                title: "Brightness",
-                help: WaveformAssist.brightnessHelp,
-                stacked: compact
-            ) {
-                WaveformPercentSlider(
-                    value: Binding(
-                        get: { options.brightness },
-                        set: {
-                            let next = WaveformAssist.Options.clampedBrightness($0)
-                            guard next != options.brightness else { return }
-                            WaveformAssistHaptics.selection()
-                            options.brightness = next
-                        }),
-                    range: WaveformAssist.brightnessRange)
-            }
-            SettingsSwitchInlineRow(
-                title: "Safe Border Clip",
-                stacked: compact,
-                isOn: options.guides.clip
-            ) {
-                WaveformAssistHaptics.selection()
-                options.guides.clip.toggle()
-            }
-            SettingsSwitchInlineRow(
-                title: "Safe Border Crush",
-                stacked: compact,
-                isOn: options.guides.crush
-            ) {
-                WaveformAssistHaptics.selection()
-                options.guides.crush.toggle()
-            }
-            SettingsSwitchInlineRow(
-                title: "Middle Gray",
-                stacked: compact,
-                isOn: options.guides.middle
-            ) {
-                WaveformAssistHaptics.selection()
-                options.guides.middle.toggle()
+            MonitorInspectorCard("Guide lines") {
+                SettingsSwitchInlineRow(
+                    title: "Safe clip",
+                    showTopDivider: false,
+                    stacked: compact,
+                    isOn: options.guides.clip
+                ) {
+                    WaveformAssistHaptics.selection()
+                    options.guides.clip.toggle()
+                }
+                SettingsSwitchInlineRow(
+                    title: "Safe crush",
+                    stacked: compact,
+                    isOn: options.guides.crush
+                ) {
+                    WaveformAssistHaptics.selection()
+                    options.guides.crush.toggle()
+                }
+                SettingsSwitchInlineRow(
+                    title: "Middle gray",
+                    stacked: compact,
+                    isOn: options.guides.middle
+                ) {
+                    WaveformAssistHaptics.selection()
+                    options.guides.middle.toggle()
+                }
             }
         }
     }
@@ -441,9 +462,9 @@ struct WaveformMovablePanel<Content: View>: View {
     }
 
     var body: some View {
-        let options = store.options
         let size = ScopePanelPlacement.fittedSize(
-            WaveformAssist.panelSize(scale: options.scale), in: movementBounds)
+            WaveformAssist.panelSize(scale: store.presentationScale(in: canvas)), in: movementBounds
+        )
         let fallback = WaveformAssist.defaultCenter(
             feed: feed, size: size, bounds: canvas, chromeClearance: chromeClearance)
         let rawCenter = WaveformAssist.resolvedCenter(
@@ -513,7 +534,8 @@ struct WaveformMovablePanel<Content: View>: View {
                     x: origin.x + drag.translation.width,
                     y: origin.y + drag.translation.height)
                 let size = ScopePanelPlacement.fittedSize(
-                    WaveformAssist.panelSize(scale: store.options.scale), in: movementBounds)
+                    WaveformAssist.panelSize(scale: store.presentationScale(in: canvas)),
+                    in: movementBounds)
                 let snapped = ScopePanelPlacement.clamp(
                     WaveformAssist.snap(proposed), size: size, in: movementBounds)
                 let cell = WaveformAssist.hapticCell(snapped)
@@ -550,7 +572,7 @@ struct WaveformMovablePanel<Content: View>: View {
             .onChanged { drag in
                 if !isResizing {
                     isResizing = true
-                    resizeStartScale = store.options.scale
+                    resizeStartScale = store.presentationScale(in: canvas)
                 }
                 let reach = WaveformAssist.baseSize.width + WaveformAssist.baseSize.height
                 let delta = (drag.translation.width + drag.translation.height) / reach
@@ -578,13 +600,12 @@ struct WaveformCornerResizeGrip: Shape {
 private enum WaveformAssistHaptics {
     @MainActor
     static func selection() {
-        let generator = UIImpactFeedbackGenerator(style: .light)
-        generator.prepare()
-        generator.impactOccurred()
+        OperatorSettingsHaptics.selection(enabled: OperatorPrefs.hapticsEnabled)
     }
 
     @MainActor
     static func confirm() {
+        guard OperatorPrefs.hapticsEnabled else { return }
         let generator = UIImpactFeedbackGenerator(style: .rigid)
         generator.prepare()
         generator.impactOccurred(intensity: 1.0)

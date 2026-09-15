@@ -1,4 +1,6 @@
 import CoreMotion
+import MonitorPresentation
+import MonitorUI
 import OpenPocketViewCore
 import SwiftUI
 import UIKit
@@ -76,14 +78,36 @@ enum LiveAssistTool: String, CaseIterable, Identifiable {
 
     var hasConfiguration: Bool {
         switch self {
-        // AUDIO / MIRROR match OpenZCine: tap-only. No channel picker, no H/V flip.
-        case .audioMeters, .mirror, .evMeter, .instantReview, .magnification, .level, .desqueeze:
+        // Mirror stays tap-only; audio options affect presentation only.
+        case .mirror, .evMeter, .instantReview, .magnification, .level, .desqueeze:
             false
         default: true
         }
     }
 
-    /// OpenZCine `MonitorAssistTool.icon`. ZEBRA draws `ZebraStripesShape` instead.
+    /// The approved prototype owns these tool glyphs; app-only tools retain
+    /// Lucide fallbacks without inventing a new visual language.
+    var monitorIcon: MonitorAssistIcon? {
+        switch self {
+        case .lut: .lut
+        case .peaking: .peaking
+        case .falseColor: .falseColor
+        case .zebra: .zebra
+        case .waveform: .waveform
+        case .parade: .rgbParade
+        case .histogram: .histogram
+        case .vectorscope: .vectorscope
+        case .trafficLights: .trafficLights
+        case .guides: .frameGuide
+        case .grid: .grid
+        case .crosshair: .crosshair
+        case .mirror: .mirror
+        case .audioMeters: .audioMeters
+        default: nil
+        }
+    }
+
+    /// Existing app-only assist glyphs use the shared Lucide catalog.
     var opcIcon: OpcIcon? {
         switch self {
         case .lut: .blend
@@ -255,7 +279,9 @@ final class LiveAssistState {
     /// OpenZCine `playbackVisibleAssistTools` — independent of the live toolbar.
     var playbackVisibleTools: Set<LiveAssistTool> = []
     var showLUTPicker = false
-    var configureTool: LiveAssistTool?
+    var configureTool: LiveAssistTool? {
+        didSet { if configureTool != .lut { inspectorLUTCache = nil } }
+    }
     /// Icon (or toolbar) frame in `LiveCanvasSpace` for the long-press options popup.
     var longPressAnchor: CGRect = .zero
     /// OpenZCine `scopes.crushClipCompensation` — shared by HISTO edge lights and LIGHTS.
@@ -271,16 +297,25 @@ final class LiveAssistState {
     /// Media player is grading a clip (connected or not). LUT sheet must not
     /// restamp Auto from the live SET — disconnected has no `inPlayback` flag.
     var gradesClip = false
+    /// Live Photo / Photo. Not persisted. Playback clears this so clip color wins.
+    var liveIsPhoto = false
+    /// Inspector-only sampling follows the active scene and its visible source.
+    /// Picture effects keep their existing lifetime beneath operator pages.
+    var inspectorSceneActive = true
 
     @ObservationIgnored private var lutCube: CubeLUT?
     @ObservationIgnored private var lutDimension = 0
     @ObservationIgnored private var lutRGBA = Data()
     @ObservationIgnored private var lastSaved: Data?
+    @ObservationIgnored private var inspectorLUTCache: InspectorLUTCache?
 
     var lutArmed: Bool { lutEnabled }
 
     var lutStatusLabel: String {
-        LUTResolver.statusLabel(
+        if liveIsPhoto, lutEnabled, lutSelection == .auto || lutSelection == .djiAuto {
+            return "Auto · Rec.709"
+        }
+        return LUTResolver.statusLabel(
             enabled: lutEnabled,
             selection: lutSelection,
             source: resolvedSource()
@@ -288,7 +323,7 @@ final class LiveAssistState {
     }
 
     func resolvedSource() -> LUTSource {
-        LUTResolver.resolve(
+        LiveLUTResolver.resolve(
             selection: lutSelection,
             colorMode: monitorColorMode,
             family: monitorFamily,
@@ -296,7 +331,8 @@ final class LiveAssistState {
             hasCustomDLog: CustomLUTStore.hasCube(.dLog),
             hasCustomDLog2: CustomLUTStore.hasCube(.dLog2),
             hasCustomRec709: CustomLUTStore.hasCube(.rec709),
-            customFileName: OperatorPrefs.selectedCustomFileName
+            customFileName: OperatorPrefs.selectedCustomFileName,
+            isPhoto: liveIsPhoto
         )
     }
 
@@ -325,6 +361,7 @@ final class LiveAssistState {
             zebraHighlightColor: zebraHighlightColor,
             zebraMidtoneColor: zebraMidtoneColor,
             colorMode: monitorColorMode ?? .normal,
+            allowsTransferInference: !liveIsPhoto,
             splitComparison: splitComparison && isVisible(.lut),
             splitVertical: splitVertical,
             mirror: isVisible(.mirror),
@@ -332,11 +369,14 @@ final class LiveAssistState {
             desqueezeHorizontal: desqueezeHorizontal,
             trafficThreshold: crushClipCompensation.pixelFractionThreshold
         )
+        .withInspectorDemand(inspectorSceneActive && !gradesClip ? configureTool : nil)
     }
 
     /// Same graph as live, gated by playback-visible tools (OpenZCine `playbackImageEffects`).
     var playbackEffects: LiveImageEffects {
         var fx = effects
+        fx.allowsTransferInference = true
+        fx.inspectorSample = false
         fx.peaking = isPlaybackVisible(.peaking)
         fx.zebra = isPlaybackVisible(.zebra)
         fx.falseColor = isPlaybackVisible(.falseColor)
@@ -351,7 +391,7 @@ final class LiveAssistState {
         fx.splitComparison = splitComparison && isPlaybackVisible(.lut)
         fx.mirror = isPlaybackVisible(.mirror)
         fx.desqueezeFactor = isPlaybackVisible(.desqueeze) ? desqueezeFactor : 1
-        return fx
+        return fx.withInspectorDemand(inspectorSceneActive && gradesClip ? configureTool : nil)
     }
 
     init() {
@@ -501,15 +541,20 @@ final class LiveAssistState {
     }
 
     /// Color / zoom / body changes only swap the cube while an Auto row is selected.
+    /// Photo does not persist Rec.709 over last live log, and does not rewrite LUT prefs.
     func syncLUT(
         to colorMode: ColorMode?,
         family: CameraBodyFamily = .pocket,
-        cameraName: String? = nil
+        cameraName: String? = nil,
+        isPhoto: Bool = false,
+        persistLast: Bool = true
     ) {
-        monitorColorMode = colorMode
+        liveIsPhoto = isPhoto && !gradesClip
+        monitorColorMode = LiveMonitorColorScience.colorMode(
+            isPhoto: liveIsPhoto, colorMode: colorMode)
         monitorFamily = family
         if let cameraName { monitorCameraName = cameraName }
-        if let colorMode {
+        if persistLast, let colorMode, !liveIsPhoto {
             OperatorPrefs.lastMonitorColorMode = colorMode
         }
         refreshLUTCube()
@@ -522,6 +567,7 @@ final class LiveAssistState {
         family: CameraBodyFamily = .pocket,
         cameraName: String? = nil
     ) {
+        liveIsPhoto = false
         monitorColorMode = colorMode
         monitorFamily = family
         if let cameraName { monitorCameraName = cameraName }
@@ -530,66 +576,79 @@ final class LiveAssistState {
 
     /// LUT sheet appear. Live SET must not replace the clip's Auto cube —
     /// including disconnected library playback (`gradesClip`, no camera SET).
+    /// Watcher isolation: do not restamp from the camera session.
     func bindLUTPicker(
         live: ColorMode?,
         inPlayback: Bool,
         family: CameraBodyFamily = .pocket,
-        cameraName: String? = nil
+        cameraName: String? = nil,
+        isPhoto: Bool = false,
+        isWatching: Bool = false
     ) {
         if inPlayback || gradesClip {
+            liveIsPhoto = false
             refreshLUTCube()
             return
         }
-        syncLUT(to: live, family: family, cameraName: cameraName)
+        if isWatching {
+            refreshLUTCube()
+            return
+        }
+        syncLUT(to: live, family: family, cameraName: cameraName, isPhoto: isPhoto)
     }
 
     func refreshLUTCube() {
-        guard lutEnabled else {
+        inspectorLUTCache = nil
+        guard lutEnabled, let cube = resolvedLUTCube() else {
             lutCube = nil
             lutDimension = 0
             lutRGBA = Data()
             return
         }
+        cache(cube)
+    }
+
+    /// Resolves the same selected look for the main picture and a forced-on
+    /// inspector. Calling this never changes enablement or preferences.
+    private func resolvedLUTCube() -> CubeLUT? {
         switch resolvedSource() {
         case .official(let id):
-            if let cube = BundledPocketLUT.cube(id) {
-                cache(cube)
-            } else {
-                lutCube = nil
-                lutDimension = 0
-                lutRGBA = Data()
-            }
+            return BundledPocketLUT.cube(id)
         case .dji(let id):
-            if let cube = BundledOfficialDJILUT.cube(id) {
-                cache(cube)
-            } else {
-                lutCube = nil
-                lutDimension = 0
-                lutRGBA = Data()
-            }
+            return BundledOfficialDJILUT.cube(id)
         case .creative(let look):
-            cache(look.cube())
+            return look.cube()
         case .custom(let slot):
-            if let cube = CustomLUTStore.cube(slot) {
-                cache(cube)
-            } else {
-                lutCube = nil
-                lutDimension = 0
-                lutRGBA = Data()
-            }
+            return CustomLUTStore.cube(slot)
         case .file(let name):
-            if let cube = CustomLUTStore.cube(fileName: name) {
-                cache(cube)
-            } else {
-                lutCube = nil
-                lutDimension = 0
-                lutRGBA = Data()
-            }
+            return CustomLUTStore.cube(fileName: name)
         case .off:
-            lutCube = nil
-            lutDimension = 0
-            lutRGBA = Data()
+            return nil
         }
+    }
+
+    func inspectorLUT(transfer: MonitorTransfer) -> (dimension: Int, rgba: Data) {
+        if let cached = inspectorLUTCache,
+            cached.selection == lutSelection, cached.transfer == transfer,
+            cached.stops == lutExposureStops
+        {
+            return (cached.dimension, cached.rgba)
+        }
+        guard let cube = resolvedLUTCube() else { return (0, Data()) }
+        let gpu = cube.colorCube.compensatingExposure(stops: lutExposureStops, transfer: transfer)
+        let rgba = gpu.rgbaComponents.withUnsafeBytes { Data($0) }
+        inspectorLUTCache = InspectorLUTCache(
+            selection: lutSelection, stops: lutExposureStops, transfer: transfer,
+            dimension: gpu.size, rgba: rgba)
+        return (gpu.size, rgba)
+    }
+
+    private struct InspectorLUTCache {
+        var selection: LUTSelection
+        var stops: Double
+        var transfer: MonitorTransfer
+        var dimension: Int
+        var rgba: Data
     }
 
     /// Import adds a custom cube. Auto rows keep following color; otherwise this file arms.
@@ -717,6 +776,12 @@ enum OperatorPrefs {
     private static let hapticsKey = "OpenPocketCine.HapticsEnabled"
     private static let headTrackingKey = "OpenPocketCine.HeadTrackingEnabled"
     private static let gimbalStickSensitivityKey = "OpenPocketCine.GimbalStickSensitivity"
+    private static let virtualJoystickInvertPanKey = "OpenPocketCine.VirtualJoystickInvertPan"
+    private static let virtualJoystickInvertTiltKey = "OpenPocketCine.VirtualJoystickInvertTilt"
+    private static let virtualJoystickDeadzonePercentKey =
+        "OpenPocketCine.VirtualJoystickDeadzonePercent"
+    private static let virtualJoystickResponseCurveKey =
+        "OpenPocketCine.VirtualJoystickResponseCurve"
     private static let gimbalRampKey = "OpenPocketCine.GimbalRamp"
     private static let dispLiveKey = "OpenPocketCine.DispChrome.Live"
     private static let dispCleanKey = "OpenPocketCine.DispChrome.Clean"
@@ -732,6 +797,7 @@ enum OperatorPrefs {
     private static let shareThisFeedKey = "OpenPocketCine.ShareThisFeed"
     private static let controlRequestsKey = "OpenPocketCine.ControlRequests"
     private static let broadcastPriorityKey = "OpenPocketCine.BroadcastPriority"
+    private static let assistToolUsageKey = "OpenPocketCine.AssistToolUsage.v1"
 
     static var shareThisFeed: Bool {
         get { UserDefaults.standard.bool(forKey: shareThisFeedKey) }
@@ -788,6 +854,20 @@ enum OperatorPrefs {
         set { UserDefaults.standard.set(newValue, forKey: hapticsKey) }
     }
 
+    static var assistToolUsage: MonitorToolUsage {
+        get {
+            guard let data = UserDefaults.standard.data(forKey: assistToolUsageKey),
+                let value = try? JSONDecoder().decode(MonitorToolUsage.self, from: data)
+            else { return MonitorToolUsage() }
+            return value
+        }
+        set {
+            if let data = try? JSONEncoder().encode(newValue) {
+                UserDefaults.standard.set(data, forKey: assistToolUsageKey)
+            }
+        }
+    }
+
     static var headTrackingEnabled: Bool {
         get { UserDefaults.standard.bool(forKey: headTrackingKey) }
         set { UserDefaults.standard.set(newValue, forKey: headTrackingKey) }
@@ -816,6 +896,50 @@ enum OperatorPrefs {
             UserDefaults.standard.set(
                 GimbalStick.clampedSensitivity(newValue), forKey: gimbalStickSensitivityKey)
         }
+    }
+
+    static var virtualJoystickInvertPan: Bool {
+        get { UserDefaults.standard.bool(forKey: virtualJoystickInvertPanKey) }
+        set { UserDefaults.standard.set(newValue, forKey: virtualJoystickInvertPanKey) }
+    }
+
+    static var virtualJoystickInvertTilt: Bool {
+        get { UserDefaults.standard.bool(forKey: virtualJoystickInvertTiltKey) }
+        set { UserDefaults.standard.set(newValue, forKey: virtualJoystickInvertTiltKey) }
+    }
+
+    static var virtualJoystickDeadzonePercent: Int {
+        get {
+            guard UserDefaults.standard.object(forKey: virtualJoystickDeadzonePercentKey) != nil
+            else {
+                return GimbalStick.defaultDeadzonePercent
+            }
+            return GimbalStick.clampedDeadzonePercent(
+                UserDefaults.standard.integer(forKey: virtualJoystickDeadzonePercentKey))
+        }
+        set {
+            UserDefaults.standard.set(
+                GimbalStick.clampedDeadzonePercent(newValue),
+                forKey: virtualJoystickDeadzonePercentKey)
+        }
+    }
+
+    static var virtualJoystickResponseCurve: GimbalStick.ResponseCurve {
+        get {
+            GimbalStick.ResponseCurve.parse(
+                UserDefaults.standard.string(forKey: virtualJoystickResponseCurveKey))
+        }
+        set {
+            UserDefaults.standard.set(newValue.rawValue, forKey: virtualJoystickResponseCurveKey)
+        }
+    }
+
+    static var virtualJoystickMapping: GimbalStick.Mapping {
+        GimbalStick.Mapping(
+            invertPan: virtualJoystickInvertPan,
+            invertTilt: virtualJoystickInvertTilt,
+            deadzone: GimbalStick.deadzoneFromPercent(virtualJoystickDeadzonePercent),
+            curve: virtualJoystickResponseCurve)
     }
 
     static var dispLive: PocketDispChrome {
@@ -1223,12 +1347,6 @@ struct FeedAlignedAssists: View {
                     HStack(alignment: .bottom, spacing: 8) {
                         extraScopes(assist)
                         Spacer(minLength: 0)
-                        if !model.isWatchingFeed, assist.isVisible(.audioMeters) {
-                            AudioAssist.meter(
-                                levels: model.session.status.audioMeters,
-                                sensitivity: model.session.status.audioChannel?.label
-                            )
-                        }
                     }
                     .padding(.horizontal, 14)
                     .padding(.bottom, 86)
@@ -1241,12 +1359,6 @@ struct FeedAlignedAssists: View {
     @ViewBuilder
     private func extraScopes(_ assist: LiveAssistState) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            if assist.isVisible(.falseColor), assist.falseColorReference {
-                FalseColorLegend(
-                    scale: assist.falseColorScale,
-                    colorMode: model.monitorColorMode ?? .normal
-                )
-            }
             if !model.isWatchingFeed, assist.evMeter {
                 EVMeterOverlay()
             }
@@ -1487,7 +1599,7 @@ struct FeedSplitComparisonMarks: View {
 
     private func label(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 8, weight: .semibold, design: .monospaced))
+            .font(MonitorTheme.font(8, weight: .semibold)).monospacedDigit()
             .kerning(0.5)
             .foregroundStyle(Color.white.opacity(0.85))
             .shadow(color: .black.opacity(0.8), radius: 1.5, y: 0.5)
@@ -1709,7 +1821,7 @@ private struct LevelAxisGauge: View {
     private var readout: some View {
         let shown = abs(value) < 0.05 ? 0 : value
         return Text(String(format: "%+.1f°", shown))
-            .font(.system(size: 11, weight: .semibold, design: .monospaced))
+            .font(MonitorTheme.font(11, weight: .semibold)).monospacedDigit()
             .foregroundStyle(isLevel ? LiveDesign.good : LiveDesign.text.opacity(0.85))
             .fixedSize()
             .offset(
@@ -1738,7 +1850,7 @@ struct EVMeterOverlay: View {
     var body: some View {
         HStack(spacing: 10) {
             Text("+0.0")
-                .font(.system(size: 11.5, weight: .semibold, design: .monospaced))
+                .font(MonitorTheme.font(11.5, weight: .semibold)).monospacedDigit()
                 .foregroundStyle(LiveDesign.text)
                 .frame(width: 34, alignment: .trailing)
             Capsule().fill(LiveDesign.hairlineStrong).frame(width: 120, height: 3)
@@ -1794,7 +1906,7 @@ struct AssistToolChip: View {
             AssistToolIcon(tool: tool, size: 19)
                 .frame(height: 23)
             Text(tool.rawValue)
-                .font(.system(size: 9, weight: .medium, design: .monospaced))
+                .font(MonitorTheme.font(9, weight: .medium)).monospacedDigit()
                 .tracking(0.9)
                 .lineLimit(1)
         }
@@ -1815,39 +1927,14 @@ struct AssistToolChip: View {
 
 struct AssistToolIcon: View {
     let tool: LiveAssistTool
-    var size: CGFloat = 19
+    /// Shared palettes supply their own size; legacy standalone chips keep 19 points.
+    var size: CGFloat? = 19
 
     var body: some View {
-        if tool == .zebra {
-            ZebraStripesShape()
-                .stroke(
-                    style: StrokeStyle(
-                        lineWidth: max(1.6, size * 0.13), lineCap: .round, lineJoin: .round)
-                )
-                .frame(width: size, height: size)
+        if let icon = tool.monitorIcon {
+            icon.frame(width: size, height: size)
         } else if let icon = tool.opcIcon {
-            icon
-                .frame(width: size, height: size)
+            icon.frame(width: size, height: size)
         }
-    }
-}
-
-struct ZebraStripesShape: Shape {
-    var count = 3
-
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        let side = min(rect.width, rect.height)
-        let diag = CGFloat(0.5).squareRoot()
-        let halfLen = side * 0.40 / 2
-        let step = side * 0.27
-        for index in 0..<count {
-            let offset = CGFloat(index) - CGFloat(count - 1) / 2
-            let cx = rect.midX + offset * step * diag
-            let cy = rect.midY + offset * step * diag
-            path.move(to: CGPoint(x: cx - halfLen * diag, y: cy + halfLen * diag))
-            path.addLine(to: CGPoint(x: cx + halfLen * diag, y: cy - halfLen * diag))
-        }
-        return path
     }
 }

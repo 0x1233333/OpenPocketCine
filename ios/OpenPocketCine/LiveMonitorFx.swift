@@ -32,6 +32,8 @@ struct LiveImageEffects: Equatable, Sendable {
     var zebraMidtoneColor: ZebraPaint = .amber
     /// Sibling / session stamps the camera color mode so D-Log2 IRE does not treat mid-grey as clip.
     var colorMode: ColorMode = .normal
+    /// Photo has an authoritative Rec.709 source; scene brightness cannot identify log.
+    var allowsTransferInference = true
     var splitComparison = false
     var splitVertical = true
     /// Left-to-right monitor flip. Applied in `VideoView`, not this compositor.
@@ -44,6 +46,9 @@ struct LiveImageEffects: Equatable, Sendable {
     var trafficThreshold: Double = ScopeTrafficLights.defaultThreshold
     /// AF-C face box. Starts VT so Vision can see a `CVPixelBuffer`.
     var faceAF = false
+    /// An open inspector requests the existing decoded-source tap. It never
+    /// enables a main-picture effect or an additional decoder/display sink.
+    var inspectorSample = false
 
     /// Peaking / false colour / zebra / LUT / display transforms — painted on the video frame.
     var needsGPUFeed: Bool {
@@ -89,7 +94,7 @@ struct LiveImageEffects: Equatable, Sendable {
 
     /// GPU feed, CPU scopes, or AF-C face detect. Any one starts VT for a pixel buffer.
     var needsSample: Bool {
-        needsGPUFeed || needsScopes || faceAF
+        needsGPUFeed || needsScopes || faceAF || inspectorSample
     }
 
     var needsProcessedFeed: Bool { needsSample }
@@ -1346,6 +1351,9 @@ final class CIFeedView: UIView {
                     frame.drawableSize == self.metalLayer.drawableSize
                 {
                     if success {
+                        #if DEBUG
+                            FeedStressAutomation.notePresent()
+                        #endif
                         self.notePresented(frame, at: completedAt)
                         self.onPresented?()
                     } else {

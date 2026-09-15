@@ -7,6 +7,9 @@ options:
   createIntermediateGroups: true
 
 packages:
+  Sentry:
+    url: https://github.com/getsentry/sentry-cocoa
+    exactVersion: 9.24.0
   OpenPocketViewCore:
     path: ..
 
@@ -16,9 +19,19 @@ targets:
     platform: iOS
     sources:
       - OpenPocketCine
+    postBuildScripts:
+      - name: Stamp source revision
+        script: bash "${SRCROOT}/../tools/stamp-source-revision.sh"
+        basedOnDependencyAnalysis: false
     dependencies:
+      - package: Sentry
+        product: Sentry
       - package: OpenPocketViewCore
         product: OpenPocketViewCore
+      - package: OpenPocketViewCore
+        product: MonitorUI
+      - package: OpenPocketViewCore
+        product: MonitorPresentation
       - target: OpenPocketCineWatch
         embed: true
         codeSign: true
@@ -28,6 +41,8 @@ targets:
         # keep the prototype moving; the core package stays Swift 6 strict-concurrency and fully tested.
         # ponytail: tighten to Swift 6 once the I/O layer is validated on hardware.
         SWIFT_VERSION: "5.0"
+        # Internal device builds need symbols just as distributed builds do.
+        DEBUG_INFORMATION_FORMAT: dwarf-with-dsym
         # Same App ID as Android and the App Store Connect record. Enable Hotspot
         # Configuration on this identifier in the Developer portal.
         PRODUCT_BUNDLE_IDENTIFIER: com.opencapture.openpocketcine
@@ -62,9 +77,9 @@ targets:
         INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         INFOPLIST_KEY_CADisableMinimumFrameDurationOnPhone: YES
-        # iPad split-view requires every orientation unless the app is full screen.
-        # Live monitor is a single-scene camera UI — not a split-view client.
-        INFOPLIST_KEY_UIRequiresFullScreen: YES
+        # Native iPad resizing lets UIKit report window-control exclusions.
+        # Do not request UIRequiresFullScreen compatibility scaling: it keeps a
+        # fixed scene size underneath the system window buttons on iPadOS 26.
         INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription: "OpenPocketCine uses Bluetooth to find and pair with your DJI Osmo Pocket and hand off Wi-Fi."
@@ -124,6 +139,22 @@ targets:
         WATCHOS_DEPLOYMENT_TARGET: "10.0"
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks"
 
+  OpenPocketCineUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - OpenPocketCineUITests
+    dependencies:
+      - target: OpenPocketCine
+    settings:
+      base:
+        SWIFT_VERSION: "5.0"
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.opencapture.openpocketcine.uitests
+        TEST_TARGET_NAME: OpenPocketCine
+        DEVELOPMENT_TEAM: "4V4EGQ6LZA"
+        CODE_SIGN_STYLE: Automatic
+
 schemes:
   OpenPocketCine:
     build:
@@ -138,3 +169,11 @@ schemes:
     build:
       targets:
         OpenPocketCineWatch: all
+  OpenPocketCineUIReview:
+    build:
+      targets:
+        OpenPocketCine: all
+        OpenPocketCineUITests: [test]
+    test:
+      targets:
+        - OpenPocketCineUITests

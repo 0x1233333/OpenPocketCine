@@ -78,8 +78,12 @@ tunnel still up, the waiting well uses `LocalVPNFilter.liveHint`. Do not
 name AdGuard / Blokada / sister camera apps in chrome — the handbook FAQ
 does.
 
-Record confirmation is a bottom action sheet, not a centred dialog. Apple
-Watch rec / shutter skips that sheet (the phone may be in a cage), same as
+Record confirmation is a bottom action sheet. It applies to starting and stopping
+recording; **Photo** uses a shutter button and fires immediately without that
+sheet. A pending recording confirmation is dismissed when shooting mode,
+recording state, connection, or interface lock changes.
+Low-Light / SuperNight is a video mode and retains recording controls.
+Apple Watch rec / shutter skips the sheet (the phone may be in a cage), same as
 gamepad Cross/A.
 
 Watch placeholders: **Open OpenPocketCine on iPhone** only when there is
@@ -99,7 +103,7 @@ Movable scopes and the LIGHTS / ND panels use direct touch-drag. Their corner
 grips resize directly too. Scopes may sit partly under top and bottom readout /
 assist bars and underneath the entire joystick/zoom/gimbal-controls cluster in
 portrait or landscape. The cluster remains above scopes, and its visibility does
-not change their placement boundary. The iOS Calibrate Head Lock / STOP button
+not change their placement boundary. The iOS Head Lock compass (above the joystick cluster on the right)
 also draws above scopes without restricting where they can move. Focus reset and audio meters do not fence
 off a whole side of the screen.
 Reserve the record/media/settings rail and portrait system button row with
@@ -129,11 +133,22 @@ separate hold-to-move interaction.
 - TestFlight / Play What to Test is this-build operator copy (`docs/tester-notes.md`).
 - Connection setup (first pair): **Share Diagnostics** on the wizard so a
   tester who never reaches Operator Setup can still send a report.
-- Operator Setup → System → **Share Diagnostics**. iOS screenshot for
-  TestFlight copies a compact paste (`docs/diagnostics.md`).
+- Operator Setup → System → **Report a problem** opens a native Sentry form
+  for a description, optional reply email, optional reviewed technical details and
+  up to three selected photos/screenshots. Show previews and removal before Send.
+  Automatic error reports are a separate optional toggle; manual submission does not turn that toggle on.
+  **Diagnostic options** is a separate chevron disclosure card for save/export
+  and local deletion. Public GitHub reporting and feature-request choices are absent from this operator flow.
+  iOS screenshot for TestFlight still copies a compact paste (`docs/diagnostics.md`).
 
 ## When this pointer fires
 
 First-run, wizard, saved-camera list, operator-facing strings, assist help,
 empty/error states, or reconnect copy. Run `OperatorFacingCopyTests` when iOS
 strings change. Prove wizard and reconnect **physical**.
+
+The first configured launch asks once whether to enable automatic error reports.
+Enable and Not now are explicit choices; neither is preselected. Declining leaves
+manual reporting and all camera features available. The System toggle permits
+a later change. An update asks if no reporting choice was previously saved;
+existing Enable and Not now decisions are respected.

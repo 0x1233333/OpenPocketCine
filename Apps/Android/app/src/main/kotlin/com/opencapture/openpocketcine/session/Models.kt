@@ -63,6 +63,15 @@ data class CameraModel(
             return n.contains("pocket3") || n.contains("muse")
         }
 
+        fun looksLikePocket4Pro(name: String): Boolean {
+            val n = name.lowercase().replace(" ", "")
+            return n.contains("pocket4p")
+        }
+
+        /** SlowMo `0x02/0x18` trailer context. Regular Pocket 4 stays unqualified. */
+        fun supportsSlowMoFormatTrailer(name: String): Boolean =
+            looksLikePocket3(name) || looksLikePocket4Pro(name)
+
         fun looksLikeNano(name: String, family: String = ""): Boolean {
             if (family == "nano") return true
             return name.lowercase().contains("nano")
@@ -316,6 +325,14 @@ data class CameraStatus(
     val colorLabel: String
         get() = CameraCommands.colorLabel(colorMode)
 
+    /** Still capture: Photo `05`/`17` and Live Photo `4D`. SuperNight is video. */
+    val isPhoto: Boolean
+        get() = CameraCommands.isPhotoMode(shootingMode)
+
+    /** Live LUT/scope color. Photo/Live Photo is Rec.709 even if `@2` still reports log. */
+    val monitorColorMode: Int
+        get() = if (isPhoto) CameraCommands.COLOR_NORMAL else colorMode
+
     val resolutionLabel: String
         get() = CameraCommands.resolutionLabel(resolutionCode)
 
@@ -396,6 +413,65 @@ data class CameraStatus(
             }
         return if (at2 >= 0) applyingAudioByte2(at2) else copy(audioDspAt2 = at2)
     }
+
+    fun clearedModeDependentCapabilities(): CameraStatus =
+        copy(
+            availableVideoFormats = emptyList(),
+            availableShutterDenoms = emptyList(),
+            availableIsoIndices = emptyList(),
+            availableColorModes = emptyList(),
+        )
+
+    /**
+     * Keep camcap wheels across the first unknown → mode report. A later mode
+     * change must not resurrect the previous mode's ISO / shutter / color / FORMAT lists.
+     */
+    fun droppingStaleModeDependentCaps(previous: CameraStatus): CameraStatus {
+        if (shouldPreserveModeDependentCaps(previous.shootingMode, shootingMode)) return this
+        fun stale(current: List<*>, prior: List<*>): Boolean = current == prior && current.isNotEmpty()
+        return copy(
+            availableVideoFormats =
+                if (stale(availableVideoFormats, previous.availableVideoFormats)) emptyList()
+                else availableVideoFormats,
+            availableShutterDenoms =
+                if (stale(availableShutterDenoms, previous.availableShutterDenoms)) emptyList()
+                else availableShutterDenoms,
+            availableIsoIndices =
+                if (stale(availableIsoIndices, previous.availableIsoIndices)) emptyList()
+                else availableIsoIndices,
+            availableColorModes =
+                if (stale(availableColorModes, previous.availableColorModes)) emptyList()
+                else availableColorModes,
+        )
+    }
+
+    /** First unknown→mode keeps initial wheels; a later mode hop does not restore them. */
+    fun mergingModeDependentCaps(previous: CameraStatus): CameraStatus {
+        if (!shouldPreserveModeDependentCaps(previous.shootingMode, shootingMode)) {
+            return droppingStaleModeDependentCaps(previous)
+        }
+        var next = this
+        if (next.availableShutterDenoms.isEmpty()) {
+            next = next.copy(availableShutterDenoms = previous.availableShutterDenoms)
+        }
+        if (next.availableIsoIndices.isEmpty()) {
+            next = next.copy(availableIsoIndices = previous.availableIsoIndices)
+        }
+        if (next.availableColorModes.isEmpty()) {
+            next = next.copy(availableColorModes = previous.availableColorModes)
+        }
+        if (next.availableVideoFormats.isEmpty()) {
+            next = next.copy(availableVideoFormats = previous.availableVideoFormats)
+        }
+        return next
+    }
+
+    /**
+     * `camcap_video_format` is per shooting mode. Keep a new table from this
+     * apply; drop a leftover Video list when the mode changed without a fresh cap.
+     */
+    fun droppingStaleVideoFormats(previous: CameraStatus): CameraStatus =
+        droppingStaleModeDependentCaps(previous)
 
     fun preservingExtras(prev: CameraStatus): CameraStatus =
         copy(
@@ -525,6 +601,9 @@ data class CameraStatus(
         }
 
     companion object {
+        fun shouldPreserveModeDependentCaps(previousMode: Int, nextMode: Int): Boolean =
+            previousMode < 0 || previousMode == nextMode
+
         fun fromJson(raw: String?): CameraStatus {
             if (raw.isNullOrBlank()) return CameraStatus()
             return runCatching {

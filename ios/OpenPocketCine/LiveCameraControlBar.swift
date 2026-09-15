@@ -1,23 +1,38 @@
+import MonitorPresentation
+import MonitorUI
 import OpenPocketViewCore
 import SwiftUI
 
 /// OpenZCine `MonitorCaptureStrip` + `CaptureSettingButton` for Pocket:
 /// ISO — SHUTTER — MODE — WB — FOCUS — AUDIO. Parent already sizes this to ~2/3 width.
 struct LiveCameraControlBar: View {
+    var columns = 6
     @Environment(AppModel.self) private var model
     @Environment(\.interfaceLocked) private var interfaceLocked
+    @State private var readoutOwnership = MonitorReadoutOwnership()
 
     var body: some View {
         tileStrip
             .frame(maxWidth: .infinity, alignment: .trailing)
             .onChange(of: interfaceLocked) { _, locked in
-                if locked { model.captureSheet = nil }
+                if locked {
+                    model.captureSheet = nil
+                    model.captureDrum = nil
+                }
             }
             .onChange(of: model.session.isLocked) { _, locked in
-                if locked { model.captureSheet = nil }
+                if locked {
+                    model.captureSheet = nil
+                    model.captureDrum = nil
+                }
             }
+            .onChange(of: columns) { _, _ in model.captureDrum = nil }
             .onChange(of: model.session.supportsFocusMode) { _, on in
                 if !on, model.captureSheet == .focus { model.captureSheet = nil }
+            }
+            .onChange(of: model.session.status.isPhoto) { _, photo in
+                if photo, model.captureSheet == .audio { model.captureSheet = nil }
+                if photo, model.captureDrum?.sheet == .audio { model.captureDrum = nil }
             }
     }
 
@@ -25,33 +40,43 @@ struct LiveCameraControlBar: View {
         interfaceLocked || model.session.isLocked
     }
 
+    private var showsAudio: Bool { !model.session.status.isPhoto }
+
+    private var visibleTileCount: Int {
+        4 + (model.session.supportsFocusMode ? 1 : 0) + (showsAudio ? 1 : 0)
+    }
+
+    private var gridColumns: Int { columns == 3 ? 3 : max(visibleTileCount, 1) }
+
     private var tileStrip: some View {
-        HStack(spacing: 0) {
+        MonitorControlGrid(
+            columns: gridColumns, spacing: columns == 3 ? 8 : 12, equalColumns: columns == 3
+        ) {
             tile(.iso, label: "ISO", value: isoValue, widest: "25600")
             if model.session.status.expoMode == .auto {
                 tile(
-                    .shutter, label: "EV", value: evValue, widest: "+3.0",
+                    .shutter,
+                    label: MonitorExposureReadout.autoEvCaption(
+                        shutterDenom: model.session.status.shutterDenom),
+                    value: evValue, widest: "+3.0",
                     badgeIcon: model.facePriorityExposureEnabled
                         ? CaptureLists.facePriorityBadgeIcon : nil)
             } else {
                 tile(
                     .shutter, label: "SHUTTER", value: shutterValue,
-                    widest: OperatorPrefs.shutterUsesAngle ? "346°" : "1/16000")
+                    widest: OperatorPrefs.shutterUsesAngle
+                        && !model.session.status.isPhoto ? "346°" : "1/16000")
             }
-            tile(.exposure, label: "MODE", value: expoValue, widest: "Manual")
+            tile(.exposure, label: "EXPOSURE", value: expoValue, widest: "Manual")
             tile(.wb, label: "WB", value: wbValue, widest: "10000K", valueIcon: wbIcon)
             if model.session.supportsFocusMode {
                 tile(.focus, label: "FOCUS", value: focusValue, widest: "Showcase")
             }
-            tile(.audio, label: "AUDIO", value: audioValue, widest: "Spatial")
+            if showsAudio {
+                tile(.audio, label: "AUDIO", value: audioValue, widest: "Spatial")
+            }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
         .frame(maxWidth: .infinity)
-        .frame(height: LiveDesign.controlHeight)
-        .liveChromeGlass(
-            in: RoundedRectangle(cornerRadius: LiveDesign.cornerRadius, style: .continuous)
-        )
         .contentShape(Rectangle())
         .onTapGesture {}
         .opacity(tilesLocked ? 0.4 : 1)
@@ -66,21 +91,24 @@ struct LiveCameraControlBar: View {
         valueIcon: OpcIcon? = nil,
         badgeIcon: OpcIcon? = nil
     ) -> some View {
-        let isActive = model.captureSheet == sheet
-        return Button {
-            open(sheet)
-        } label: {
-            CaptureBarReadout(
-                label: label,
-                value: value,
-                widest: widest,
-                isActive: isActive,
-                valueIcon: valueIcon,
-                badgeIcon: badgeIcon
-            )
-        }
-        .buttonStyle(.plain)
+        let isActive = model.captureSheet == sheet || model.captureDrum?.sheet == sheet
+        let acceptsTouch =
+            !tilesLocked && (model.captureDrum == nil || model.captureDrum?.sheet == sheet)
+        return CaptureBarReadout(
+            label: label,
+            value: value,
+            widest: widest,
+            isActive: isActive,
+            valueIcon: valueIcon,
+            badgeIcon: badgeIcon
+        )
+        .modifier(
+            CaptureReadoutGesture(
+                sheet: sheet, locked: tilesLocked, ownership: $readoutOwnership
+            ) { open(sheet) }
+        )
         .disabled(tilesLocked)
+        .allowsHitTesting(acceptsTouch)
         .frame(maxWidth: .infinity)
         .geometryGroup()
         .background {
@@ -91,20 +119,19 @@ struct LiveCameraControlBar: View {
                 )
             }
         }
+        .accessibilityIdentifier("monitor.capture.\(sheet.rawValue)")
         .accessibilityLabel(label)
         .accessibilityValue(
             badgeIcon == nil ? value : "\(value), \(CaptureLists.facePriorityTitle)")
     }
 
     private func open(_ sheet: CaptureSheet) {
-        guard !tilesLocked else { return }
-        if model.captureSheet == nil {
-            model.captureSheet = sheet
-        } else if model.captureSheet == sheet {
-            model.captureSheet = nil
-        } else {
-            model.captureSheet = sheet
-        }
+        guard !tilesLocked, model.captureDrum == nil, readoutOwnership.owner == nil else { return }
+        model.captureDrum = nil
+        model.captureSheet = CaptureReadoutAdmission.replacing(
+            model.captureSheet,
+            with: CaptureReadoutAdmission.opening(
+                sheet, isPhoto: model.session.status.isPhoto))
     }
 
     private var isoValue: String {
@@ -114,11 +141,10 @@ struct LiveCameraControlBar: View {
     }
 
     private var shutterValue: String {
-        if OperatorPrefs.shutterUsesAngle {
-            return ShutterAngle.label(OperatorPrefs.shutterAngleDegrees)
-        }
-        let d = model.session.status.shutterDenom
-        return d > 0 ? "1/\(d)" : "—"
+        CaptureQuickSnapshot.shutterReadout(
+            status: model.session.status,
+            shutterUsesAngle: OperatorPrefs.shutterUsesAngle,
+            shutterAngleDegrees: OperatorPrefs.shutterAngleDegrees)
     }
 
     private var evValue: String {
@@ -149,7 +175,8 @@ struct LiveCameraControlBar: View {
     }
 
     private var expoValue: String {
-        model.session.status.expoMode?.label ?? "—"
+        model.session.status.expoMode == .manual
+            ? "M" : model.session.status.expoMode == .auto ? "A" : "—"
     }
 
     private var audioValue: String {
@@ -168,43 +195,12 @@ struct CaptureBarReadout: View {
     var badgeIcon: OpcIcon? = nil
 
     var body: some View {
-        VStack(spacing: 3) {
+        MonitorReadout(label, active: isActive) {
             HStack(spacing: 3) {
-                Text(label)
-                    .font(LiveType.ui(size: 9, weight: .semibold, design: .default))
-                if let badgeIcon {
-                    badgeIcon
-                        .frame(width: 11, height: 11)
-                }
+                if let valueIcon { valueIcon.frame(width: 17, height: 17) }
+                Text(value)
+                if let badgeIcon { badgeIcon.frame(width: 11, height: 11) }
             }
-            .foregroundStyle(isActive ? LiveDesign.accent : LiveDesign.muted)
-            Text(widest)
-                .font(.system(size: 17, weight: .medium, design: .default))
-                .hidden()
-                .overlay {
-                    if let valueIcon {
-                        valueIcon
-                            .frame(width: 18, height: 18)
-                            .foregroundStyle(isActive ? LiveDesign.accent : LiveDesign.text)
-                    } else {
-                        Text(value)
-                            .font(.system(size: 17, weight: .medium, design: .default))
-                            .foregroundStyle(isActive ? LiveDesign.accent : LiveDesign.text)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
-                    }
-                }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 5)
-        .padding(.horizontal, 4)
-        .background {
-            RoundedRectangle(cornerRadius: LiveDesign.cornerRadius, style: .continuous)
-                .fill(isActive ? LiveDesign.accentDim : Color.clear)
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: LiveDesign.cornerRadius, style: .continuous)
-                .strokeBorder(isActive ? LiveDesign.accentDim : Color.clear, lineWidth: 1)
         }
     }
 }

@@ -137,6 +137,7 @@ final class PlaybackFeedSession: NSObject {
     private var effects = LiveImageEffects()
     private var transfer = MonitorTransfer.rec709
     private var lastBuffer: CVPixelBuffer?
+    private var lastBackdropBuffer: CVPixelBuffer?
     private var lastSubmittedNs: Int64 = 0
     private var lastOverlayOnly = false
     private var lastUnmanagedBake = false
@@ -177,6 +178,8 @@ final class PlaybackFeedSession: NSObject {
         }
         boundItem = item
         lastBuffer = nil
+        lastBackdropBuffer = nil
+        sampleBus?.clearPlaybackSource()
         lastSubmittedNs = 0
         pendingKick = false
         loggedRaster = false
@@ -254,6 +257,8 @@ final class PlaybackFeedSession: NSObject {
         self.effects = effects
         self.transfer = transfer
         self.sampleBus = sampleBus
+        if !sampleBus.usesPlaybackSource { sampleBus.clearPlaybackSource() }
+        sampleBus.usesPlaybackSource = true
         if changed {
             lastSubmittedNs = 0
             host?.ciFeed.resetPresentDedup()
@@ -287,6 +292,7 @@ final class PlaybackFeedSession: NSObject {
         } else if changed {
             stopLink()
             sampleBus.playbackBundle = nil
+            sampleBus.clearPlaybackSource()
         }
     }
 
@@ -296,8 +302,11 @@ final class PlaybackFeedSession: NSObject {
         boundItem?.remove(output)
         boundItem = nil
         lastBuffer = nil
+        lastBackdropBuffer = nil
         lastSubmittedNs = 0
         sampleBus?.playbackBundle = nil
+        sampleBus?.clearPlaybackSource()
+        sampleBus?.usesPlaybackSource = false
         assistEngine.reset()
         host?.onDrawableReady = nil
         host?.ciFeed.onPresented = nil
@@ -316,6 +325,22 @@ final class PlaybackFeedSession: NSObject {
         link.preferredFrameRateRange = PlaybackDisplayLink.pollRange
         link.add(to: .main, forMode: .common)
         displayLink = link
+    }
+
+    /// Called only by the visible backdrop's admitted 5 Hz job. The existing
+    /// output is already attached to the player; this neither seeks nor starts
+    /// a second output, display link, decoder or assist presentation pipeline.
+    @MainActor
+    func backdropSource() -> CVPixelBuffer? {
+        guard boundItem != nil else { return nil }
+        if effects.needsSample { return sampleBus?.playbackSourcePixelBuffer }
+        let time = outputTime()
+        if output.hasNewPixelBuffer(forItemTime: time),
+            let buffer = output.copyPixelBuffer(forItemTime: time, itemTimeForDisplay: nil)
+        {
+            lastBackdropBuffer = buffer
+        }
+        return lastBackdropBuffer
     }
 
     private func stopLink() {
@@ -391,10 +416,11 @@ final class PlaybackFeedSession: NSObject {
 
     private func submit(_ buffer: CVPixelBuffer, timeNs: Int64) {
         lastSubmittedNs = timeNs
+        let sourceEpoch = itemEpoch
         assistEngine.submit(buffer, effects: effects, transfer: transfer, timeNs: timeNs) {
             [weak self] result in
             Task { @MainActor [weak self] in
-                self?.present(result)
+                self?.present(result, sourceEpoch: sourceEpoch)
             }
         }
     }
@@ -407,11 +433,14 @@ final class PlaybackFeedSession: NSObject {
     }
 
     @MainActor
-    private func present(_ result: LiveAssistEngine.Result) {
+    private func present(_ result: LiveAssistEngine.Result, sourceEpoch: UInt64) {
+        guard boundItem != nil, sourceEpoch == itemEpoch else { return }
         if let bundle = result.bundle {
             sampleBus?.playbackBundle = bundle
         }
         guard result.shouldPresent else { return }
+        sampleBus?.playbackSourcePixelBuffer = result.source
+        sampleBus?.playbackSourceTransfer = result.transfer
         lastOverlayOnly = result.overlayOnly
         lastUnmanagedBake = result.unmanagedBake
         guard let host else {

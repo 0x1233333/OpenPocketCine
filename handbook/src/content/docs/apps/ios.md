@@ -7,7 +7,105 @@ The production iOS app is a universal iPhone and iPad SwiftUI shell in
 `ios/OpenPocketCine/`. It is the operator-proven datalink. Generate the Xcode
 project with XcodeGen — see [Setup](../guides/setup/).
 
+## Field Monitor interface
+
+The native UI uses Sora typography, cyan controls and dark panels. Portrait
+phones place exposure values in two rows above the system buttons; landscape
+puts those values along the bottom of the picture. **REC SETUP** opens capture
+format, color and shooting options from the top of the monitor. Portrait keeps
+Format / Color / Mode tabs on the details drawer; landscape has no extra
+category row, and shooting mode is its own top control (not FORMAT). ISO,
+shutter, white balance, focus and audio stay along the bottom and remain
+visible while a top picker is open. Auto exposure keeps EV as the value and
+shows the camera-chosen shutter under it (`EV 1/200s`). Tap a value for the full details drawer;
+hold or drag for a compact dial. Lift to apply the selected value. Camera controls hold your selection while the
+camera confirms it, so an older status update does not briefly move the dial back.
+A rejected or unconfirmed change returns to the reported camera value after settling.
+Hold Record to open shooting mode.
+In **Photo**, the capture control becomes a shutter and takes a photo immediately,
+without recording confirmation. Photo and camera-reported Live Photo hide video color-profile, frame-rate,
+codec/bit-depth, timecode, recording-duration and audio controls. White balance,
+ISO, EV, shutter speed, focus, zoom and photographic assists remain available.
+Video-only panels close when the camera changes to a still-photo mode, and
+returning to Video restores the relevant controls without resetting assist
+preferences. Pocket 4 Pro Slow Motion labels 200 fps as **200p**, including the
+3× lens's reported options; available rates follow the current camera capability
+list rather than a fixed wide-lens maximum. **Low-Light / SuperNight** retains start/stop recording.
+Changing modes clears stale format choices. A pending recording confirmation is
+dismissed if the mode, recording state, connection, or interface lock changes.
+Automated physical iPhone testing with Pocket 4 Pro verified Photo chrome in
+portrait and both landscape orientations, the 3× Slow Motion 200p readout and
+picker ceiling, continued live frames, and restoration of Video controls.
+The test did not trigger still capture or recording; other bodies and the
+remaining capture-submode controls still need physical qualification.
+In portrait, Settings and Media remain usable with a picker open; returning to
+the monitor restores that picker. The fitted feed is centered vertically; STBY,
+timecode and REC SETUP sit in a separate row below the notch or status area.
+View Assist, FIT/FILL and the joystick cluster stay above the camera values in
+fixed positions when switching FIT/FILL.
+
+The camera battery gauge shows the percentage reported by your Osmo, or a dash
+when unavailable. Top capture settings, STBY and timecode align in one row;
+Lock matches the Settings and Media button size.
+The live signal indicator uses the Link Health colors from Settings: red for
+Poor (0–1 bars), orange for Watch (2–3), and green for Stable (4).
+
+Floating controls use blurred translucent panels with sharp labels and icons.
+The blur tracks the live or playback picture. Reduce Transparency uses solid
+panels. Some live-video paths use the system's blur treatment until decoded
+picture samples are available.
+
+The View Assist palette collapses into the lower-left control area. Expand it for the
+full catalog; tap a tool to toggle it or hold to open its options inspector.
+Playback uses that same live-view slot.
+Image previews use the raw feed and work with all scopes off.
+On Pocket 4 Pro, tap zoom to alternate 1× and 3×; double tap for 6× and 12×
+when digital zoom is available. Other cameras retain their supported zoom stops.
+Hold the zoom value for a continuous dial. The disc hub reads hundredths (1.53×)
+and the chip still shows tenths. Its limits and recording restrictions
+remain camera-specific. In landscape the larger disc sits on the trailing
+screen edge and covers the controls beneath it until closed. In portrait it
+sits on the bottom screen edge. Gimbal cameras expose Mode, Speed, Ramp and
+the existing experimental Motion Control editor in a wider trailing drawer. Mode, Speed and
+Ramp each have a tab with their own dial; the Motion Control action stays visible.
+
+Operator Setup and Media use a navigation rail in landscape and scrolling tabs
+in portrait. Settings and Media place Back outside the full-height sidebar in
+landscape; portrait keeps it beside the brand and title in the header. Back uses
+the same button styling as the live-view controls. The bottom of the Media sidebar
+holds one row with Grid and List buttons and Small/Medium/Large sizes; in portrait,
+these controls stay at the bottom of the page. Filter uses the same chip as Sort.
+The filter card stays fully on screen, including next to the island and above
+the home indicator. Set a start and end date with the calendar, and filter by
+log/colour profile when that profile is known for a clip. Pull down on the library to refresh.
+Hold a clip to begin selecting, then drag across clips to select a range. In
+selection mode, swipe up or down to scroll without changing the selection, or
+drag sideways to select a range. Hold a clip to sweep in any direction, including
+near the top or bottom of the gallery to autoscroll; lift your finger to stop.
+Selection circles appear only while selecting.
+
+Media retains favorites, cache state,
+playback assists and the existing delivery actions.
+
+On iPad, the interface reflows as you resize the app window. System window buttons
+stay clear of the monitor controls. Camera-connected use while resizing is still
+under physical iPad validation.
+
+View Assist favorites match the live system-button size and remember which
+tools you actually use (saved on the phone). Collapsed, landscape keeps two
+favorites and portrait keeps one, under the arrow. The expanded catalog
+uses those same cells. Tap the arrow to open or close, or press and drag it
+so the expanding edge stays under your finger; a flick finishes the motion.
+The landscape expand
+arrow accepts taps farther to its right, with the toolbar anchored in place.
+
 ## Moving scopes
+
+Newly enabled windowed scopes start in the center, ready for you to place them.
+The false-color reference key also starts centered and can be dragged.
+Saved positions remain yours. AUDIO starts on the left at vertical center and
+can also be dragged. Hold AUDIO for Vertical / Horizontal bars and optional
+left/right dBFS readings; these affect the meter display, not camera recording.
 
 Drag WAVE, PARADE, HISTO, VECTOR, LIGHTS, or ND directly to move it. Drag its
 corner grip to resize. Scopes can sit partly under the top and bottom bars.
@@ -37,6 +135,11 @@ space after rotation or resizing, including saved positions. Long-press a View A
   Last live D-Log / D-Log2 is the fallback when that atom is missing —
   `colr`/`nclx` is Rec.709 even for log. Opening LUT on a disconnected clip
   keeps that Auto cube (it does not restamp from a missing live SET).
+  In Photo and Live Photo, live monitoring uses Rec.709: DJI log conversions
+  are hidden and bypassed, including a saved manual conversion. Creative and
+  imported Custom looks remain available. Returning to Video restores the
+  saved conversion unless you changed your LUT selection. Opening a recorded
+  clip still uses that clip's color profile.
 - Camera writes (record, ISO, EV, zoom, gimbal on Pocket). Current zoom chips are (Pocket 4 Pro 1×/3×/6×/12×; Pocket 4 1×/2×/4×; Pocket 3 1×/2×/4×
   with 4K max 2×; Nano 1×). Pocket 3's confirmed **2.7K limit is 3×**; its
   generic 4× choice still needs correction ([survey](https://openpocketcine.app/docs/protocol/pocket3/#zoom-and-med-tele)).
@@ -52,17 +155,15 @@ space after rotation or resizing, including saved positions. Long-press a View A
   COLOR follows the body: D-Log2 is Pocket 4 Pro only; Pocket 4 is D-Log;
   Pocket 3 is D-Log M (HLG is HDR); Nano is 8-bit / 10-bit / D-Log M.
   Auto ISO ranges start at 50 on Pocket 3 / Pocket 4 and 100 on Pocket 4 Pro.
-  View Assist **ND** is a small chip on the live picture (bottom-left,
-  above the assist bar; drag to move). Long-press to switch Stops,
+  View Assist **ND** is a small chip on the live picture (centered until placed; drag to move). Long-press to switch Stops,
   ND32, or ND 0.3. It meters against middle gray and suggests a screw-on
   ND to balance the frame. The app cannot set a filter.
   The gimbal stick
-  and zoom chip sit together as a cluster in the trailing-bottom of the
-  picture — the same on iPhone and iPad, portrait and landscape. A
-  gimbal-controls button sits beside zoom (Pocket only). That sheet parks
-  like a capture picker. Mode / Speed / Ramp tabs reveal their settings below:
-  Follow / Tilt locked / FPV / Direction Lock, Slow / Default / Fast, and stick ramp.
-  A separate Gimbal tools footer opens experimental Motion Control for an A→B (optional C) take
+  and zoom chip sit together as a cluster at the lower right: above the camera
+  values in portrait and over the picture in landscape, on iPhone and iPad. A
+  gimbal-controls button sits beside zoom (Pocket only). Its trailing drawer
+  has Mode, Speed and Ramp tabs, each with its own dial: Follow / Tilt locked / FPV / Direction Lock,
+  Slow / Default / Fast, and stick ramp. The Motion Control footer opens the experimental editor for an A→B (optional C) take
   (set A and B, choose each leg’s duration; hold and drag
   anywhere on the editor). With C set, Smoothness rounds the corner near B and shows a dashed curve.
   Zero hits B exactly; higher values bypass B while preserving A/C and total
@@ -77,24 +178,28 @@ space after rotation or resizing, including saved positions. Long-press a View A
   Lock Gimbal behavior remains under investigation and is not available in the app.
   Ramp smooths joystick-input changes: Off is immediate, Soft eases more gradually
   than Medium. Releasing the stick still stops immediately. Head tracking is experimental (Operator Setup → Controls,
-  off by default). With AirPods that report motion, Calibrate Head Lock —
-  centered above the bottom bars — is shared forward: that head pose and
-  that gimbal pose are zero. A head turn pans the Pocket; a nod tilts.
+  off by default). With AirPods that report motion, the compass above the
+  joystick on the right is Calibrate Head Lock: that head pose and that
+  gimbal pose are shared forward. A head turn pans the Pocket; a nod tilts.
   The gimbal follows that direction using direct angle targets. Roll is shown,
-  not driven. STOP clears the lock. Manual controls and Motion Control takes take
+  not driven. The same control becomes STOP and clears the lock. Manual controls and Motion Control takes take
   priority; lost head motion pauses tracking. Allow Motion & Fitness when
   prompted. If motion never arrives, Calibrate offers an explicit retry;
   a Bluetooth connection alone does not confirm motion delivery.
   Scopes can be moved beneath the
-  Calibrate Head Lock / STOP button in either orientation. Responsiveness remains
-  experimental. A connected game controller's left stick drives the same path.
+  compass Head Lock control in either orientation. Responsiveness remains
+  experimental. A connected game controller's selected stick drives the same path (Left by default).
   Cross/A records. Circle/B recenters. Square/X is rotate-180. Triangle/Y
   tracks a face in frame or cancels. L1/R1 jump zoom out/in. L2/R2
   hold-to-zoom (deeper is faster). D-pad up/down ISO, left/right shutter.
   A toast says Gamepad connected or disconnected; unplug rests the
   stick. Operator Setup → Controls → Gamepad shows Connected / Not
-  connected. A gimbal stop pulses only after the head moves then stalls
-  (Haptics setting). Stick
+  connected. Choose **Gimbal joystick → Left / Right** in the same Controls tab.
+  D-pad shutter changes also update the shutter-angle readout when angle display is selected.
+  A gimbal stop pulses only after the head moves then stalls
+  (Haptics setting). Capture drums, the zoom disc, and duration
+  dials pulse on coarse snaps (172° → 180°, 3×, whole seconds),
+  not on every hundredth or half-second tick. Stick
   pan stays picture-relative. The rotate-180 button inverts pan at the
   end of the rotation (like Mimo). Extra-mirror live view when that 180
   lands and Selfie Flip is off; Flip on skips extra-mirror. The last
@@ -139,10 +244,10 @@ dedicated physical acceptance. The earlier one-iPad smoothness report does not
 qualify those newer flows or multiple wireless watchers. See the
 [watcher relay evidence](https://github.com/erik-sutton95/OpenPocketCine/blob/main/docs/watcher-relay.md).
 
-On **Your cameras**, the selected row shows connection progress and **Cancel**,
-including while looking for an offline camera. The eye button in the camera-list
-header opens **Watch a feed**, beside the Multiview grid button. Pair new camera,
-Media library, and Settings remain on the intro card.
+On **Your cameras**, PAIRED and NEARBY groups separate remembered cameras from
+new discoveries. Select a camera to see its connection progress and **Cancel**.
+**Pair new camera** opens the guided flow; select a discovered camera, then
+**Continue**. Media and Settings remain available without connecting.
 
 **Multiview** is an experimental iPhone/iPad stage for several cameras on shared
 Wi-Fi. From **Your cameras**, tap the grid icon to set up the network and add
@@ -154,9 +259,15 @@ Nano preview and recording have been checked together on iPhone. Pocket 3
 recovery after an app switch required a full rejoin and roughly a minute in the
 recorded test. Android Multiview remains unavailable.
 
-Motion Control durations use half-second dials up to 120 seconds. Swipe left
-to increase duration and right to decrease it. Move the expanded
-window by holding anywhere, or drag the minimized pill directly. Dragging
+Tap Layout to switch Grid/Center stage; hold Layout for Shared Wi-Fi. Clean
+hides the upper session controls and assist palette; DISP restores them.
+
+Motion Control shows A, B and C with their reported pan, tilt and zoom, or
+**Not set**. The joystick remains usable while the editor is open, so you can
+position the camera before saving a point. Other outside taps minimize the editor
+without activating the controls behind it. Durations use half-second dials up to
+120 seconds. Swipe left to increase duration and right to decrease it. Drag the expanded window or minimized pill directly; no hold is needed.
+Duration dials and sliders keep their own gestures. Dragging
 does not activate Start/Stop or expand. Start shows a cancellable three-second
 countdown before preparation and approach to A. Pause holds the move; Resume
 continues from the stopped position without another countdown. Stop clears the
@@ -229,3 +340,35 @@ Priority EV still use the previous D-Log approximation for D-Log M. The scope
 fix did not calibrate those controls. This limitation concerns exposure math,
 not the choice of the official D-Log M conversion cube. See the
 [D-Log M investigation](https://github.com/erik-sutton95/OpenPocketCine/blob/main/docs/pocket3-dlogm-curve.md).
+
+### Upcoming share destinations
+
+Share shows Google Drive, Dropbox, NAS (SMB), LucidLink, Backblaze B2 and
+Vimeo Review as **Coming soon**. These destinations are previews of planned
+support and cannot be selected yet. Use the available destinations to share now.
+
+### On-screen joystick feel
+
+In **Controls → On-screen joystick**, tune the virtual gimbal stick:
+
+- **Invert pan** and **Invert tilt** reverse each direction independently.
+- **Dead zone** ignores small movements near the center. The default is 8%.
+- **Response curve** changes how movement grows with stick travel: Linear is
+  direct, Standard keeps the current feel, and Fine gives gentler small moves.
+
+Both inversion options default to off and the response defaults to Standard.
+These settings are saved and affect the on-screen joystick. The existing
+sensitivity setting continues to control overall speed.
+
+The touch range extends 35% beyond the joystick's outer radius while the ring
+and knob keep their existing size. Continue dragging past the ring for full
+input. Returning to the center during a drag respects the dead zone; lifting
+your finger releases the stick.
+
+### Automatic error reports
+
+On the first launch with automatic reporting available, the app asks whether to
+send optional crash, error and feed-dropout reports. This also applies after an
+update if you have never made that choice. Enable or Not now is remembered;
+updates do not ask again after a decision. You can change the choice in
+**Operator Setup → System → Automatic error reports**.

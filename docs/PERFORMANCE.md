@@ -2,7 +2,7 @@
 
 The picture is the product. Chrome, scopes, and SET traffic ride around it.
 Target hardware is mid/high-end: iPhone 13-class and newer; Android API 33+
-with ≥4 GB RAM (the Kyant glass gate). Prove **physical** after any live-path
+with ≥4 GB RAM. Prove **physical** after any live-path
 change.
 
 Numbers that already have a home stay there. This file is the SLO index and the
@@ -20,19 +20,37 @@ the same PR.
 | Live enable | **Enable-once.** Further enables follow the watchdog only | `AGENTS.md`, [`feed-watchdog.md`](feed-watchdog.md) |
 | Stall / recover | 2 s UDP silence is a stall; 8 s GOP grace after `0x09/0xa8`; 4 s after an AF-C SET; 5 s between enables; 60 s UDP rebuild backoff. Encoder pause permits two enables, then one rebuild that negotiates a fresh handshake. Full-session automatic recovery has a separate 180 s total cap | `FeedWatchdog`, [`feed-watchdog.md`](feed-watchdog.md), `SessionRecoveryPolicy` |
 | HUD chrome | 5 Hz (`LiveChromeThrottle.statusInterval` = 0.2 s). REC, format, color, zoom, and the other `isImmediate` fields bypass | `LiveChromeThrottle` |
-| Scope tap | 25 Hz with 1–2 scopes, 10 Hz with 3+ (`PocketScopeSampler`). 200-wide downsample (213×120 on 720p SoftAP). Thermal ×3 serious / ×5 critical. A 50 Hz proxy still skips. Assists-off is one blit — no 1280×720 histogram or readback per frame | [`ANDROID.md`](../ANDROID.md) I/O; iOS present path matches the rate |
-| HUD glass sample | PixelCopy ~20 Hz when Kyant cannot sample the SurfaceView | [`ANDROID.md`](../ANDROID.md) |
+| Scope tap | 25 Hz with 1–2 scopes, 10 Hz with 3+ (`PocketScopeSampler`). 200-wide downsample (213×120 on 720p SoftAP). Thermal ×3 serious / ×5 critical. A 50 Hz proxy still skips. No scope histogram work with scopes off; the separate floating-chrome budget can request the small tap. No 1280×720 histogram or readback per frame | [`ANDROID.md`](../ANDROID.md) I/O; iOS present path matches the rate |
+| Floating chrome | Controlled Gaussian blur, saturation and tint on a bounded GPU product that tracks the visible picture. One passive displayed-look job per visible source, latest-wins, capped at 60 Hz (thermal ×3 serious / ×5 critical). Admission survives source, option and view changes. iOS canvas products are at most 320 px on their longest side; Android reuses the 213×120-class raw tap (25 Hz when that tap is the source) and production look shaders. No full-resolution window/swapchain capture, second decoder or per-widget CPU readback. Hidden sources stop backdrop work. Page surfaces remain opaque. | `MonitorUI`, Android `monitor-ui`, platform backdrop source owners |
+| Inspector preview | Only while the visible source’s inspector is open and the scene is active: at most 5 Hz, latest source, downsample to at most 320 px before image processing, one job in flight; session-retained admission preserves its 200 ms floor and occupied slot across tab changes and remounts. Cancellation invalidates results without releasing unfinished work, and expensive LUT preparation happens only after admission. Playback cannot request samples from a hidden live inspector. Scope previews reuse the existing bounded scope products. | `AssistInspectorPreview` |
 | Zoom pinch | Distinct lens ticks at 20 Hz, no ACK wait | [`PARITY.md`](PARITY.md) |
-| Gimbal stick | `0x04/0x01` notify at **25 Hz** on the UDP ACK queue while held; one rest packet on lift. Not MainActor `sendUntracked` (that starved window ACK). AirPods IMU samples ~100 Hz off main; a 25 Hz pump publishes native targets to a latest-only mailbox. Native wire emission has a 40 ms minimum interval on the 25 ms ACK timer (typically 20 Hz). Duplicate targets are suppressed; a not-ready socket cannot accumulate a backlog. HUD at the 5 Hz chrome budget. Head-track yaw/pitch rings (head + gimbal arrows) follow the 25 Hz pump while Head Tracking is on (not the 5 Hz HUD). Motion Control waypoint letters follow the 25 Hz stick budget — not 60 Hz `TimelineView.animation` / `withFrameNanos` on the live canvas (that starved ingest and flashed Reconnecting). Motion Control session progress is 5 Hz; no debug overlay is drawn. Timed-path ticks use monotonic elapsed time; a gap over 120 ms or attitude receipt age over 300 ms aborts the take. Physical precision remains unqualified ([Motion Control takes](programmed-moves.md)). | `GimbalStick.streamInterval`, iOS `DatalinkDriver.tickGimbalStick`, `HeadphoneMotionBridge` |
+| Gimbal stick | `0x04/0x01` notify at **25 Hz** on the UDP ACK queue while held; one rest packet on lift. A held stick holds encoder-pause recover the same way the zoom disc does (no GOP-cut / UDP rebuild until lift). The live picture well and stick do not animate across orientation. Not MainActor `sendUntracked` (that starved window ACK). AirPods IMU samples ~100 Hz off main; a 25 Hz pump publishes native targets to a latest-only mailbox. Native wire emission has a 40 ms minimum interval on the 25 ms ACK timer (typically 20 Hz). Duplicate targets are suppressed; a not-ready socket cannot accumulate a backlog. HUD at the 5 Hz chrome budget. Head-track yaw/pitch rings (head + gimbal arrows) follow the 25 Hz pump while Head Tracking is on (not the 5 Hz HUD). Motion Control waypoint letters follow the 25 Hz stick budget — not 60 Hz `TimelineView.animation` / `withFrameNanos` on the live canvas (that starved ingest and flashed Reconnecting). Motion Control session progress is 5 Hz; no debug overlay is drawn. Timed-path ticks use monotonic elapsed time; a gap over 120 ms or attitude receipt age over 300 ms aborts the take. Physical precision remains unqualified ([Motion Control takes](programmed-moves.md)). | `GimbalStick.streamInterval`, iOS `DatalinkDriver.tickGimbalStick`, `HeadphoneMotionBridge` |
 | Gimbal mode readback | At most 1 Hz tilt/speed GET, driven by existing attitude receipts; no extra timer | `GimbalParamPoll` |
 | Battery | Sticky `ACTION_BATTERY_CHANGED` (Android); no 1 Hz poll | [`ANDROID.md`](../ANDROID.md) |
 | Watch preview | Ack-paced JPEG, drop-stale, **3** outstanding across wrist wake/resume (fps ≈ depth/RTT; one in flight was ~12 fps). Encode on a detached queue so the three slots overlap. Identity JPEG is `VTCreateCGImageFromCVPixelBuffer` (same family as the phone layer — a DeviceRGB CI bake was a Rec.709 contrast shift). LUT cubes stay unmanaged. Adaptive 320 / 416 / 512 px. A paired, installed companion requests the existing VT decoder even with AF-S and assists off; wrist sleep stops JPEG work without restarting decode. Rec/tally uses `updateApplicationContext` when not reachable. | `WatchRelay` |
+
+Motion Control window dragging keeps transient placement in the floating widget and
+commits its center to the shared model once on release. Android marker prediction
+observes its 25 Hz timeline in a separate drawing leaf, so marker refresh does not
+recompose the editor. This changes presentation invalidation only, not command
+cadence or take scheduling. Native snapshot tests distinguish local drag updates
+from shared-model writes; they are not physical frame-time measurements.
 
 Programmed takes run on the background transport scheduler, using complete-frame
 attitude receipts before the UI hop. Smoothed paths write 20 Hz native targets
 directly at monotonic deadlines under exclusive ownership; UI progress is 5 Hz. Marker/curve projection uses the existing 25 Hz overlay timeline;
 measured motion prediction is display-only. No new ACK timer or video enable
 is introduced. Native stream targets are not logged individually at 20 Hz.
+
+Media drag selection uses the native display clock only while a held selection
+gesture requests edge scrolling. Ordinary vertical scrolling while selecting uses
+the catalog scroller and does not start that clock. Scroll velocity eases through
+a 56 pt/dp band, caps at 720 pt/dp per second, and integrates at most 50 ms after
+a delayed frame. The center, scroll bounds, release and cancellation stop the
+clock. Native lazy cell geometry supplies hit targets; pointer and offset updates
+do not publish whole-page geometry. Selection changes publish only when the range
+endpoint changes. This is a scheduling constraint, not a measured
+sustained-frame-rate claim, and it does not change live feed, scope or HUD budgets.
 
 ## Image anchoring experiment
 
@@ -96,8 +114,84 @@ UI thread (`allowsNextDrawableTimeout` on iOS).
 
 ## Hardware
 
-Kyant liquid glass: API 33+ and ≥4 GB, not `isLowRamDevice`. FULL stays FULL —
-no frame-budget demote. Older / low-RAM devices stay on solid frost.
+UI 2.0 floating chrome blurs a bounded passive presentation image, not a
+full-resolution SurfaceView capture. The blur itself is GPU (Core Image /
+RenderEffect). Cadence follows the visible source up to 60 Hz so the plates
+track live and playback motion; thermal ×3/×5 still applies. iOS shares four
+small blur products across all seven surface roles. Android records only
+sampled image pixels into its panel render nodes; recording descendant chrome
+would create a render-graph cycle. Foreground controls remain sharp. Source
+identity, display look and placement determine cache validity; cancelling a
+task cannot release an unfinished render slot.
+
+iOS Reduce Transparency uses solid plates. Android rendering capability and
+source availability select an explicit fallback. An iOS compressed-layer-only
+feed must not start a second decoder or trigger a live-enable handoff just to
+provide backdrop pixels. These fallback differences are recorded in
+[UI 2.0 qualification](PARITY.md#ui-20-qualification), not presented as measured
+cross-platform identity. Physical thermal and live-rate qualification remain
+required for this additional presentation work.
+
+iOS HUD readout shadows group, then rasterize the glyph/shadow stack locally
+(`drawingGroup` on the readout, never the native video). Treat the isolated
+Debug shadow-only A/B and camera-connected Release timings as separate runs.
+The camera-connected Debug A/B went from the original ungrouped shadows at
+render median 19.28 ms and 153 offscreen passes to the same shadows grouped
+and rasterized at 5 passes, median 5.67 ms. Grouping alone measured 16.13 ms
+and 101 passes. That is not 120 fps proof.
+
+Release measurements on a camera-connected iPhone 16 Pro Max, also not thermal
+qualification: live HUD 112 UI updates, median 9.83 ms / p95 15.35 ms; render
+median 5.71 ms / p95 8.03 ms, five offscreen passes, zero 16.67 ms render
+overruns. Settings 468 updates, median 0.67 ms / p95 8.79 ms / max 124.77 ms;
+render median 3.59 ms / p95 5.24 ms / max 8.93 ms, one or two passes, zero
+render overruns. The settings UI-update max is a main-thread spike, not a
+render overrun.
+
+Covered chrome follows `monitorPresentationVisibility`: opacity, hit-testing and
+accessibility track coverage; decorative pulses stop without remounting the host
+or native feed. Page and feed owners stay outside that modifier. `MonitorCanvas`
+evaluates picture, assist and chrome builders in separate child bodies so a
+slot's telemetry does not subscribe the parent geometry owner. Hosted tests
+verify independent updates and native view identity through coverage and rotation.
+The subsequent 20-second Release live capture measured 118 UI updates: median
+8.51 ms / p95 15.71 ms; render median 5.69 ms / p95 8.21 ms. This does not show
+a material p95 improvement from observation isolation alone.
+
+Settings card placement uses the same width and unspecified-height proposal as
+measurement. Proposing the measured height again during placement caused a
+second layout of nested rows. Hosted tests cover growing content, one/two-column
+transitions, full-width cards and retained native view identity. Comparable
+30-second Release Time Profiler captures on the same phone, View Assist settings
+page and ten alternating scroll gestures measured 16.17 seconds of main-thread
+samples before the correction and 9.11 seconds after. The former 9.98-second
+inclusive placement stack disappeared from the dominant sampled stacks. These
+are sampled CPU costs, not wall-clock scroll latency or a battery measurement.
+A subsequent 25-second, eight-gesture Animation Hitches capture contained 702 UI
+updates: median 1.56 ms / p95 9.04 ms / maximum 33.43 ms. Render median was
+3.79 ms / p95 5.26 ms / maximum 11.95 ms, one or two offscreen passes, with no
+16.67 ms render overruns. The earlier settings capture had a 124.77 ms maximum
+UI update; the p95 remained similar. Gesture completion and update counts vary
+between captures, so these runs do not establish sustained 120 Hz or thermal
+performance. Feed, HUD, scope and backdrop refresh policies remain unchanged.
+
+With waveform and histogram active, a 20-second Release capture with the
+collapsed palette measured UI median 13.92 ms / p95 19.61 ms and render median
+7.86 ms / p95 9.10 ms (13 offscreen passes; no 16.67 ms render overruns).
+With the expanded palette, render median was 10.58 ms / p95 11.76 ms
+(16 passes). These are separate operating states, not a before/after scope
+optimization. Scope rasterization remains Metal-backed and source sampling
+keeps the existing budget. This workload does not establish a 120 Hz UI budget.
+
+The iOS backdrop owner retains one successful input/result for an unchanged
+paused or held source. The key includes ordered retained buffers, effects,
+canvas size, placements, clips and surround color. Identical inputs skip native
+look/blur rendering and snapshot publication while preserving admission timing.
+Owner changes, failure and changed inputs invalidate the entry. Mutable working
+raster buffers and false-color/zebra looks bypass this cache: the former can
+change pixels in place, and the latter depend on additional asynchronously
+updated color/exposure state. This optimization does not change the producer,
+decoder, source cadence or the existing GPU rendering path.
 
 Decoder prefers hardware (`c2.qti` / Exynos, VideoToolbox) over a software
 fallback. GLES `FeedEffectsGlProgram` is the Android decode fallback when
@@ -111,3 +205,14 @@ A live-path, HUD, scope, ACK, playback-LUT, or smoothness change. After the
 edit, the row you touched still matches its owner, and the picture is
 **physical** at the camera’s live rate on mid/high-end hardware. Playback LUT
 on a 720p proxy is the same bar.
+
+### UI 2.0 window geometry
+
+Native window geometry is sampled after UIKit layout callbacks and published only
+when size or insets change. SwiftUI consumes the snapshot through the environment.
+No geometry polling or frame-tick subscription is added; same-size landscape
+rotations still update the physical cutout edges.
+
+The UI 2.0 joystick uses the reference white/cyan treatment. Its former 150 ms
+image-luminance sampling loop and Core Image readback are removed; movement,
+release and the existing transport cadence are unchanged.

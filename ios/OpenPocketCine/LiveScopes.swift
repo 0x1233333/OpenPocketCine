@@ -1,3 +1,4 @@
+import MonitorUI
 import OpenPocketViewCore
 import SwiftUI
 
@@ -371,7 +372,7 @@ struct WaveformOverlay: View {
         let assist = model.monitorSamples.displayBundle
         let options = WaveformAssist.store.options
         let size = ScopePanelPlacement.size(
-            WaveformAssist.panelSize(scale: options.scale),
+            WaveformAssist.panelSize(scale: WaveformAssist.store.presentationScale(in: canvas)),
             canvas: canvas, clearance: chromeClearance)
         let intensity = WaveformAssist.intensity(options.brightness)
         // Transfer rides the bundle — reading session.status here re-rendered
@@ -413,10 +414,7 @@ struct WaveformOverlay: View {
                 canvas: canvas, feed: feed, chromeClearance: chromeClearance,
                 onOpenOptions: { frame in
                     WaveformAssist.presentOptions(anchor: frame, assist: model.assist)
-                }
-            ) {
-                plot
-            }
+                }, content: { plot })
         } else {
             plot
         }
@@ -539,7 +537,7 @@ struct ParadeOverlay: View {
         let transfer = assist.transfer
         let options = ParadeAssist.store.options
         let size = ScopePanelPlacement.size(
-            ParadeAssist.panelSize(scale: options.scale),
+            ParadeAssist.panelSize(scale: ParadeAssist.store.presentationScale(in: canvas)),
             canvas: canvas, clearance: chromeClearance)
         let intensity = ParadeAssist.intensity(options.brightness)
         let plot = ScopeMiniChrome(
@@ -647,7 +645,7 @@ struct HistogramOverlay: View {
         let assist = model.monitorSamples.displayBundle
         let options = HistogramAssist.store.options
         let size = ScopePanelPlacement.size(
-            HistogramAssist.panelSize(scale: options.scale),
+            HistogramAssist.panelSize(scale: HistogramAssist.store.presentationScale(in: canvas)),
             canvas: canvas, clearance: chromeClearance)
         let plot = ScopeMiniChrome(
             title: HistogramAssist.panelTitle, chip: HistogramAssist.chip,
@@ -777,7 +775,8 @@ struct VectorscopeOverlay: View {
             title: "Vector",
             chip: VectorscopeAssist.chip(zoom: options.zoom),
             size: ScopePanelPlacement.size(
-                VectorscopeAssist.panelSize(scale: options.scale),
+                VectorscopeAssist.panelSize(
+                    scale: VectorscopeAssist.store.presentationScale(in: canvas)),
                 canvas: canvas, clearance: chromeClearance)
         ) {
             ZStack {
@@ -968,7 +967,7 @@ struct TrafficLightsOverlay: View {
 /// OpenZCine `TrafficLightsMeterMini` — RED-style RGB goal posts, clip lamps on
 /// top, crush lamps on the floor, `TL` title. `fillsWidth` is the portrait
 /// full-bleed stack; the landscape floating panel stays the 74-box.
-private struct TrafficLightsMeterMini: View {
+struct TrafficLightsMeterMini: View {
     let reading: ScopeTrafficLightsReading
     var fillsWidth: Bool = false
 
@@ -1005,13 +1004,11 @@ private struct TrafficLightsMeterMini: View {
             .padding(.vertical, TrafficLightsAssist.panelPad * uiScale)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
-        .background(ScopePalette.panelFill)
-        .clipShape(RoundedRectangle(cornerRadius: LiveDesign.cornerRadius, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: LiveDesign.cornerRadius)
-                .stroke(LiveDesign.hairline, lineWidth: 1)
+        .monitorGlass(
+            in: RoundedRectangle(cornerRadius: 10, style: .continuous), density: .scope
         )
-        .shadow(color: .black.opacity(0.34), radius: 16, x: 0, y: 12)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .shadow(color: .black.opacity(0.34), radius: 11, y: 8)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(TrafficLightsAssist.accessibilityTitle)
         .accessibilityValue(TrafficLightsAssist.accessibilityValue(for: reading))
@@ -1118,32 +1115,31 @@ private struct ScopeMiniChrome<Content: View>: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            ScopePalette.panelFill
             content()
             HStack(spacing: 4) {
                 Text(title.uppercased())
-                    .font(.system(size: 10.5, weight: .bold, design: .monospaced))
-                    .foregroundStyle(LiveDesign.text.opacity(0.66))
+                    .font(.system(size: 6.5, weight: .bold, design: .monospaced))
+                    .foregroundStyle(LiveDesign.text.opacity(0.6))
                     .lineLimit(1)
                     .minimumScaleFactor(0.65)
                 Spacer(minLength: 2)
                 Text(chip)
-                    .font(.system(size: 9.5, weight: .bold, design: .monospaced))
-                    .foregroundStyle(LiveDesign.text.opacity(0.58))
+                    .font(.system(size: 6.5, weight: .bold, design: .monospaced))
+                    .foregroundStyle(MonitorTheme.accent.opacity(0.92))
                     .lineLimit(1)
                     .minimumScaleFactor(0.65)
             }
-            .padding(.horizontal, 8)
-            .padding(.top, 4)
+            .padding(.horizontal, 7)
+            .padding(.top, 5)
+            .padding(.bottom, 2)
         }
         .frame(width: size.width, height: size.height)
         .compositingGroup()
-        .clipShape(RoundedRectangle(cornerRadius: LiveDesign.cornerRadius, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: LiveDesign.cornerRadius)
-                .stroke(LiveDesign.hairline, lineWidth: 1)
+        .monitorGlass(
+            in: RoundedRectangle(cornerRadius: 10, style: .continuous), density: .scope
         )
-        .shadow(color: .black.opacity(0.34), radius: 16, x: 0, y: 12)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .shadow(color: .black.opacity(0.34), radius: 11, y: 8)
         .allowsHitTesting(false)
     }
 }

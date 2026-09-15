@@ -17,7 +17,11 @@ setup:
 # Run every repository quality check that this tree currently supports.
 # `swift-lint` is available as `just lint` after `just format`; the existing tree is not
 # yet fully swift-format clean, so it is not a merge gate.
-check: hygiene site-check testflight-notes android-play-notes typos lint-md check-links check-editorconfig lint-actions secrets swift-test
+check: hygiene site-check testflight-notes android-play-notes typos lint-md check-links check-editorconfig lint-actions secrets sentry-test swift-test
+
+# Verify release reporting configuration without network or real credentials.
+sentry-test:
+    bash tools/sentry-test.sh
 
 # Reject tracked proprietary, secret-bearing, generated, or machine-specific files.
 hygiene:
@@ -63,11 +67,15 @@ secrets:
 # ── Native production stack ─────────────────────────────────────────────────
 # Format shared Swift and iOS app sources.
 swift-format:
-    swift-format format --in-place --recursive Package.swift Sources Tests ios/OpenPocketCine ios/OpenPocketCineTests ios/OpenPocketCineWatch
+    swift-format format --in-place --recursive Package.swift Sources Tests ios/OpenPocketCine ios/OpenPocketCineTests ios/OpenPocketCineUITests ios/OpenPocketCineWatch
 
 # Lint shared Swift and iOS app sources.
 swift-lint:
-    swift-format lint --strict --recursive Package.swift Sources Tests ios/OpenPocketCine ios/OpenPocketCineTests ios/OpenPocketCineWatch
+    swift-format lint --strict --recursive Package.swift Sources Tests ios/OpenPocketCine ios/OpenPocketCineTests ios/OpenPocketCineUITests ios/OpenPocketCineWatch
+
+# Refresh the pinned Lucide catalogs in both shared native UI modules.
+icons-vendor:
+    python3 scripts/vendor-lucide-icons.py
 
 # Run shared Swift core tests.
 swift-test:
@@ -110,8 +118,8 @@ ios-build: ios-generate
     xcodebuild -project ios/OpenPocketCine.xcodeproj -scheme OpenPocketCine -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
 
 # Build a development-signed app for a connected iPhone/iPad prototype test.
-ios-device-build: ios-generate
-    xcodebuild -project ios/OpenPocketCine.xcodeproj -scheme OpenPocketCine -destination 'generic/platform=iOS' -allowProvisioningUpdates build
+ios-device-build *args: ios-generate
+    xcodebuild -project ios/OpenPocketCine.xcodeproj -scheme OpenPocketCine -destination 'generic/platform=iOS' -allowProvisioningUpdates {{args}} build
 
 # Run the iOS shell's XCTest suite on the first available iPhone simulator.
 ios-test: ios-generate
@@ -126,12 +134,24 @@ ios-test: ios-generate
       -destination "platform=iOS Simulator,id=$device_id" \
       test
 
+# UI 2.0 interaction and screenshot checks, isolated from camera hardware.
+ios-ui-test device *args: ios-generate
+    xcodebuild -project ios/OpenPocketCine.xcodeproj -scheme OpenPocketCineUIReview -destination 'platform=iOS Simulator,id={{device}}' {{args}} test
+
+# Opt-in navigation on an attached physical iPhone/iPad; never records or moves a camera.
+ios-physical-ui-test device test="OpenPocketCineUITests/PhysicalNavigationTests": ios-generate
+    TEST_RUNNER_OPV_PHYSICAL_UI_REVIEW=1 xcodebuild -project ios/OpenPocketCine.xcodeproj -scheme OpenPocketCineUIReview -destination 'platform=iOS,id={{device}}' -allowProvisioningUpdates -only-testing:{{test}} test
+
+# Seeded physical live-feed stress; optional recording is off by default.
+ios-feed-stress device seed="20260914" limit="300" record="0": ios-generate
+    DEVICE='{{device}}' SEED='{{seed}}' LIMIT='{{limit}}' RECORD='{{record}}' bash tools/feed-stress-run.sh run
+
 # Build the watchOS companion for the simulator.
 watch-build: ios-generate
     xcodebuild -project ios/OpenPocketCine.xcodeproj -scheme OpenPocketCineWatch -destination 'generic/platform=watchOS Simulator' CODE_SIGNING_ALLOWED=NO build
 
 # Run all native production checks that do not require camera hardware.
-# swift-lint is in `just check` / `just lint`; run `just format` before making it a merge gate.
+# Swift format lint remains optional until the existing tree is fully formatted.
 native-check: swift-test relay-test ios-test ios-build watch-build
 
 # Format production Swift sources.

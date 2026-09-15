@@ -1,3 +1,5 @@
+import MonitorPresentation
+import MonitorUI
 import OpenPocketViewCore
 import SwiftUI
 
@@ -285,10 +287,12 @@ enum LiveZoomLabelHold {
     }
 }
 
-/// One round cycle hit inside the feed: 1× → 3× → 6× → 12× → 1×.
+/// Separate ordinary and extended tap cycles, with the existing hold-to-open dial.
 struct LiveZoomChip: View {
+    var onOpenDial: (() -> Void)? = nil
     @Environment(AppModel.self) private var model
     @Environment(\.interfaceLocked) private var interfaceLocked
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var heldFactor: Double?
     @State private var snapTick = 0
 
@@ -302,40 +306,87 @@ struct LiveZoomChip: View {
             ?? model.session.zoomStop
     }
     private var title: String { CamFov.displayLabel(factor: displayFactor) }
+    private var opticalStops: [Double] {
+        let stops = tapStops.singleTap
+        return stops.isEmpty ? [1] : stops
+    }
+    private var isDigitalCrop: Bool {
+        MonitorZoomCaption.isDigital(factor: displayFactor, opticalStops: opticalStops)
+    }
+    private var tapStops: MonitorZoomTapStops {
+        OsmoMonitorPresentation.zoomTapStops(model.session)
+    }
+    private var tapGesture: AnyGesture<Bool> {
+        guard !tapStops.doubleTap.isEmpty else {
+            return AnyGesture(TapGesture().map { false })
+        }
+        return AnyGesture(
+            TapGesture(count: 2).exclusively(before: TapGesture()).map { result in
+                if case .first = result { return true }
+                return false
+            })
+    }
     /// D-Log2 while rolling: gray like lock, but keep the tap so we can toast.
     private var zoomBlockedWhileRecording: Bool {
         CamFov.zoomNeedsColorHopWhileRecording(
-            factor: CamFov.nextJump(from: cycleFrom, stops: model.session.zoomStops),
+            factor: tapStops.next(from: cycleFrom) ?? cycleFrom,
             current: model.session.status.colorMode,
             isRecording: model.session.status.isRecording)
     }
 
-    var body: some View {
-        Button {
-            let next = CamFov.nextJump(from: cycleFrom, stops: model.session.zoomStops)
-            ControlLiveLog.line(
-                "zoom: chip tap \(title) → \(CamFov.displayLabel(factor: next)) locked=\(interfaceLocked)"
-            )
-            guard !interfaceLocked else { return }
-            snapTick += 1
-            model.session.setZoom(next)
-        } label: {
-            Text(title)
-                .font(.system(size: 13, weight: .bold, design: .rounded))
-                .foregroundStyle(LiveDesign.text)
-                .minimumScaleFactor(0.75)
-                .frame(
-                    width: LiveChromeMetrics.zoomButtonSize,
-                    height: LiveChromeMetrics.zoomButtonSize
-                )
-                .liveChromeCircle()
+    private func cycle(extended: Bool = false) {
+        guard !interfaceLocked, let next = tapStops.next(from: cycleFrom, extended: extended) else {
+            return
         }
-        .buttonStyle(.zcTapTarget)
+        snapTick += 1
+        model.session.setZoom(next)
+    }
+
+    var body: some View {
+        KeyframeAnimator(initialValue: Double(1), trigger: snapTick) { progress in
+            Text(title)
+                .font(LiveType.ui(size: 18, weight: .bold))
+                .foregroundStyle(isDigitalCrop ? MonitorTheme.digitalCrop : LiveDesign.text)
+                .minimumScaleFactor(0.75)
+                .scaleEffect(reduceMotion ? 1 : MonitorMotion.chipPopScale(at: progress))
+                .frame(
+                    width: 44,
+                    height: 44
+                )
+                .monitorReadoutShadow()
+                .contentShape(Rectangle())
+        } keyframes: { _ in
+            MoveKeyframe(0)
+            LinearKeyframe(1, duration: MonitorMotion.chipPopDuration)
+        }
+        .gesture(
+            LongPressGesture(minimumDuration: 0.38).exclusively(before: tapGesture)
+                .onEnded { gesture in
+                    guard !interfaceLocked else { return }
+                    switch gesture {
+                    case .first: onOpenDial?()
+                    case .second(let extended): cycle(extended: extended)
+                    }
+                }
+        )
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction { cycle() }
+        .accessibilityActions {
+            if !tapStops.doubleTap.isEmpty {
+                Button("Extended zoom") { cycle(extended: true) }
+            }
+            Button("Continuous zoom") { if !interfaceLocked { onOpenDial?() } }
+        }
         .opacity(interfaceLocked || zoomBlockedWhileRecording ? 0.4 : 1)
         .allowsHitTesting(!interfaceLocked)
         .disabled(interfaceLocked)
-        .accessibilityLabel("Zoom \(title)")
-        .accessibilityHint("Cycles 1×, 3×, 6×, and 12×")
+        .accessibilityLabel(
+            isDigitalCrop ? "Zoom \(title), digital crop" : "Zoom \(title)")
+        .accessibilityHint(
+            tapStops.doubleTap.isEmpty
+                ? "Tap cycles camera zoom stops. Hold opens the continuous zoom dial."
+                : "Tap cycles 1 and 3 times. Double tap cycles 6 and 12 times. Hold opens the continuous zoom dial."
+        )
         .accessibilityIdentifier("monitor.system.zoom")
         .sensoryFeedback(.impact(weight: .medium), trigger: snapTick)
         .onAppear { heldFactor = factor }

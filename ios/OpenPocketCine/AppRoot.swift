@@ -1,4 +1,5 @@
 import CoreVideo
+import MonitorPresentation
 import Observation
 import OpenPocketViewCore
 import SwiftUI
@@ -26,16 +27,40 @@ final class AppModel {
     var assist = LiveAssistState()
     /// Decoded-frame scopes. Filled by `HevcDecoder.handleDecodedFrame` — not camera DUML.
     var frameSamples = LiveFrameSampleBus()
+    @ObservationIgnored var inspectorPreview = AssistInspectorImageRenderer()
+    @ObservationIgnored let liveBackdrop = MonitorVideoBackdropRenderer()
+    @ObservationIgnored let playbackBackdrop = MonitorVideoBackdropRenderer()
     /// Monitor tools follow the displayed source; watcher scopes must never read the camera bus.
     var monitorSamples: LiveFrameSampleBus { isWatchingFeed ? relayClient.samples : frameSamples }
     var monitorColorMode: ColorMode? {
-        isWatchingFeed ? relayClient.colorMode : session.status.colorMode
+        if isWatchingFeed { return relayClient.colorMode }
+        if assist.gradesClip { return assist.monitorColorMode }
+        return LiveMonitorColorScience.colorMode(
+            isPhoto: session.status.isPhoto, colorMode: session.status.colorMode)
     }
     var monitorTransfer: MonitorTransfer? {
-        isWatchingFeed ? relayClient.transfer : session.status.monitorTransfer
+        if isWatchingFeed { return relayClient.transfer }
+        if assist.gradesClip { return assist.monitorColorMode.map(MonitorTransfer.init) }
+        return LiveMonitorColorScience.transfer(
+            isPhoto: session.status.isPhoto, colorMode: session.status.colorMode)
+    }
+
+    /// Refresh LUT / decoder transfer on color or shooting-mode change. Skips watcher, clip, camera playback.
+    func syncLiveMonitorColor() {
+        guard !isWatchingFeed, !assist.gradesClip, !session.status.inPlayback else { return }
+        let raw = session.status.colorMode
+        let photo = session.status.isPhoto
+        assist.syncLUT(
+            to: raw,
+            family: session.bodyFamily,
+            cameraName: session.connectedCamera?.model.name,
+            isPhoto: photo)
+        session.decoder.incomingColorMode = LiveMonitorColorScience.colorMode(
+            isPhoto: photo, colorMode: raw)
     }
     var homePanel: AppPanel?
     var captureSheet: CaptureSheet?
+    var captureDrum: CaptureDrumPresentation?
     var keepScreenAwake: Bool = OperatorPrefs.keepScreenAwake {
         didSet { OperatorPrefs.keepScreenAwake = keepScreenAwake }
     }
@@ -47,6 +72,9 @@ final class AppModel {
     }
     var hapticsEnabled: Bool = OperatorPrefs.hapticsEnabled {
         didSet { OperatorPrefs.hapticsEnabled = hapticsEnabled }
+    }
+    var assistToolUsage: MonitorToolUsage = OperatorPrefs.assistToolUsage {
+        didSet { OperatorPrefs.assistToolUsage = assistToolUsage }
     }
     var headTrackingEnabled: Bool = OperatorPrefs.headTrackingEnabled {
         didSet { OperatorPrefs.headTrackingEnabled = headTrackingEnabled }
@@ -72,7 +100,7 @@ final class AppModel {
     /// Extended gamepad is bound. Toast on rising/falling edge.
     var gamepadConnected = false
     var liveGimbalPanel: LiveGimbalPanel = .none
-    /// Canvas-space centre of the programmed-move editor / Run pill. Nil until first open or drag.
+    /// Canvas-space centre of the programmed-move editor / Run pill. Nil until the operator drags it.
     var gimbalFloatCenter: CGPoint?
     /// Canvas-space centre of the programmed-move debug plate.
     var gimbalRamp: GimbalRamp = OperatorPrefs.gimbalRamp {
@@ -90,6 +118,34 @@ final class AppModel {
             }
             OperatorPrefs.gimbalStickSensitivity = clamped
         }
+    }
+    var virtualJoystickInvertPan: Bool = OperatorPrefs.virtualJoystickInvertPan {
+        didSet { OperatorPrefs.virtualJoystickInvertPan = virtualJoystickInvertPan }
+    }
+    var virtualJoystickInvertTilt: Bool = OperatorPrefs.virtualJoystickInvertTilt {
+        didSet { OperatorPrefs.virtualJoystickInvertTilt = virtualJoystickInvertTilt }
+    }
+    var virtualJoystickDeadzonePercent: Int = OperatorPrefs.virtualJoystickDeadzonePercent {
+        didSet {
+            let clamped = GimbalStick.clampedDeadzonePercent(virtualJoystickDeadzonePercent)
+            if clamped != virtualJoystickDeadzonePercent {
+                virtualJoystickDeadzonePercent = clamped
+                return
+            }
+            OperatorPrefs.virtualJoystickDeadzonePercent = clamped
+        }
+    }
+    var virtualJoystickResponseCurve: GimbalStick.ResponseCurve =
+        OperatorPrefs.virtualJoystickResponseCurve
+    {
+        didSet { OperatorPrefs.virtualJoystickResponseCurve = virtualJoystickResponseCurve }
+    }
+    var virtualJoystickMapping: GimbalStick.Mapping {
+        GimbalStick.Mapping(
+            invertPan: virtualJoystickInvertPan,
+            invertTilt: virtualJoystickInvertTilt,
+            deadzone: GimbalStick.deadzoneFromPercent(virtualJoystickDeadzonePercent),
+            curve: virtualJoystickResponseCurve)
     }
     var dispLive = OperatorPrefs.dispLive {
         didSet { OperatorPrefs.dispLive = dispLive }
@@ -156,6 +212,12 @@ final class AppModel {
         }
     }
     var watcherRecordConfirm = false
+    var watcherRecordRequest: RecordConfirmationContext?
+    var watcherRecordContext: RecordConfirmationContext {
+        RecordConfirmationContext(
+            mode: session.status.shootingMode, recording: session.status.isRecording,
+            locked: session.isLocked, busy: session.controlBusy, phase: session.phase)
+    }
     var internetHopActive = false
     @ObservationIgnored private var internetHopSSID: String?
     @ObservationIgnored private var liveChromeArmTask: Task<Void, Never>?
@@ -249,6 +311,11 @@ final class AppModel {
     }
 
     var isLive: Bool {
+        #if targetEnvironment(simulator)
+            if let screen = MonitorUIReview.screen {
+                return screen != "cameras" && screen != "pair"
+            }
+        #endif
         if session.holdsMonitor { return true }
         if case .live = session.phase { return true }
         #if targetEnvironment(simulator)
@@ -271,6 +338,12 @@ final class AppModel {
     }
 
     func prepareStartup() {
+        #if targetEnvironment(simulator)
+            if MonitorUIReview.isActive {
+                MonitorUIReview.prepare(self)
+                return
+            }
+        #endif
         savedCameras = SavedCameraStore.load()
         switch CameraStartupPolicy.launchDestination(savedCameras: savedCameras) {
         case .addCamera:
@@ -370,7 +443,7 @@ final class AppModel {
         let state = WatcherRelayState(
             isRecording: s.isRecording,
             format: s.videoResolution?.label ?? "",
-            color: s.colorMode?.label ?? "",
+            color: (s.isPhoto ? ColorMode.normal : s.colorMode)?.label ?? "",
             zoom: CamFov.displayLabel(factor: session.zoomReadout),
             liveFPS: session.liveFPS,
             batteryPercent: s.batteryPercent,
@@ -427,7 +500,9 @@ final class AppModel {
         guard let allowed = relayHost.applyCommand(command, from: watcherID) else { return }
         switch allowed {
         case .toggleRecording:
-            if recordConfirmationEnabled {
+            guard !session.isLocked, !session.controlBusy else { return }
+            if recordConfirmationEnabled, !session.status.isPhoto {
+                watcherRecordRequest = watcherRecordContext
                 watcherRecordConfirm = true
             } else {
                 session.pressShutter()
@@ -604,7 +679,7 @@ final class AppModel {
             return WatchCommandResult(
                 accepted: false, isRecording: false, error: WatchRelayCopy.connectFirst)
         }
-        let isPhoto = session.currentShootingMode?.isPhoto == true
+        let isPhoto = session.status.isPhoto
         if photo, !isPhoto {
             return WatchCommandResult(
                 accepted: false, isRecording: recording, error: WatchRelayCopy.switchToPhoto)
@@ -626,24 +701,37 @@ enum LiveOperatorPanel: Equatable {
 
 struct AppRoot: View {
     @State private var model = AppModel()
+    @State private var showReliabilityPrompt = false
     @Environment(\.scenePhase) private var scenePhase
+
+    @ViewBuilder private var primaryExperience: some View {
+        if model.showsWatcherMonitor {
+            WatcherLiveView()
+                .environment(model)
+                .transition(.opacity)
+        } else if model.isLive {
+            LiveViewScreen()
+                .environment(model)
+                .transition(.opacity.combined(with: .scale(scale: 0.98)))
+        } else {
+            LinkExperience()
+                .environment(model)
+                .transition(.opacity.combined(with: .scale(scale: 0.98)))
+        }
+    }
 
     var body: some View {
         ZStack {
             ZCBackground()
-            if model.showsWatcherMonitor {
-                WatcherLiveView()
-                    .environment(model)
-                    .transition(.opacity)
-            } else if model.isLive {
-                LiveViewScreen()
-                    .environment(model)
-                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
-            } else {
-                LinkExperience()
-                    .environment(model)
-                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
-            }
+            #if targetEnvironment(simulator)
+                if MonitorMediaReview.isActive {
+                    MonitorMediaReviewView()
+                } else {
+                    primaryExperience
+                }
+            #else
+                primaryExperience
+            #endif
 
             if model.showsLaunchSplash {
                 LaunchSplashOverlay(isVisible: Bindable(model).showsLaunchSplash)
@@ -671,7 +759,29 @@ struct AppRoot: View {
         .environment(model)
         .environment(\.font, LiveType.text(16))
         .preferredColorScheme(.dark)
+        .sheet(isPresented: $showReliabilityPrompt) {
+            ReliabilityConsentPrompt { enabled in
+                ReliabilityReporting.setConsent(enabled)
+                showReliabilityPrompt = false
+            }.environment(model)
+        }
+        .task {
+            while !Task.isCancelled {
+                ProblemReporting.shared.tick()
+                try? await Task.sleep(for: .seconds(2))
+            }
+        }
         .onAppear {
+            #if DEBUG
+                // Physical consent review uses an isolated preference domain;
+                // the operator's saved choice is never overwritten.
+                if let reviewID = ProcessInfo.processInfo.environment["OPV_CONSENT_REVIEW_ID"],
+                    UUID(uuidString: reviewID) != nil
+                {
+                    ReliabilityReportingConsent.defaults = UserDefaults(
+                        suiteName: "opc.consent.review.\(reviewID)")!
+                }
+            #endif
             DiagnosticCenter.shared.install()
             AppModelDiagnosticsAnchor.model = model
             DiagnosticCenter.shared.onCopiedForTestFlight = { [weak model] in
@@ -692,6 +802,9 @@ struct AppRoot: View {
             try? await Task.sleep(for: LaunchSplashTiming.visibleDuration)
             withAnimation(.easeOut(duration: LaunchSplashTiming.fadeOutDuration)) {
                 model.showsLaunchSplash = false
+            }
+            if ReliabilityReporting.isAvailable && !ReliabilityReportingConsent.hasDecision {
+                showReliabilityPrompt = true
             }
         }
         .onChange(of: model.gimbalAnalogHeld) { _, held in
@@ -720,9 +833,17 @@ struct AppRoot: View {
                 model.session.status.isRecording ? "Stop" : "Start",
                 role: model.session.status.isRecording ? .destructive : nil
             ) {
+                guard model.watcherRecordRequest == model.watcherRecordContext,
+                    model.watcherRecordContext.canConfirm
+                else { return }
+                model.watcherRecordRequest = nil
                 model.session.pressShutter()
             }
             Button("Cancel", role: .cancel) {}
+        }
+        .onChange(of: model.watcherRecordContext) { _, _ in
+            model.watcherRecordConfirm = false
+            model.watcherRecordRequest = nil
         }
         .confirmationDialog(
             "Allow \(model.relayHost.pendingControlRequest?.name ?? "a watcher") to control the camera?",
@@ -735,7 +856,10 @@ struct AppRoot: View {
             Button("Grant") { model.relayHost.grantControl() }
             Button("Deny", role: .cancel) { model.relayHost.denyControl() }
         }
+        .onAppear { model.assist.inspectorSceneActive = scenePhase == .active }
         .onChange(of: scenePhase) { _, phase in
+            ProblemReporting.shared.tick()
+            model.assist.inspectorSceneActive = phase == .active
             switch phase {
             case .active:
                 model.session.noteSceneBecameActive()
@@ -750,11 +874,13 @@ struct AppRoot: View {
         .onReceive(
             NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)
         ) { _ in
+            model.assist.inspectorSceneActive = false
             model.session.noteSceneBecameInactive()
         }
         .onReceive(
             NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)
         ) { _ in
+            model.assist.inspectorSceneActive = true
             model.session.noteSceneBecameActive()
         }
     }
@@ -763,61 +889,15 @@ struct AppRoot: View {
 /// Connection home: first-pair wizard, or saved cameras. Mirrors OpenZCine `LinkExperience`.
 struct LinkExperience: View {
     @Environment(AppModel.self) private var model
-    @Environment(\.openURL) private var openURL
-
     var body: some View {
         GeometryReader { proxy in
-            let compact = proxy.size.width < 640
-            let isPortrait = proxy.size.height > proxy.size.width
-            let topPadding: CGFloat = isPortrait ? 16 : 24
-            let wizardFillsViewport = model.shouldShowWizard
-
-            VStack(alignment: .leading, spacing: 0) {
-                StartupHeader(
-                    title: headerTitle,
-                    statusTitle: statusTitle,
-                    isBusy: isBusy,
-                    onPrivacy: { if let url = OpenPocketCineLinks.privacy { openURL(url) } },
-                    onTerms: { if let url = OpenPocketCineLinks.terms { openURL(url) } }
-                )
-                .padding(.horizontal, 20)
-
-                if wizardFillsViewport {
-                    ConnectionSetupView(compact: compact)
-                        .environment(model)
-                        .padding(.leading, 20)
-                        .padding(.trailing, 24)
-                        .padding(.top, compact ? 8 : 16)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                } else {
-                    SavedCamerasView(compact: compact)
-                        .environment(model)
-                        .padding(.horizontal, 20)
-                        .padding(.top, compact ? 14 : 20)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                }
+            if model.shouldShowWizard {
+                ConnectionSetupView(compact: proxy.size.width < 640)
+            } else {
+                SavedCamerasView(compact: proxy.size.width < 640)
             }
-            .padding(.top, topPadding)
-            .padding(.bottom, 16)
-            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
         }
-        .background(StartupColors.backdrop.ignoresSafeArea())
+        .background(StartupColors.background.ignoresSafeArea())
         .foregroundStyle(StartupColors.ink)
     }
-
-    private var headerTitle: String {
-        if model.shouldShowWizard { return "Connection setup" }
-        if !model.savedCameras.isEmpty { return "Operator Setup" }
-        return "Find your camera"
-    }
-
-    private var statusTitle: String {
-        if model.session.isReconnecting { return "Reconnecting" }
-        return StartupConnectionCopy.statusTitle(
-            for: model.session.phase,
-            isDiscovering: model.isScanning || (model.shouldShowWizard && !model.isLive)
-        )
-    }
-
-    private var isBusy: Bool { model.isBusy }
 }

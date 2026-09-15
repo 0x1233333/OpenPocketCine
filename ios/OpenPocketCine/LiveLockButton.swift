@@ -1,8 +1,9 @@
+import MonitorUI
 import SwiftUI
 
 /// OpenZCine `MonitorLiveViewModuleLayout` / `MonitorSideRailControlLayout` / chrome insets.
 enum LiveChromeMetrics {
-    static var scale: CGFloat = 1
+    static let scale: CGFloat = 1
     static var lockButtonSize: CGFloat { 40 * scale }
     static var lockBatteryGap: CGFloat { 4 * scale }
     static var auxiliaryButtonSize: CGFloat { 63.25 * scale }
@@ -35,8 +36,6 @@ enum LiveChromeMetrics {
     static var gimbalKnobSize: CGFloat { 36 * scale }
     static var gimbalStickInset: CGFloat { 16 * scale }
     static var gimbalStickGap: CGFloat { 8 * scale }
-    static var headTrackCalibrateWidth: CGFloat { 172 * scale }
-    static var headTrackCalibrateHeight: CGFloat { 32 * scale }
     /// On-feed stick. Light on dark picture, dark on bright picture.
     static let gimbalStickOpacity: CGFloat = 0.55
     static var focusResetSize: CGFloat { 40 * scale }
@@ -73,29 +72,20 @@ extension EnvironmentValues {
 /// OpenZCine `MonitorSystemCluster.lockButton` (`MonitorUnified.swift` ~1068).
 struct LiveLockButton: View {
     @Binding var locked: Bool
+    var size: CGFloat = LiveChromeMetrics.lockButtonSize
 
     var body: some View {
-        Button {
+        MonitorChromeButton(
+            locked ? "Unlock monitor controls" : "Lock monitor controls",
+            size: CGSize(width: size, height: size), active: locked
+        ) {
             locked.toggle()
         } label: {
+            // Lucide's lock extends farther vertically than the reference
+            // glyph; compensate optically without shrinking the 54pt tile.
             OpcIcon.lock
-                .frame(width: 16, height: 16)
-                .foregroundStyle(locked ? LiveDesign.accent : LiveDesign.text.opacity(0.86))
-                .frame(
-                    width: LiveChromeMetrics.lockButtonSize,
-                    height: LiveChromeMetrics.lockButtonSize
-                )
-                .liveChromeGlass(
-                    in: RoundedRectangle(cornerRadius: LiveDesign.cornerRadius, style: .continuous)
-                )
-                .overlay {
-                    if locked {
-                        RoundedRectangle(cornerRadius: LiveDesign.cornerRadius, style: .continuous)
-                            .stroke(LiveDesign.accent.opacity(0.75), lineWidth: 1.5)
-                    }
-                }
+                .frame(width: size * 26 / 54, height: size * 26 / 54)
         }
-        .buttonStyle(.zcTapTarget)
         .sensoryFeedback(.impact(weight: .medium), trigger: locked)
         .accessibilityLabel(locked ? "Unlock monitor controls" : "Lock monitor controls")
         .accessibilityHint("Prevents accidental camera and View Assist changes")

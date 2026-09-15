@@ -123,8 +123,14 @@ class OperatorSetupContractTest {
         assertEquals(2, OperatorLinkHealth.bars(isLive = true, videoPackets = 40, hasVideoFormat = false))
         assertEquals(3, OperatorLinkHealth.bars(isLive = true, videoPackets = 120, hasVideoFormat = false))
         assertEquals(4, OperatorLinkHealth.bars(isLive = true, videoPackets = 10, hasVideoFormat = true))
+        assertEquals(0, OperatorLinkHealth.score(0))
+        assertEquals(75, OperatorLinkHealth.score(3))
         assertEquals(100, OperatorLinkHealth.score(4))
         assertEquals("No live path.", OperatorLinkHealth.caption(isLive = false, bars = 0))
+        assertEquals("Waiting for the link.", OperatorLinkHealth.caption(isLive = true, bars = 0))
+        assertEquals("Link is weak. · Poor", OperatorLinkHealth.caption(isLive = true, bars = 1))
+        assertEquals("Some loss on the link. · Watch", OperatorLinkHealth.caption(isLive = true, bars = 2))
+        assertEquals("Some loss on the link. · Watch", OperatorLinkHealth.caption(isLive = true, bars = 3))
         assertEquals("Link is clean. · Stable", OperatorLinkHealth.caption(isLive = true, bars = 4))
     }
 
@@ -181,6 +187,15 @@ class OperatorSetupContractTest {
         assertTrue(LegalKind.PRIVACY.body.contains("Android Keystore"))
         assertFalse(LegalKind.PRIVACY.body.contains("iOS Keychain"))
         assertTrue(LegalKind.PRIVACY.body.contains("Android may ask for location"))
+        assertTrue(LegalKind.PRIVACY.body.contains("OpenCapture is the data controller"))
+        assertTrue(LegalKind.PRIVACY.body.contains("support@openpocketcine.app"))
+        assertTrue(LegalKind.PRIVACY.body.contains("optional and off by default"))
+        assertTrue(LegalKind.PRIVACY.body.contains("sends your description and any optional reply email"))
+        assertTrue(LegalKind.PRIVACY.body.contains("up to three photos or screenshots"))
+        assertTrue(LegalKind.PRIVACY.body.contains("no images are attached automatically"))
+        assertTrue(LegalKind.PRIVACY.body.contains("Automatic reports exclude all images"))
+        assertFalse(LegalKind.PRIVACY.body.contains("prepares an email to support@openpocketcine.app"))
+        assertFalse(LegalKind.PRIVACY.body.contains("does not send analytics, crash reports"))
         assertTrue(LegalKind.NOTICE.body.contains("Apache License, Version 2.0"))
         assertTrue(LegalKind.LICENSES.body.contains("No DJI SDK is included or required."))
     }
@@ -220,6 +235,17 @@ class OperatorSetupContractTest {
     }
 
     @Test
+    fun reliabilityReportsCopyMatchesIos() {
+        assertTrue(SettingsHelpCopy.RELIABILITY_REPORTS.contains("Off by default"))
+        assertTrue(SettingsHelpCopy.RELIABILITY_REPORTS.contains("leave camera Wi-Fi"))
+        assertTrue(SettingsHelpCopy.RELIABILITY_UNAVAILABLE.contains("cannot send automatic reports"))
+        assertTrue(SettingsHelpCopy.REPORT_PROBLEM.contains("does not turn on automatic reports"))
+        assertTrue(SettingsHelpCopy.REPORT_PROBLEM.contains("up to three photos"))
+        assertTrue(SettingsHelpCopy.RELIABILITY_REPORTS.contains("Automatic reports exclude all images"))
+        assertFalse(SettingsHelpCopy.REPORT_PROBLEM.contains("by email"))
+    }
+
+    @Test
     fun keepScreenAwakeCopyNamesAndroid() {
         assertTrue(SettingsHelpCopy.CACHE_FULL_RESOLUTION.contains("720p proxy"))
         assertEquals("Proxy", MediaLibraryCopy.PROXY_TAG)
@@ -227,6 +253,8 @@ class OperatorSetupContractTest {
         assertFalse(SettingsHelpCopy.KEEP_SCREEN_AWAKE.contains("iOS may still dim"))
         assertTrue(SettingsHelpCopy.GAMEPAD.contains("Cross/A records"))
         assertTrue(SettingsHelpCopy.GAMEPAD.contains("D-pad"))
+        assertTrue(SettingsHelpCopy.GIMBAL_JOYSTICK.contains("Left is the default"))
+        assertEquals(GamepadGimbalStick.DEFAULT, GamepadGimbalStick.LEFT)
     }
 
     @Test

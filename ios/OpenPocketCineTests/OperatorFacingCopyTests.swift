@@ -16,6 +16,14 @@ final class OperatorFacingCopyTests: XCTestCase {
         XCTAssertTrue(
             SettingsHelpCopy.headTracking.hasPrefix("Experimental."),
             "Settings help must lead with Experimental")
+        XCTAssertTrue(
+            SettingsHelpCopy.headTracking.contains("compass"),
+            "Settings help must describe the live compass control")
+        XCTAssertTrue(
+            SettingsHelpCopy.headTracking.contains("joystick"),
+            "Settings help must park Head Lock above the joystick")
+        XCTAssertFalse(
+            SettingsHelpCopy.headTracking.contains("centered above the bottom bars"))
     }
 
     func testHelpCopyDoesNotNameSisterApps() {
@@ -111,6 +119,16 @@ final class OperatorFacingCopyTests: XCTestCase {
             LiveHeadTrackCalibrateButton.calibrateTitle,
             "Head Tracking (Experimental)",
             SettingsHelpCopy.joystickSensitivity,
+            SettingsHelpCopy.virtualJoystickInvertPan,
+            SettingsHelpCopy.virtualJoystickInvertTilt,
+            SettingsHelpCopy.virtualJoystickDeadzone,
+            SettingsHelpCopy.virtualJoystickResponse,
+            "On-screen joystick",
+            "Invert pan",
+            "Invert tilt",
+            "Dead zone",
+            "Response curve",
+            SettingsHelpCopy.gimbalJoystick,
             SettingsHelpCopy.gamepad,
             SettingsHelpCopy.keepScreenAwake,
             CaptureLists.nativeIsoHopTitle,
@@ -119,12 +137,9 @@ final class OperatorFacingCopyTests: XCTestCase {
             NDAssist.notationTitle,
             NDAssist.notationHelp,
             SettingsHelpCopy.themeHelp,
-            SettingsHelpCopy.supportHelp,
-            SettingsHelpCopy.reportHelp,
             SettingsHelpCopy.shareDiagnostics,
             "Diagnostics copied — paste into TestFlight feedback",
             StartupConnectionCopy.shareDiagnostics,
-            SettingsHelpCopy.featureHelp,
             SettingsHelpCopy.sourceHelp,
             SettingsHelpCopy.linkHealth,
             SettingsHelpCopy.feedUpscaler,

@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -15,7 +17,7 @@ val resolvedVersionName: String = property("openpocketcine.versionName").toStrin
 
 android {
     namespace = "com.opencapture.openpocketcine"
-    compileSdk = 36
+    compileSdk = libs.versions.androidCompileSdk.get().toInt()
 
     defaultConfig {
         applicationId = "com.opencapture.openpocketcine"
@@ -24,6 +26,8 @@ android {
         versionCode = resolvedVersionCode
         versionName = resolvedVersionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "SOURCE_REVISION", "\"unknown\"")
+        buildConfigField("String", "SENTRY_DSN_ANDROID", "\"\"")
 
         ndk {
             abiFilters += supportedAndroidAbi
@@ -104,6 +108,74 @@ android {
     }
 }
 
+val sourceRevisionField =
+    providers.exec {
+        workingDir = repositoryRoot
+        commandLine("git", "rev-parse", "--short=12", "HEAD")
+        isIgnoreExitValue = true
+    }.standardOutput.asText
+        .zip(
+            providers.exec {
+                workingDir = repositoryRoot
+                commandLine("git", "status", "--porcelain")
+                isIgnoreExitValue = true
+            }.standardOutput.asText,
+        ) { rev, status ->
+            val envRev =
+                System.getenv("OPENPOCKETCINE_SOURCE_REVISION")
+                    ?: System.getenv("GITHUB_SHA")?.take(12)
+            val cleaned =
+                (envRev ?: rev.trim())
+                    .filter { it.isLetterOrDigit() || it == '.' || it == '-' || it == '_' }
+                    .ifEmpty { "unknown" }
+            val dirty =
+                status.isNotBlank() || System.getenv("OPENPOCKETCINE_SOURCE_DIRTY") == "1"
+            val value = if (dirty) "$cleaned+" else cleaned
+            com.android.build.api.variant.BuildConfigField("String", "\"$value\"", "git source revision")
+        }
+
+// Non-empty SENTRY_DSN_ANDROID wins; otherwise optional ignored repo-root properties.
+val sentryDsnAndroidField =
+    providers.environmentVariable("SENTRY_DSN_ANDROID")
+        .orElse("")
+        .zip(
+            providers.of(LocalReliabilityDsnValueSource::class.java) {
+                parameters.propertiesFile.set(
+                    repositoryRoot.resolve(".local/reliability.properties"),
+                )
+            },
+        ) { env, file ->
+            val raw = env.trim().ifEmpty { file.trim() }
+            val escaped = raw.replace("\\", "\\\\").replace("\"", "\\\"")
+            com.android.build.api.variant.BuildConfigField(
+                "String",
+                "\"$escaped\"",
+                "optional Sentry Android DSN",
+            )
+        }
+
+androidComponents {
+    onVariants { variant ->
+        variant.buildConfigFields?.put("SOURCE_REVISION", sourceRevisionField)
+        variant.buildConfigFields?.put("SENTRY_DSN_ANDROID", sentryDsnAndroidField)
+        // Exec output participates in configuration-cache validation, so dirty
+        // source edits cannot silently retain the preceding build identity.
+        val identity = providers.exec {
+            workingDir = repositoryRoot
+            commandLine(
+                "python3", repositoryRoot.resolve("tools/build-identity.py").absolutePath,
+                "--platform", "android", "--configuration",
+                "${variant.name}-$resolvedVersionName-$resolvedVersionCode-${gradle.gradleVersion}",
+            )
+        }.standardOutput.asText.map { value ->
+            com.android.build.api.variant.BuildConfigField(
+                "String", "\"${value.trim()}\"", "content identity of build inputs",
+            )
+        }
+        variant.buildConfigFields?.put("BUILD_IDENTITY", identity)
+    }
+}
+
 val stageSwiftCore =
     tasks.register<Exec>("stageSwiftCore") {
         group = "build"
@@ -133,16 +205,9 @@ tasks.named("preBuild").configure {
     dependsOn(stageSwiftCore)
 }
 
-// Compose BOM / androidx.core AARs currently declare compileSdk 37. Local and
-// CI SDKs stay on 36 (same gate OpenZCine uses). Disable only the AAR metadata
-// check so the rest of the AGP graph still runs.
-afterEvaluate {
-    tasks.matching { it.name.startsWith("check") && it.name.endsWith("AarMetadata") }
-        .configureEach { enabled = false }
-}
-
 dependencies {
     implementation(project(":core-api"))
+    implementation(project(":monitor-ui"))
 
     implementation(platform(libs.compose.bom))
     implementation(libs.androidx.activity.compose)
@@ -159,8 +224,33 @@ dependencies {
     implementation(libs.media3.ui)
     implementation(libs.okhttp)
     implementation(libs.mlkit.face.detection)
+    implementation(libs.sentry.android)
+
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
+    androidTestImplementation("androidx.test:core:1.7.0")
+    androidTestImplementation("androidx.test:runner:1.7.0")
+    androidTestImplementation(libs.kotlin.test.junit)
 
     testImplementation(libs.kotlin.test.junit)
     testImplementation(libs.json)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.okhttp.mockwebserver)
+}
+
+abstract class LocalReliabilityDsnValueSource :
+    ValueSource<String, LocalReliabilityDsnValueSource.Params> {
+    interface Params : ValueSourceParameters {
+        @get:org.gradle.api.tasks.Optional
+        @get:InputFile
+        @get:PathSensitive(PathSensitivity.NONE)
+        val propertiesFile: RegularFileProperty
+    }
+
+    override fun obtain(): String {
+        val file = parameters.propertiesFile.orNull?.asFile ?: return ""
+        if (!file.isFile) return ""
+        val props = Properties()
+        file.inputStream().use { props.load(it) }
+        return props.getProperty("SENTRY_DSN_ANDROID")?.trim().orEmpty()
+    }
 }
