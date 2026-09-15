@@ -26,14 +26,14 @@ object LutCatalog {
     private const val CUSTOM_PREFIX = "custom:"
     private const val ASSET_PREFIX = "asset:"
 
-    val djiAuto: LutEntry = LutEntry(DJI_AUTO, "Auto", LutCategory.DJI)
+    val djiAuto: LutEntry = LutEntry(DJI_AUTO, "自动", LutCategory.DJI)
 
     val creative: List<LutEntry> =
         listOf(
-            LutEntry("creativeMono", "Mono", LutCategory.CREATIVE),
-            LutEntry("creativeContrast", "Contrast", LutCategory.CREATIVE),
-            LutEntry("creativeWarm", "Warm", LutCategory.CREATIVE),
-            LutEntry("creativeCool", "Cool", LutCategory.CREATIVE),
+            LutEntry("creativeMono", "单色", LutCategory.CREATIVE),
+            LutEntry("creativeContrast", "对比", LutCategory.CREATIVE),
+            LutEntry("creativeWarm", "暖调", LutCategory.CREATIVE),
+            LutEntry("creativeCool", "冷调", LutCategory.CREATIVE),
         )
 
     fun creativeName(id: String): String? = creative.firstOrNull { it.id == id }?.title
@@ -150,8 +150,8 @@ object LutCatalog {
     fun importCube(sourceName: String, bytes: ByteArray, directory: File): LutEntry {
         val fileName =
             normalizedCubeFileName(sourceName)
-                ?: throw IllegalArgumentException("The LUT file name is not valid.")
-        if (bytes.isEmpty()) throw IllegalArgumentException("The .cube file could not be read.")
+                ?: throw IllegalArgumentException("LUT 文件名无效。")
+        if (bytes.isEmpty()) throw IllegalArgumentException(".cube 文件无法读取。")
         directory.mkdirs()
         File(directory, fileName).writeBytes(bytes)
         return LutEntry(customId(fileName), displayName(fileName), LutCategory.CUSTOM, fileName)
@@ -159,28 +159,28 @@ object LutCatalog {
 
     fun deleteCustom(fileName: String, directory: File) {
         if (!isSafeFileName(fileName)) {
-            throw IllegalArgumentException("The LUT file name is not valid.")
+            throw IllegalArgumentException("LUT 文件名无效。")
         }
         val target = File(directory, fileName)
         if (target.exists() && !target.delete()) {
-            throw IllegalStateException("The LUT “${displayName(fileName)}” could not be deleted.")
+            throw IllegalStateException("LUT「${displayName(fileName)}」无法删除。")
         }
     }
 
     fun titleFor(id: String): String {
         val canonical = migratedToDjiCatalog(id)
-        if (canonical.isBlank()) return "Auto"
+        if (canonical.isBlank()) return "自动"
         if (canonical == AUTO || canonical == DJI_AUTO) return djiAuto.title
         officialDji.firstOrNull { it.id == canonical }?.let { return it.title }
         creative.firstOrNull { it.id == canonical }?.let { return it.title }
         customFileName(canonical)?.let { return displayName(it) }
         if (canonical.startsWith(ASSET_PREFIX)) return displayName(canonical.removePrefix(ASSET_PREFIX))
         return when (canonical) {
-            "off" -> "Off"
-            "customRec709" -> "Custom"
-            "customDLog" -> "Custom D-Log"
-            "customDLog2" -> "Custom D-Log2"
-            "customFile" -> "Custom"
+            "off" -> "关"
+            "customRec709" -> "自定义"
+            "customDLog" -> "自定义 D-Log"
+            "customDLog2" -> "自定义 D-Log2"
+            "customFile" -> "自定义"
             else -> id
         }
     }

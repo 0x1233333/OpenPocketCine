@@ -236,9 +236,9 @@ private fun LinkExperience(
     val busy = phase.isBusy() || reconnecting
     val headerTitle =
         when {
-            model.shouldShowWizard -> "Connection setup"
-            model.savedCameras.isNotEmpty() -> "Operator Setup"
-            else -> "Find your camera"
+            model.shouldShowWizard -> "连接设置"
+            model.savedCameras.isNotEmpty() -> "操作员设置"
+            else -> "找到你的相机"
         }
     val statusTitle =
         StartupConnectionCopy.statusTitle(

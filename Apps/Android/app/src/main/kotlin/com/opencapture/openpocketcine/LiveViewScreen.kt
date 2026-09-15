@@ -692,7 +692,7 @@ fun LiveViewScreen(model: AppModel) {
                     ) {
                         CircularProgressIndicator(color = LiveDesign.text.copy(alpha = 0.72f))
                         Text(
-                            "WAITING FOR LIVE VIEW",
+                            "等待实时画面",
                             color = LiveDesign.text.copy(alpha = 0.72f),
                             style = LiveType.mono(15f, FontWeight.SemiBold),
                         )
@@ -1732,7 +1732,7 @@ private fun LiveTopDeck(
                 active = active == LiveSheet.FORMAT,
                 enabled = enabled,
                 onClick = { onOpen(LiveSheet.FORMAT) },
-                accessibilityLabel = "Recording format",
+                accessibilityLabel = "录制格式",
                 modifier = chipMod(PocketDispSection.FORMAT, LiveSheet.FORMAT),
             ) { VideoGlyph(it) }
         }
@@ -1742,7 +1742,7 @@ private fun LiveTopDeck(
                 active = active == LiveSheet.COLOR,
                 enabled = enabled,
                 onClick = { onOpen(LiveSheet.COLOR) },
-                accessibilityLabel = "Color mode",
+                accessibilityLabel = "色彩模式",
                 modifier = chipMod(PocketDispSection.COLOR, LiveSheet.COLOR),
             ) { ColorGlyph(it) }
         }
@@ -1750,7 +1750,7 @@ private fun LiveTopDeck(
             ReadoutPill(
                 CaptureLists.storageLabel(status, showStorageDuration),
                 onClick = onToggleStorage,
-                accessibilityLabel = "Storage remaining",
+                accessibilityLabel = "剩余存储",
                 modifier = chipMod(PocketDispSection.STORAGE),
             ) { SdCardGlyph(it) }
         }

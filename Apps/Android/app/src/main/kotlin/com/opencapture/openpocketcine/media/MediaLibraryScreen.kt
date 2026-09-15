@@ -146,19 +146,19 @@ fun MediaLibraryScreen(model: AppModel, onClose: () -> Unit) {
 
     val headerCount =
         when {
-            controller.fetchInProgress && controller.listedCount == 0 -> "Scanning…"
-            controller.fetchInProgress -> "Listing… ${controller.listedCount} found"
+            controller.fetchInProgress && controller.listedCount == 0 -> "正在搜索…"
+            controller.fetchInProgress -> "正在列出… 已找到 ${controller.listedCount} 个"
             else -> {
                 val n = displayed.size
-                "$n item${if (n == 1) "" else "s"}"
+                "$n 项"
             }
         }
     val headerTitle =
         when (category) {
-            MediaLibraryTab.ALL -> "All clips"
-            MediaLibraryTab.VIDEOS -> "Videos"
-            MediaLibraryTab.PHOTOS -> "Photos"
-            MediaLibraryTab.FAVORITES -> "Favorites"
+            MediaLibraryTab.ALL -> "全部片段"
+            MediaLibraryTab.VIDEOS -> "视频"
+            MediaLibraryTab.PHOTOS -> "照片"
+            MediaLibraryTab.FAVORITES -> "收藏"
         }
     val emptySubtitle =
         when {
@@ -386,8 +386,8 @@ fun MediaLibraryScreen(model: AppModel, onClose: () -> Unit) {
 
         if (confirmBatchDelete) {
             MediaConfirmPopup(
-                title = "Delete ${selectedIDs.size} item${if (selectedIDs.size == 1) "" else "s"} from the camera?",
-                confirmTitle = "Delete",
+                title = "从相机删除 ${selectedIDs.size} 个项目？",
+                confirmTitle = "删除",
                 onDismiss = { confirmBatchDelete = false },
                 onConfirm = {
                     confirmBatchDelete = false
@@ -450,10 +450,10 @@ private fun CategorySidebar(
 private fun CategoryTab(tab: MediaLibraryTab, active: Boolean, fill: Boolean = false, onClick: () -> Unit) {
     val (icon, label) =
         when (tab) {
-            MediaLibraryTab.ALL -> OpcIcon.LAYOUT_GRID to "All"
-            MediaLibraryTab.VIDEOS -> OpcIcon.FILM to "Videos"
-            MediaLibraryTab.PHOTOS -> OpcIcon.IMAGE to "Photos"
-            MediaLibraryTab.FAVORITES -> OpcIcon.STAR to "Favorites"
+            MediaLibraryTab.ALL -> OpcIcon.LAYOUT_GRID to "全部"
+            MediaLibraryTab.VIDEOS -> OpcIcon.FILM to "视频"
+            MediaLibraryTab.PHOTOS -> OpcIcon.IMAGE to "照片"
+            MediaLibraryTab.FAVORITES -> OpcIcon.STAR to "收藏"
         }
     Row(
         Modifier
@@ -462,7 +462,7 @@ private fun CategoryTab(tab: MediaLibraryTab, active: Boolean, fill: Boolean = f
             .background(if (active) LiveDesign.accentDim else Color.Transparent)
             .chromeClickable(onClick = onClick)
             .semantics {
-                contentDescription = "Show $label media"
+                contentDescription = "显示 $label 媒体"
                 role = Role.Tab
             }
             .padding(horizontal = 12.dp, vertical = 10.dp),
@@ -504,7 +504,7 @@ private fun HeaderRow(
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(
-                "MULTIMEDIA",
+                "媒体库",
                 color = LiveDesign.muted,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
@@ -557,7 +557,7 @@ private fun HeaderRow(
             if (isLive) {
                 LucideActionPill(
                     icon = OpcIcon.REFRESH_CW,
-                    title = "REFRESH",
+                    title = "刷新",
                     active = false,
                     enabled = !fetchInProgress,
                     onClick = onRefresh,
@@ -565,17 +565,17 @@ private fun HeaderRow(
             }
             LucideActionPill(
                 icon = OpcIcon.LIST_FILTER,
-                title = "FILTER",
+                title = "筛选",
                 active = filterOpen || activeFilterCount > 0,
                 badge = activeFilterCount.takeIf { it > 0 },
                 onClick = onFilter,
             )
             LucideActionPill(
                 icon = OpcIcon.CHEVRONS_UP_DOWN,
-                title = "SORT",
+                title = "排序",
                 active = false,
                 onClick = onSort,
-                contentDescription = "Sort ${sortOrder.menuLabel}",
+                contentDescription = "排序：${sortOrder.menuLabel}",
             )
         }
     }
@@ -597,14 +597,14 @@ private fun SelectionHeader(
     ) {
         MediaCloseButton(onClick = onExit, size = 37.dp)
         Text(
-            "$selectedCount selected",
+            "已选 $selectedCount 项",
             modifier = Modifier.weight(1f),
             style = LiveType.ui(20f, FontWeight.SemiBold),
             color = LiveDesign.text,
             maxLines = 1,
         )
         Text(
-            "Delete",
+            "删除",
             style = LiveType.ui(14f, FontWeight.SemiBold),
             color = if (deleteEnabled) Color(0xFFFF5A54) else LiveDesign.faint,
             modifier =
@@ -615,7 +615,7 @@ private fun SelectionHeader(
                     .padding(horizontal = 14.dp, vertical = 8.dp),
         )
         Text(
-            "Share",
+            "分享",
             style = LiveType.ui(14f, FontWeight.SemiBold),
             color = if (shareEnabled) LiveDesign.accent else LiveDesign.faint,
             modifier =
@@ -643,7 +643,7 @@ private fun CacheBar(filename: String, progress: Double) {
     ) {
         MediaGlassTrack(fraction = progress.toFloat(), trackWidth = 120.dp)
         Text(
-            "CACHING $filename ${(progress * 100).toInt()}%",
+            "缓存中 $filename ${(progress * 100).toInt()}%",
             color = LiveDesign.muted,
             fontSize = 10.sp,
             fontFamily = FontFamily.Monospace,
@@ -671,7 +671,7 @@ private fun EmptyState(listing: Boolean, subtitle: String) {
             )
         }
         Text(
-            if (listing) "Listing clips" else "No clips yet",
+            if (listing) "正在列出片段" else "还没有片段",
             color = LiveDesign.muted,
             style = LiveType.ui(15f, FontWeight.Medium),
             modifier = Modifier.padding(top = 12.dp),
@@ -693,10 +693,10 @@ private fun ListingState(listed: Int) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         CircularProgressIndicator(color = LiveDesign.muted)
-        Text("Listing clips on camera…", color = LiveDesign.muted, style = LiveType.ui(15f, FontWeight.Medium), modifier = Modifier.padding(top = 12.dp))
+        Text("正在列出相机片段…", color = LiveDesign.muted, style = LiveType.ui(15f, FontWeight.Medium), modifier = Modifier.padding(top = 12.dp))
         Text(
-            if (listed == 0) "Querying card storage…"
-            else "$listed clip${if (listed == 1) "" else "s"} found so far",
+            if (listed == 0) "正在查询存储卡…"
+            else "已找到 $listed 个片段",
             color = LiveDesign.faint,
             style = LiveType.ui(12f),
         )
@@ -738,7 +738,7 @@ private fun LayoutControls(
             .clip(MediaCapsuleShape)
             .panelGlass(MediaCapsuleShape)
             .padding(horizontal = 6.dp, vertical = 6.dp)
-            .semantics { contentDescription = "Media layout and thumbnail size" },
+            .semantics { contentDescription = "媒体布局与缩略图大小" },
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -754,7 +754,7 @@ private fun LayoutControls(
         ) {
             OpcIcon(
                 icon = if (layout == MediaBrowserLayout.GRID) OpcIcon.LAYOUT_LIST else OpcIcon.LAYOUT_GRID,
-                contentDescription = if (layout == MediaBrowserLayout.GRID) "List view" else "Grid view",
+                contentDescription = if (layout == MediaBrowserLayout.GRID) "列表视图" else "宫格视图",
                 tint = LiveDesign.muted,
                 modifier = Modifier.size(14.dp),
             )
@@ -867,7 +867,7 @@ private fun FilterPopup(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    "FILTER",
+                    "筛选",
                     color = LiveDesign.muted,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
@@ -879,32 +879,32 @@ private fun FilterPopup(
             }
             Spacer(Modifier.height(10.dp))
             if (formatOptions.isNotEmpty()) {
-                FilterSection("FORMAT") {
+                FilterSection("格式") {
                     formatOptions.forEach { title ->
                         MediaFilterChip(title, formatFilters.contains(title)) { onToggleFormat(title) }
                     }
                 }
             }
             if (resolutionOptions.isNotEmpty()) {
-                FilterSection("RESOLUTION") {
+                FilterSection("分辨率") {
                     resolutionOptions.forEach { title ->
                         MediaFilterChip(title, resolutionFilters.contains(title)) { onToggleResolution(title) }
                     }
                 }
             }
             if (dateOptions.isNotEmpty()) {
-                FilterSection("DATE") {
+                FilterSection("日期") {
                     dateOptions.forEach { key ->
                         MediaFilterChip(MediaClipPresentation.dateLabel(key), dateKeyFilter == key) { onToggleDate(key) }
                     }
                 }
             }
             if (formatOptions.isEmpty() && resolutionOptions.isEmpty() && dateOptions.isEmpty()) {
-                Text("Nothing in this tab to filter by.", color = LiveDesign.faint, style = LiveType.ui(11f))
+                Text("此标签页没有可筛选的内容。", color = LiveDesign.faint, style = LiveType.ui(11f))
             }
             if (formatFilters.isNotEmpty() || resolutionFilters.isNotEmpty() || dateKeyFilter != null) {
                 Text(
-                    "Clear all filters",
+                    "清除所有筛选",
                     color = LiveDesign.accent,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,

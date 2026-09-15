@@ -12,8 +12,8 @@ internal object LutExposureCompensation {
     const val MIN_STOPS = -3.0
     const val MAX_STOPS = 3.0
     const val STEP = 0.5
-    const val TITLE = "Exposure"
-    const val HELP = "Input stops before the cube. Pull 1–2 after ETTR."
+    const val TITLE = "曝光"
+    const val HELP = "数值为加装 ND 前的高光档位。ETTR 后再压 1–2 档。"
 
     fun snap(stops: Double): Double {
         if (!stops.isFinite()) return 0.0

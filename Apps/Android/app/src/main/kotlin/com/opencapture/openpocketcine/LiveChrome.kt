@@ -110,7 +110,7 @@ fun LivePopupCloseButton(
             .size(size)
             .glass(CircleShape)
             .chromeClickable(onClick = onClick)
-            .semantics { contentDescription = "Close" },
+            .semantics { contentDescription = "关闭" },
         contentAlignment = Alignment.Center,
     ) {
         OpcIcon(
@@ -765,10 +765,10 @@ object LiveViewLink {
         formattedFPS: String,
         measuredFPS: Double,
     ): String {
-        if (connection == ConnectionPhase.FAILED) return "FAIL"
-        if (recovering) return "RECOV"
+        if (connection == ConnectionPhase.FAILED) return "失败"
+        if (recovering) return "重连中"
         if (measuredFPS > 0) return formattedFPS
-        return if (connection == ConnectionPhase.IDLE) "—" else "LINK"
+        return if (connection == ConnectionPhase.IDLE) "—" else "连接"
     }
 }
 
@@ -842,11 +842,11 @@ object CameraLinkHealthScorer {
     fun score(inputs: CameraLinkHealthInputs): CameraLinkHealthSnapshot {
         when (inputs.phase) {
             CameraLinkPhase.DISCONNECTED ->
-                return CameraLinkHealthSnapshot(0, "Not connected")
+                return CameraLinkHealthSnapshot(0, "未连接")
             CameraLinkPhase.DEMO ->
-                return CameraLinkHealthSnapshot(85, "Demo session")
+                return CameraLinkHealthSnapshot(85, "演示会话")
             CameraLinkPhase.CONNECTING ->
-                return CameraLinkHealthSnapshot(20, "Connecting…")
+                return CameraLinkHealthSnapshot(20, "正在连接…")
             else -> Unit
         }
         val latency = inputs.ptpRoundTripMilliseconds?.let(::latencyScore) ?: 0.0
@@ -875,7 +875,7 @@ object CameraLinkHealthScorer {
             }
         return CameraLinkHealthSnapshot(
             linkHealthScore = linkHealthRaw.roundToInt().coerceIn(0, 100),
-            detailCaption = "Command channel warm",
+            detailCaption = "指令通道已就绪",
         )
     }
 }
@@ -1362,7 +1362,7 @@ fun LockButton(locked: Boolean, modifier: Modifier = Modifier, onClick: () -> Un
             )
             .chromeClickable(onClick = onClick)
             .semantics {
-                contentDescription = if (locked) "Unlock monitor controls" else "Lock monitor controls"
+                contentDescription = if (locked) "解锁监视器控制" else "锁定监视器控制"
                 role = Role.Switch
                 toggleableState = ToggleableState(locked)
             },
@@ -1391,14 +1391,14 @@ fun DispButton(
             .monitorGlass()
             .chromeClickable(onClick = onClick, onLongClick = onLongClick)
             .semantics {
-                contentDescription = if (clean) "DISP 2 clean" else "DISP 1 live"
+                contentDescription = if (clean) "DISP 2 简洁" else "DISP 1 实时"
                 role = Role.Button
             },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterVertically),
     ) {
         Text(
-            "DISP",
+            "DISP 显示",
             color = if (clean) LiveDesign.text else LiveDesign.info,
             style = LiveType.ui(12f, FontWeight.Bold),
         )
@@ -1467,12 +1467,12 @@ fun RecordButton(
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Text(
-                        if (recording) "Stop recording?" else "Start recording?",
+                        if (recording) "停止录制？" else "开始录制？",
                         color = LiveDesign.text,
                         style = LiveType.ui(16f, FontWeight.SemiBold),
                     )
                     Text(
-                        if (recording) "Stop" else "Start",
+                        if (recording) "停止" else "开始",
                         color = if (recording) LiveDesign.rec else LiveDesign.accent,
                         style = LiveType.ui(16f, FontWeight.SemiBold),
                         modifier =
@@ -1486,7 +1486,7 @@ fun RecordButton(
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                     )
                     Text(
-                        "Cancel",
+                        "取消",
                         color = LiveDesign.muted,
                         style = LiveType.ui(15f, FontWeight.Medium),
                         modifier =
@@ -1509,9 +1509,9 @@ fun RecordButton(
             .semantics {
                 contentDescription =
                     when {
-                        photo -> "Take photo"
-                        recording -> "Stop recording"
-                        else -> "Start recording"
+                        photo -> "拍照"
+                        recording -> "停止录制"
+                        else -> "开始录制"
                     }
                 role = Role.Button
             },
@@ -1702,7 +1702,7 @@ fun TimecodeReadout(timecode: String?, modifier: Modifier = Modifier, portrait: 
     }
     Text(
         buildAnnotatedString {
-            withStyle(SpanStyle(color = LiveDesign.text)) { append("TC $head") }
+            withStyle(SpanStyle(color = LiveDesign.text)) { append("时码 $head") }
             withStyle(SpanStyle(color = LiveDesign.accent)) { append(tail) }
         },
         style = LiveType.mono(20f, FontWeight.Medium),
@@ -1725,7 +1725,7 @@ fun RecChip(recording: Boolean) {
     ) {
         Box(Modifier.size(9.dp).clip(CircleShape).background(if (recording) LiveDesign.rec else LiveDesign.faint))
         Text(
-            if (recording) "REC" else "STBY",
+            if (recording) "录制" else "待机",
             color = if (recording) LiveDesign.text else LiveDesign.muted,
             style = LiveType.ui(11f, FontWeight.Bold),
             maxLines = 1,
@@ -1750,7 +1750,7 @@ fun FpsChip(fps: String, bars: Int) {
                 .chipGlass(CircleShape)
                 .padding(horizontal = 11.dp, vertical = 7.dp)
                 .semantics {
-                    contentDescription = "Live view $fps frames per second, $bars of 4 signal bars"
+                    contentDescription = "实时画面 $fps 帧/秒，信号 $bars/4 格"
                 },
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -1951,7 +1951,7 @@ fun LiveGimbalStick(
     Box(
         modifier
             .fillMaxSize()
-            .semantics { contentDescription = "Gimbal stick" }
+            .semantics { contentDescription = "云台摇杆" }
             .pointerInput(enabled) {
                 if (!enabled) return@pointerInput
                 val stickPx = min(this.size.width, this.size.height).toFloat()
@@ -2048,7 +2048,7 @@ fun LiveFocusResetButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
             .background(Color.Black.copy(alpha = 0.55f))
             .border(1.dp, LiveDesign.hairline, CircleShape)
             .chromeClickable(onClick = onClick)
-            .semantics { contentDescription = "Recenter focus" },
+            .semantics { contentDescription = "焦点回中" },
         contentAlignment = Alignment.Center,
     ) {
         OpcIcon(

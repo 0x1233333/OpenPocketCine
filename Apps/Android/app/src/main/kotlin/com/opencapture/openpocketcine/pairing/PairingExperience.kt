@@ -41,10 +41,10 @@ import com.opencapture.openpocketcine.session.LocalVPNFilter
 
 private val prepareSteps =
     listOf(
-        "Turn the camera on and wait until Bluetooth is up.",
-        "Tap the camera in the list when it appears.",
-        "If the Pocket asks you to Approve, tap it on the camera screen.",
-        "Join the camera Wi-Fi when Android prompts, then we open the datalink.",
+        "打开相机，等蓝牙就绪。",
+        "相机出现后，在列表中点按它。",
+        "如果 Pocket 要求确认，请在相机屏幕上点按 Approve。",
+        "系统弹出提示时加入相机 Wi-Fi，然后我们会建立数据链路。",
     )
 
 @Composable
@@ -82,7 +82,7 @@ fun PairingExperience(
             Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 PortraitIntroHeader(model)
                 Text(
-                    "We'll walk you through it — your camera is connected in about a minute.",
+                    "我们会一步步引导你——大约一分钟即可连上相机。",
                     color = StartupColors.muted,
                     style = LiveType.ui(12f, design = LiveTypeDesign.Rounded).copy(lineHeight = 16.sp),
                 )
@@ -109,12 +109,12 @@ private fun PortraitIntroHeader(model: AppModel) {
     Row(verticalAlignment = Alignment.Top) {
         Column(Modifier.weight(1f)) {
             Text(
-                "FIRST RUN",
+                "首次运行",
                 color = StartupColors.muted,
                 style = LiveType.ui(11f, FontWeight.SemiBold, LiveTypeDesign.Rounded).copy(letterSpacing = 1.4.sp),
             )
             Text(
-                "Pair your camera.",
+                "配对你的相机。",
                 color = StartupColors.ink,
                 style = LiveType.ui(22f, FontWeight.Bold, LiveTypeDesign.Rounded),
                 maxLines = 1,
@@ -132,18 +132,18 @@ private fun PortraitIntroHeader(model: AppModel) {
 private fun IntroCard(model: AppModel, step: Int, modifier: Modifier) {
     Column(modifier.startupCard().padding(20.dp)) {
         Text(
-            "FIRST RUN",
+            "首次运行",
             color = StartupColors.muted,
             style = LiveType.ui(11f, FontWeight.SemiBold, LiveTypeDesign.Rounded).copy(letterSpacing = 1.4.sp),
         )
         Text(
-            "Pair your camera.",
+            "配对你的相机。",
             color = StartupColors.ink,
             style = LiveType.ui(32f, FontWeight.Bold, LiveTypeDesign.Rounded),
             modifier = Modifier.padding(top = 10.dp),
         )
         Text(
-            "We'll walk you through it — your camera is connected in about a minute.",
+            "我们会一步步引导你——大约一分钟即可连上相机。",
             color = StartupColors.muted,
             style = LiveType.ui(13f, design = LiveTypeDesign.Rounded).copy(lineHeight = 16.sp),
             modifier = Modifier.padding(top = 12.dp),
@@ -172,15 +172,15 @@ private fun StepCard(
 ) {
     val title =
         when (step) {
-            2 -> "Approve on Pocket"
-            3 -> "Join camera Wi-Fi"
-            4 -> "Open datalink"
-            else -> "Find your camera"
+            2 -> "在 Pocket 上确认"
+            3 -> "加入相机 Wi-Fi"
+            4 -> "打开数据链路"
+            else -> "找到你的相机"
         }
     val scroll = rememberScrollState()
     Column(modifier.startupCard().padding(22.dp)) {
         Text(
-            "STEP $step OF ${StartupConnectionCopy.WIZARD_STEP_COUNT}",
+            "第 $step / ${StartupConnectionCopy.WIZARD_STEP_COUNT} 步",
             color = StartupColors.muted,
             style = LiveType.ui(11f, FontWeight.SemiBold, LiveTypeDesign.Rounded).copy(letterSpacing = 1.4.sp),
         )
@@ -222,7 +222,7 @@ private fun StepCard(
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     if (model.savedCameras.isNotEmpty() || busy) {
                         StartupOutlineButton(
-                            if (busy) "Cancel" else "Back",
+                            if (busy) "取消" else "返回",
                             onClick = model::cancelPairing,
                             leadingChevron = true,
                             modifier = Modifier.weight(1f),
@@ -230,7 +230,7 @@ private fun StepCard(
                     }
                     if (phase == ConnectionPhase.FAILED) {
                         StartupFilledButton(
-                            "Try again",
+                            "重试",
                             enabled = true,
                             onClick = { model.session.startScan() },
                             modifier = Modifier.weight(1f),
@@ -274,15 +274,15 @@ private fun ScanStep(
         )
     }
     if (model.coreVersion == null) {
-        StartupInfoBanner("Swift core isn't loaded. Build with `just android-core` on an arm64 device.", tight)
+        StartupInfoBanner("Swift 核心未加载。请在 arm64 设备上用 `just android-core` 构建。", tight)
     }
     if (phase == ConnectionPhase.FAILED && !failure.isNullOrBlank()) {
         StartupInfoBanner(StartupConnectionCopy.friendly(failure), tight)
     }
     if (found.isEmpty() && radioOn && permissionsGranted) {
         StartupEmptyDiscoveryCard(
-            title = if (phase == ConnectionPhase.SCANNING) "Looking for cameras" else "No cameras yet",
-            hint = "Turn the camera on and keep the phone nearby. Pocket and Nano both appear — tap the one you want.",
+            title = if (phase == ConnectionPhase.SCANNING) "正在寻找相机" else "还没有相机",
+            hint = "打开相机并让手机靠近。Pocket 和 Nano 都会出现——点按你要的那台。",
             compact = tight,
             glyph = StartupGlyphKind.ANTENNA,
         )
@@ -314,7 +314,7 @@ private fun PermissionsCard(
         ) {
             StartupGlyph(StartupGlyphKind.SHIELD, tint = StartupColors.accent, modifier = Modifier.size(13.dp))
             Text(
-                "Permissions",
+                "权限",
                 color = StartupColors.muted,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -322,8 +322,8 @@ private fun PermissionsCard(
         }
         StartupPermissionRow(
             glyph = StartupGlyphKind.PHONE_WAVES,
-            title = "Bluetooth",
-            detail = "Turn Bluetooth on so we can find your Pocket.",
+            title = "蓝牙",
+            detail = "请打开蓝牙，我们才能找到你的 Pocket。",
             granted = radioOn,
             onRequest = onEnableBluetooth,
         )
@@ -335,8 +335,8 @@ private fun PermissionsCard(
         )
         StartupPermissionRow(
             glyph = StartupGlyphKind.WIFI,
-            title = "Nearby devices",
-            detail = "Allow Bluetooth and nearby devices so we can find your Pocket.",
+            title = "附近设备",
+            detail = "请允许蓝牙和附近设备权限，我们才能找到你的 Pocket。",
             granted = permissionsGranted,
             onRequest = onRequestPermissions,
         )
@@ -374,7 +374,7 @@ private fun DiscoveredCameraTile(
             )
             Text(
                 FoundCameraIdentity.listSubtitle(camera.name, camera.model.name, camera.model.family) +
-                    if (camera.model.verified) "" else " · unverified",
+                    if (camera.model.verified) "" else " · 未验证",
                 color = StartupColors.muted,
                 fontSize = if (tight) 10.sp else 12.sp,
                 maxLines = 1,
@@ -392,18 +392,18 @@ private fun DiscoveredCameraTile(
 @Composable
 private fun ApproveStep(phase: ConnectionPhase, tight: Boolean) {
     StartupInfoBanner(
-        "If the camera shows Approve, tap it on that camera's screen. First-time pairing can wait up to 90 seconds.",
+        "如果相机显示 Approve，请在相机屏幕上点按。首次配对最多可能等待 90 秒。",
         tight,
     )
     StartupDeviceInstructionCard(
-        "On the camera",
-        listOf("Look for an Approve / pairing prompt", "Tap it on the camera screen"),
+        "在相机上",
+        listOf("留意相机上的确认/配对提示", "在相机屏幕上点按确认"),
         tight,
         glyph = StartupGlyphKind.APERTURE,
     )
     StartupDeviceInstructionCard(
-        "On this phone",
-        listOf("Wait here — we keep the Bluetooth link alive", "Don't force-quit the app"),
+        "在此手机上",
+        listOf("请留在本页——蓝牙连接会保持", "请不要强制退出应用"),
         tight,
         glyph = StartupGlyphKind.PHONE,
     )
@@ -413,25 +413,25 @@ private fun ApproveStep(phase: ConnectionPhase, tight: Boolean) {
 @Composable
 private fun JoinWifiStep(phase: ConnectionPhase, tight: Boolean) {
     Text(
-        "We read the camera's SSID and password over Bluetooth, then join its Wi-Fi for you.",
+        "我们通过蓝牙读取相机的 SSID 和密码，然后自动帮你加入它的 Wi-Fi。",
         color = StartupColors.muted,
         fontSize = if (tight) 12.sp else 13.sp,
         lineHeight = 18.sp,
     )
     StartupDeviceInstructionCard(
-        "On the camera",
+        "在相机上",
         listOf(
-            "Leave the camera on — it brings up its own Wi-Fi",
-            "On 5.8 GHz that can take about a minute; we keep trying",
+            "保持相机开机——它会开启自己的 Wi-Fi",
+            "5.8 GHz 下可能需要约一分钟，我们会继续尝试",
         ),
         tight,
         glyph = StartupGlyphKind.APERTURE,
     )
     StartupDeviceInstructionCard(
-        "On this phone",
+        "在此手机上",
         listOf(
-            "Tap Join when Android asks to join the camera network",
-            "Stay on this screen until we open the datalink",
+            "系统询问加入相机网络时，点「加入」",
+            "请停留在本页，直到数据链路建立",
             LocalVPNFilter.JOIN_WIFI_PHONE_STEP,
         ),
         tight,
@@ -448,7 +448,7 @@ private fun DatalinkStep(phase: ConnectionPhase, tight: Boolean) {
         StartupInfoBanner(LocalVPNFilter.WIZARD_BANNER, tight)
     }
     StartupConnectionProgress(
-        label = "Opening the video link…",
+        label = "正在打开视频链路…",
         detail = StartupConnectionCopy.phaseLabel(phase, null),
         glyph = StartupGlyphKind.APERTURE,
         tight = tight,

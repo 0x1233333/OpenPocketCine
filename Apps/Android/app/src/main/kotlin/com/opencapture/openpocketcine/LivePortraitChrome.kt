@@ -584,11 +584,11 @@ fun LivePortraitAspectToggle(
             .background(Color.Black.copy(alpha = 0.55f))
             .border(1.dp, LiveDesign.hairline, CircleShape)
             .chromeClickable(enabled = !locked, onClick = onClick)
-            .semantics { contentDescription = if (fill) "Fit feed in frame" else "Fill frame with feed" },
+            .semantics { contentDescription = if (fill) "画面适配取景框" else "画面填满全屏" },
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            if (fill) "FIT" else "FILL",
+            if (fill) "适配" else "填充",
             color = LiveDesign.text,
             style = LiveType.ui(9f, FontWeight.Bold),
             maxLines = 1,
@@ -619,7 +619,7 @@ fun LiveCaptureStrip(
     val wbAuto = CaptureLists.wbIsAuto(status)
     CaptureStripShell(modifier) {
         CaptureSettingCell(
-            "ISO",
+            "ISO 感光度",
             CaptureLists.isoChipValue(status),
             "25600",
             active == LiveSheet.ISO,
@@ -628,7 +628,7 @@ fun LiveCaptureStrip(
         ) { onOpen(LiveSheet.ISO) }
         if (auto) {
             CaptureSettingCell(
-                "EV",
+                "EV 补偿",
                 EvComp.fromRaw(status.evComp)?.label ?: "—",
                 "+3.0",
                 active == LiveSheet.SHUTTER,
@@ -638,7 +638,7 @@ fun LiveCaptureStrip(
             ) { onOpen(LiveSheet.SHUTTER) }
         } else {
             CaptureSettingCell(
-                "SHUTTER",
+                "快门",
                 shutterValue,
                 if (shutterUsesAngle) "346°" else "1/16000",
                 active == LiveSheet.SHUTTER,
@@ -649,15 +649,15 @@ fun LiveCaptureStrip(
             }
         }
         CaptureSettingCell(
-            "MODE",
+            "模式",
             status.expoLabel,
-            "Manual",
+            "手动",
             active == LiveSheet.EXPO,
             enabled,
             modifier = Modifier.weight(1f).reportChromeFrame { onTileFrame(LiveSheet.EXPO, it) },
         ) { onOpen(LiveSheet.EXPO) }
         CaptureSettingCell(
-            "WB",
+            "WB 白平衡",
             CaptureLists.wbChipValue(status),
             CaptureLists.wbChipWidest(),
             active == LiveSheet.WB,
@@ -667,9 +667,9 @@ fun LiveCaptureStrip(
         ) { onOpen(LiveSheet.WB) }
         if (showFocus) {
             CaptureSettingCell(
-                "FOCUS",
+                "对焦",
                 status.focusLabel,
-                "Showcase",
+                "产品展示",
                 active == LiveSheet.FOCUS,
                 enabled,
                 modifier = Modifier.weight(1f).reportChromeFrame { onTileFrame(LiveSheet.FOCUS, it) },
@@ -678,9 +678,9 @@ fun LiveCaptureStrip(
             }
         }
         CaptureSettingCell(
-            "AUDIO",
+            "音频",
             status.audioLabel,
-            "Spatial",
+            "空间音频",
             active == LiveSheet.AUDIO,
             enabled,
             modifier = Modifier.weight(1f).reportChromeFrame { onTileFrame(LiveSheet.AUDIO, it) },
@@ -719,7 +719,7 @@ fun LivePortraitAssistRail(
                 .clip(CircleShape)
                 .monitorGlass(CircleShape)
                 .chromeClickable(enabled = !locked) { onExpandedChange(true) }
-                .semantics { contentDescription = "Show view assists" },
+                .semantics { contentDescription = "显示画面辅助" },
             contentAlignment = Alignment.Center,
         ) {
             SliderHorizontal3Glyph(LiveDesign.text, Modifier.size(18.dp))
@@ -738,7 +738,7 @@ fun LivePortraitAssistRail(
                 .align(Alignment.CenterHorizontally)
                 .size(36.dp, 28.dp)
                 .chromeClickable(enabled = !locked) { onExpandedChange(false) }
-                .semantics { contentDescription = "Hide view assists" },
+                .semantics { contentDescription = "隐藏画面辅助" },
             contentAlignment = Alignment.Center,
         ) {
             ChevronLeftGlyph(LiveDesign.accent, Modifier.size(13.dp))
@@ -783,7 +783,7 @@ fun LivePortraitRecOptionsButton(
                 .clip(CircleShape)
                 .monitorGlass(CircleShape)
                 .chromeClickable(enabled = !locked) { open = !open }
-                .semantics { contentDescription = "Recording options" },
+                .semantics { contentDescription = "录制选项" },
             contentAlignment = Alignment.Center,
         ) {
             VideoGlyph(LiveDesign.text.copy(alpha = 0.86f))
@@ -795,12 +795,12 @@ fun LivePortraitRecOptionsButton(
                 onDismissRequest = { open = false },
             ) {
                 Column(Modifier.width(220.dp).background(LiveDesign.glass)) {
-                    RecOptionsRow("Resolution · Framerate") {
+                    RecOptionsRow("分辨率 · 帧率") {
                         open = false
                         onOpen(LiveSheet.FORMAT)
                     }
                     Box(Modifier.fillMaxWidth().height(1.dp).background(LiveDesign.hairline))
-                    RecOptionsRow("Color") {
+                    RecOptionsRow("色彩") {
                         open = false
                         onOpen(LiveSheet.COLOR)
                     }
@@ -851,7 +851,7 @@ private fun LivePortraitRailTool(
     ) {
         AssistToolGlyph(tool = tool, tint = tint, modifier = Modifier.size(19.dp))
         Text(
-            tool.chipLabel,
+            tool.title,
             color = tint,
             fontSize = 9.sp,
             fontFamily = FontFamily.Monospace,

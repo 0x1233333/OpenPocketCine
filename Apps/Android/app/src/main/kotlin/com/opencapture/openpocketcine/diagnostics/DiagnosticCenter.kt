@@ -96,7 +96,7 @@ object DiagnosticCenter {
         val text = compactSummary(environment(session), journalLines())
         lastCompact = text
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        clipboard.setPrimaryClip(ClipData.newPlainText("OpenPocketCine diagnostics", text))
+        clipboard.setPrimaryClip(ClipData.newPlainText("OpenPocketCine 诊断信息", text))
         log("notice", "diagnostics", "feedback-paste", "copied compact diagnostics")
         onCopiedForFeedback?.invoke()
     }
@@ -122,7 +122,7 @@ object DiagnosticCenter {
     private fun compactSummary(env: Env, recent: List<String>): String {
         val lines =
             mutableListOf(
-                "OpenPocketCine diagnostics (no name, no location)",
+                "OpenPocketCine 诊断（不含姓名和位置）",
                 "app ${env.appVersion} (${env.appBuild}) ${env.osName} ${env.osVersion} ${env.deviceModel}",
                 "camera ${env.cameraModel} family=${env.cameraFamily} phase=${env.phase} vpn=${if (env.vpnActive) "on" else "off"}",
             )
@@ -138,9 +138,9 @@ object DiagnosticCenter {
         val sections = mutableListOf<String>()
         sections +=
             """
-            OpenPocketCine diagnostic report
-            Privacy: no personal name, email, location, device name, or Wi-Fi password.
-            Generated for a tester to paste or share. Not uploaded.
+            OpenPocketCine 诊断报告
+            隐私：不含个人姓名、邮箱、位置、设备名或 Wi-Fi 密码。
+            供测试者粘贴或分享，不会自动上传。
 
             app: ${env.appVersion} (${env.appBuild})
             os: ${env.osName} ${env.osVersion}
@@ -151,11 +151,11 @@ object DiagnosticCenter {
             vpn: ${if (env.vpnActive) "on" else "off"}
             """.trimIndent()
         if (exceptions.isNotEmpty()) {
-            sections += "Exceptions / faults\n" + exceptions.takeLast(EXCEPTION_CAP).joinToString("\n")
+            sections += "异常/故障\n" + exceptions.takeLast(EXCEPTION_CAP).joinToString("\n")
         }
         if (journal.isNotEmpty()) {
             sections +=
-                "Journal (last ${minOf(journal.size, JOURNAL_CAP)} lines)\n" +
+                "日志（最近 ${minOf(journal.size, JOURNAL_CAP)} 行）\n" +
                     journal.takeLast(JOURNAL_CAP).joinToString("\n")
         }
         return PrivacyRedactor.redact(sections.joinToString("\n\n"))

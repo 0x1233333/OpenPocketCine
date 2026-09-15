@@ -99,7 +99,7 @@ fun LiveZoomChip(
             .monitorGlass(CircleShape)
             .chromeClickable(enabled = !locked, onClick = onCycle)
             .semantics {
-                contentDescription = "Zoom ${LiveZoom.label(held)}. Cycles 1×, 3×, 6×, and 12×"
+                contentDescription = "变焦 ${LiveZoom.label(held)}。在 1×、3×、6×、12× 之间循环"
             },
         contentAlignment = Alignment.Center,
     ) {

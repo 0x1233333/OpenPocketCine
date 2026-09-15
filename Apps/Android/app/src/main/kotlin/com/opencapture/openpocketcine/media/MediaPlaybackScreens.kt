@@ -209,7 +209,7 @@ fun MediaPhotoViewer(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 CircularProgressIndicator(color = LiveDesign.accent)
-                Text("Preparing image…", color = LiveDesign.muted, style = LiveType.ui(14f, FontWeight.Medium))
+                Text("正在准备图片…", color = LiveDesign.muted, style = LiveType.ui(14f, FontWeight.Medium))
             }
         }
 
@@ -235,9 +235,9 @@ fun MediaPhotoViewer(
                 modifier = Modifier.weight(1f),
             )
             if (controller.canDelete(file)) {
-                MediaCircleIconButton(OpcIcon.TRASH, "Delete", onClick = { confirmDelete = true })
+                MediaCircleIconButton(OpcIcon.TRASH, "删除", onClick = { confirmDelete = true })
             }
-            MediaCircleIconButton(OpcIcon.SHARE, "Share photo", onClick = { onDeliver(file) })
+            MediaCircleIconButton(OpcIcon.SHARE, "分享照片", onClick = { onDeliver(file) })
         }
 
         Box(
@@ -251,8 +251,8 @@ fun MediaPhotoViewer(
 
         if (confirmDelete) {
             MediaConfirmPopup(
-                title = "Delete this photo from the camera?",
-                confirmTitle = "Delete",
+                title = "从相机删除这张照片？",
+                confirmTitle = "删除",
                 onDismiss = { confirmDelete = false },
                 onConfirm = {
                     confirmDelete = false
@@ -716,14 +716,14 @@ fun MediaPlayerScreen(
                     if (canPrev) {
                         ClipNavButton(
                             icon = OpcIcon.CHEVRON_LEFT,
-                            label = "Previous clip",
+                            label = "上一个片段",
                             modifier = Modifier.align(Alignment.CenterStart).padding(start = 12.dp),
                         ) { goToAdjacent(-1) }
                     }
                     if (canNext) {
                         ClipNavButton(
                             icon = OpcIcon.CHEVRON_RIGHT,
-                            label = "Next clip",
+                            label = "下一个片段",
                             modifier = Modifier.align(Alignment.CenterEnd).padding(end = 12.dp),
                         ) { goToAdjacent(1) }
                     }
@@ -772,7 +772,7 @@ fun MediaPlayerScreen(
                         }
                         Text(
                             loadError
-                                ?: if (progress != null) "Buffering from camera…" else "Preparing playback…",
+                                ?: if (progress != null) "正在从相机缓冲…" else "正在准备回放…",
                             color = LiveDesign.muted,
                             style = LiveType.ui(14f, FontWeight.Medium),
                             modifier = Modifier.padding(top = 12.dp),
@@ -847,7 +847,7 @@ fun MediaPlayerScreen(
                         )
                         MediaTransportIconButton(
                             PlaybackChromeMetrics.viewAssistIcon,
-                            "View Assist",
+                            "画面辅助",
                             action = true,
                             highlighted = true,
                             onClick = { assistMode = false },
@@ -915,9 +915,9 @@ fun MediaPlayerScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(5.dp),
                     ) {
-                        MediaTransportSkipButton("−15", "Back 15 seconds") { seekBy(-15f) }
+                        MediaTransportSkipButton("−15", "后退 15 秒") { seekBy(-15f) }
                         if (reachedEnd) {
-                            MediaTransportIconButton(OpcIcon.ROTATE_CW, "Restart", primary = true, onClick = {
+                            MediaTransportIconButton(OpcIcon.ROTATE_CW, "重播", primary = true, onClick = {
                                 player.seekTo(0)
                                 applyPlaybackRate()
                                 player.play()
@@ -927,7 +927,7 @@ fun MediaPlayerScreen(
                         } else {
                             MediaTransportIconButton(
                                 if (isPlaying) OpcIcon.PAUSE else OpcIcon.PLAY,
-                                if (isPlaying) "Pause" else "Play",
+                                if (isPlaying) "暂停" else "播放",
                                 primary = true,
                                 onClick = {
                                     if (isPlaying) {
@@ -939,7 +939,7 @@ fun MediaPlayerScreen(
                                 },
                             )
                         }
-                        MediaTransportSkipButton("+15", "Forward 15 seconds") { seekBy(15f) }
+                        MediaTransportSkipButton("+15", "快进 15 秒") { seekBy(15f) }
                         Row(
                             Modifier.weight(1f).horizontalScroll(rememberScrollState()),
                             verticalAlignment = Alignment.CenterVertically,
@@ -963,23 +963,23 @@ fun MediaPlayerScreen(
                             )
                             MediaTransportIconButton(
                                 PlaybackChromeMetrics.hideChromeIcon,
-                                "Hide playback controls",
+                                "隐藏回放控制",
                                 action = true,
                                 onClick = { chromeVisible = false },
                             )
                             MediaTransportIconButton(
                                 PlaybackChromeMetrics.viewAssistIcon,
-                                "View Assist",
+                                "画面辅助",
                                 action = true,
                                 highlighted = assistMode || anyPlaybackAssistOn,
                                 onClick = { assistMode = true },
                             )
                             if (controller.canDelete(active)) {
-                                MediaTransportIconButton(OpcIcon.TRASH, "Delete", action = true, onClick = { confirmDelete = true })
+                                MediaTransportIconButton(OpcIcon.TRASH, "删除", action = true, onClick = { confirmDelete = true })
                             }
                             MediaTransportIconButton(
                                 OpcIcon.SHARE,
-                                "Share clip",
+                                "分享片段",
                                 action = true,
                                 onClick = {
                                     player.pause()
@@ -999,7 +999,7 @@ fun MediaPlayerScreen(
                 ) {
                     MediaCircleIconButton(
                         icon = PlaybackChromeMetrics.showChromeIcon,
-                        contentDescription = "Show playback controls",
+                        contentDescription = "显示回放控制",
                         onClick = { chromeVisible = true },
                     )
                 }
@@ -1050,8 +1050,8 @@ fun MediaPlayerScreen(
 
         if (confirmDelete) {
             MediaConfirmPopup(
-                title = "Delete this clip from the camera?",
-                confirmTitle = "Delete",
+                title = "从相机删除这个片段？",
+                confirmTitle = "删除",
                 onDismiss = { confirmDelete = false },
                 onConfirm = {
                     confirmDelete = false
@@ -1190,7 +1190,7 @@ private fun PlaybackConformButton(
     Box {
         MediaTransportIconButton(
             OpcIcon.TIMER,
-            "Conform preview",
+            "变速还原预览",
             action = true,
             enabled = availability.isAvailable,
             highlighted = selected != null,
@@ -1209,7 +1209,7 @@ private fun PlaybackConformButton(
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
             )
             DropdownMenuItem(
-                text = { Text("Real time", color = LiveDesign.text) },
+                text = { Text("实时", color = LiveDesign.text) },
                 onClick = {
                     onSelect(null)
                     onMenuOpenChange(false)

@@ -481,7 +481,7 @@ private fun FalseColorReferenceRuler(state: LiveAssistState, colorMode: Int, mod
             }
         }
         Text(
-            "False Color",
+            "伪色",
             color = LiveDesign.text,
             fontSize = 8.5.sp,
             fontFamily = FontFamily.Monospace,

@@ -280,7 +280,7 @@ class DatalinkDriver internal constructor(
      * Do not sit on a 2 s ACK settle — that drops the camera GOP.
      */
     fun open(afterHandshake: (() -> Unit)? = null) {
-        check(SwiftCore.isAvailable) { "Swift core is not loaded" }
+        check(SwiftCore.isAvailable) { "Swift 核心未加载" }
         check(!closed.get()) { "datalink closed" }
         val lifetime = DatalinkOpenLoop(SystemClock::elapsedRealtime,
             LiveViewEnablePolicy.handshakeOpenTimeoutMs(), closed::get)
@@ -1104,7 +1104,7 @@ class DatalinkDriver internal constructor(
      * Play Vitals treats an uncaught one as a crash (#189).
      */
     sealed class DatalinkError(message: String) : Exception(message) {
-        class NoHandshake : DatalinkError("camera never answered the datalink handshake")
+        class NoHandshake : DatalinkError("相机没有响应数据链路握手")
     }
 
     companion object {

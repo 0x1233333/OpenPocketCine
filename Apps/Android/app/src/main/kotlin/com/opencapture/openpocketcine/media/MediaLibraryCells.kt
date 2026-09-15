@@ -152,7 +152,7 @@ fun MediaClipCell(
                                 modifier = Modifier.size(26.dp),
                             )
                             Text(
-                                "On camera",
+                                "相机上",
                                 color = LiveDesign.text,
                                 style = LiveType.ui(10f, FontWeight.SemiBold),
                             )
@@ -227,7 +227,7 @@ fun MediaClipListRow(
         when {
             grade.isProxyOnly && meta.isEmpty() -> MediaLibraryCopy.PROXY_TAG
             grade.isProxyOnly -> "$meta · ${MediaLibraryCopy.PROXY_TAG}"
-            meta.isEmpty() -> if (downloaded) "Cached" else "On camera"
+            meta.isEmpty() -> if (downloaded) "已缓存" else "相机上"
             else -> meta
         }
     val interaction =
@@ -353,7 +353,7 @@ fun FavoriteStar(
     ) {
         OpcIcon(
             icon = OpcIcon.STAR,
-            contentDescription = if (favorite) "Remove from favorites" else "Add to favorites",
+            contentDescription = if (favorite) "取消收藏" else "加入收藏",
             tint = if (favorite) LiveDesign.accent else LiveDesign.faint,
             modifier = Modifier.size(iconSize),
             filled = favorite,

@@ -72,13 +72,13 @@ private fun IntroCard(model: AppModel, hugsContent: Boolean, tight: Boolean, mod
     val busy = phase.isBusy() || reconnecting
     Column(modifier.startupCard().padding(if (tight) 16.dp else 20.dp)) {
         Text(
-            "Your cameras.",
+            "你的相机。",
             color = StartupColors.ink,
             style = LiveType.ui(24f, FontWeight.Bold, LiveTypeDesign.Rounded),
             maxLines = 1,
         )
         Text(
-            "Tap a saved camera to reconnect.",
+            "点按已保存的相机重新连接。",
             color = StartupColors.muted,
             style = LiveType.ui(13f, design = LiveTypeDesign.Rounded).copy(lineHeight = 16.sp),
             modifier = Modifier.padding(top = if (tight) 6.dp else 10.dp),
@@ -86,19 +86,19 @@ private fun IntroCard(model: AppModel, hugsContent: Boolean, tight: Boolean, mod
         if (hugsContent) Spacer(Modifier.height(16.dp)) else Spacer(Modifier.weight(1f))
         Column(verticalArrangement = Arrangement.spacedBy(if (tight) 8.dp else 10.dp)) {
             StartupFilledButton(
-                "Pair new camera",
+                "配对新相机",
                 enabled = !busy,
                 onClick = model::pairNewCamera,
                 modifier = Modifier.fillMaxWidth(),
                 large = true,
             )
             StartupQuietButton(
-                "Media library",
+                "媒体库",
                 onClick = { model.homePanel = AppPanel.MEDIA },
                 modifier = Modifier.fillMaxWidth(),
             )
             StartupQuietButton(
-                "Settings",
+                "设置",
                 onClick = { model.homePanel = AppPanel.SETTINGS },
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -121,13 +121,13 @@ private fun CameraListCard(model: AppModel, tight: Boolean, modifier: Modifier) 
     val scroll = rememberScrollState()
     Column(modifier.startupCard().padding(if (tight) 16.dp else 22.dp)) {
         Text(
-            "CAMERA LIST",
+            "相机列表",
             color = StartupColors.muted,
             style = LiveType.ui(11f, FontWeight.SemiBold, LiveTypeDesign.Rounded).copy(letterSpacing = 1.4.sp),
         )
         if (!tight) {
             Text(
-                "Tap a camera to connect",
+                "点按相机进行连接",
                 color = StartupColors.ink,
                 style = LiveType.ui(20f, FontWeight.Bold, LiveTypeDesign.Rounded),
                 modifier = Modifier.padding(top = 6.dp),
@@ -152,7 +152,7 @@ private fun CameraListCard(model: AppModel, tight: Boolean, modifier: Modifier) 
             }
             if (model.savedCameras.isEmpty()) {
                 Text(
-                    "No cameras saved yet — Pair new camera walks you through it.",
+                    "还没有保存的相机——点「配对新相机」带你完成。",
                     color = StartupColors.muted,
                     style = LiveType.ui(12f, design = LiveTypeDesign.Rounded),
                 )
@@ -211,7 +211,7 @@ private fun SavedCameraRow(
             Box {
                 OpcIcon(
                     icon = OpcIcon.ELLIPSIS,
-                    contentDescription = "Camera options",
+                    contentDescription = "相机选项",
                     tint = StartupColors.muted,
                     modifier =
                         Modifier.clip(CircleShape)
@@ -221,7 +221,7 @@ private fun SavedCameraRow(
                 )
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     DropdownMenuItem(
-                        text = { Text("Rename") },
+                        text = { Text("重命名") },
                         leadingIcon = {
                             OpcIcon(OpcIcon.PENCIL, contentDescription = null, modifier = Modifier.size(18.dp))
                         },
@@ -232,7 +232,7 @@ private fun SavedCameraRow(
                         },
                     )
                     DropdownMenuItem(
-                        text = { Text("Remove") },
+                        text = { Text("移除") },
                         leadingIcon = {
                             OpcIcon(OpcIcon.TRASH, contentDescription = null, modifier = Modifier.size(18.dp))
                         },
@@ -251,9 +251,9 @@ private fun SavedCameraRow(
         ) {
             if (connectionLabel != null) {
                 Box(Modifier.weight(1f)) { StartupConnectionProgress(connectionLabel) }
-                StartupQuietButton("Cancel", onClick = onCancel, modifier = Modifier.height(44.dp))
+                StartupQuietButton("取消", onClick = onCancel, modifier = Modifier.height(44.dp))
             } else {
-                StartupStatusPill(if (online) "Online" else "Offline", availability)
+                StartupStatusPill(if (online) "在线" else "离线", availability)
                 Spacer(Modifier.weight(1f))
                 Box(
                     Modifier.heightIn(min = 44.dp)
@@ -261,7 +261,7 @@ private fun SavedCameraRow(
                     contentAlignment = Alignment.Center,
                 ) {
                     StartupConnectChrome(
-                        text = if (online) "Connect" else "Reconnect",
+                        text = if (online) "连接" else "重新连接",
                         filled = online,
                         enabled = !isBusy && !connectLocked,
                     )
@@ -272,11 +272,11 @@ private fun SavedCameraRow(
     if (rename) {
         AlertDialog(
             onDismissRequest = { rename = false },
-            title = { Text("Rename camera") },
+            title = { Text("重命名相机") },
             text = {
                 Column {
-                    Text("Give this camera a name you'll recognize.")
-                    OutlinedTextField(value = renameText, onValueChange = { renameText = it }, label = { Text("Name") })
+                    Text("给这台相机起个好认的名字。")
+                    OutlinedTextField(value = renameText, onValueChange = { renameText = it }, label = { Text("名称") })
                 }
             },
             confirmButton = {
@@ -285,25 +285,25 @@ private fun SavedCameraRow(
                         onRename(renameText)
                         rename = false
                     }
-                ) { Text("Save") }
+                ) { Text("保存") }
             },
-            dismissButton = { TextButton(onClick = { rename = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { rename = false }) { Text("取消") } },
         )
     }
     if (remove) {
         AlertDialog(
             onDismissRequest = { remove = false },
-            title = { Text("Remove camera?") },
-            text = { Text("This removes ${camera.displayName} from this phone. You can pair it again later.") },
+            title = { Text("移除相机？") },
+            text = { Text("这会从手机上移除 ${camera.displayName}，之后可以重新配对。") },
             confirmButton = {
                 TextButton(
                     onClick = {
                         onRemove()
                         remove = false
                     }
-                ) { Text("Remove") }
+                ) { Text("移除") }
             },
-            dismissButton = { TextButton(onClick = { remove = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { remove = false }) { Text("取消") } },
         )
     }
 }

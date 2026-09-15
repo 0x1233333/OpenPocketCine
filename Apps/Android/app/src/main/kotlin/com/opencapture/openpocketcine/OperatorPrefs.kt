@@ -8,34 +8,34 @@ import org.json.JSONObject
 
 enum class PocketDispMode(val title: String, val settingsTitle: String, val settingsCaption: String) {
     LIVE(
-        "Live",
-        "DISP 1 · Live",
-        "The full monitor. Set what it shows in Edit view.",
+        "实时",
+        "DISP 1 · 实时",
+        "完整监视器。在「编辑视图」中配置显示内容。",
     ),
     CLEAN(
-        "Clean",
-        "DISP 2 · Clean",
-        "A stripped-back image. Same elements as DISP 1 — status, tool and capture bars start off. Pin which view assists stay on.",
+        "简洁",
+        "DISP 2 · 简洁",
+        "精简画面。元素与 DISP 1 相同——状态栏、工具栏和拍摄栏默认关闭，可固定保留的画面辅助。",
     ),
 }
 
 enum class PocketDispSection(val key: String, val title: String) {
-    STATUS_BAR("statusBar", "Status Bar"),
-    TOOL_BAR("toolBar", "Tool Bar"),
-    CAMERA_VALUES("cameraValues", "Camera Values"),
-    LOCK_BUTTON("lockButton", "Lock Button"),
-    BATTERIES("batteries", "Batteries"),
-    RAIL_RECORD("railRecord", "Record"),
-    RAIL_MEDIA("railMedia", "Media"),
-    RAIL_SETTINGS("railSettings", "Settings"),
-    ZOOM_CHIP("zoomChip", "Zoom Chip"),
-    GIMBAL_STICK("gimbalStick", "Gimbal Stick"),
-    FOCUS_BOX("focusBox", "Face Box"),
+    STATUS_BAR("statusBar", "状态栏"),
+    TOOL_BAR("toolBar", "工具栏"),
+    CAMERA_VALUES("cameraValues", "相机数值"),
+    LOCK_BUTTON("lockButton", "锁定按钮"),
+    BATTERIES("batteries", "电量"),
+    RAIL_RECORD("railRecord", "录制"),
+    RAIL_MEDIA("railMedia", "媒体"),
+    RAIL_SETTINGS("railSettings", "设置"),
+    ZOOM_CHIP("zoomChip", "变焦指示"),
+    GIMBAL_STICK("gimbalStick", "云台摇杆"),
+    FOCUS_BOX("focusBox", "人脸框"),
     REC_READOUT("recReadout", "REC"),
-    TIMECODE("timecode", "Timecode"),
-    FORMAT("format", "Format"),
-    COLOR("color", "Color"),
-    STORAGE("storage", "Storage"),
+    TIMECODE("timecode", "时间码"),
+    FORMAT("format", "格式"),
+    COLOR("color", "色彩"),
+    STORAGE("storage", "存储"),
     FPS("fps", "FPS"),
 }
 
@@ -184,13 +184,13 @@ enum class PortraitFeedAspect(val raw: String) {
 }
 
 enum class OperatorSettingsTab(val title: String, val subtitle: String, val pill: String, val rail: String) {
-    LINK("Link", "Connection state and link behavior.", "LIVE", "Connection"),
-    SHARING("Sharing", "Coming soon.", "SHARE", "Coming soon"),
-    ASSIST("View Assist", "Behavior for live-view tools.", "ASSIST", "Scopes & overlays"),
-    CONTROLS("Controls", "Touch behavior and safety.", "TOUCH", "Dials and safety"),
-    DISPLAY("Display", "Live view buttons and chrome.", "VISIBILITY", "Live view"),
-    STORAGE("Storage", "Local cache and integrations.", "DATA", "Cache & accounts"),
-    SYSTEM("System", "App-level behavior.", "APP", "App behavior"),
+    LINK("连接", "连接状态与链路行为。", "实时", "连接"),
+    SHARING("分享", "敬请期待。", "分享", "敬请期待"),
+    ASSIST("画面辅助", "实时画面工具的行为。", "画面辅助", "示波器与叠加"),
+    CONTROLS("控制", "触控行为与安全。", "触控", "转盘与安全"),
+    DISPLAY("显示", "实时画面按钮与界面元素。", "可见性", "实时画面"),
+    STORAGE("存储", "本地缓存与集成。", "数据", "缓存与账号"),
+    SYSTEM("系统", "应用层面的行为。", "应用", "应用行为"),
 }
 
 enum class LiveOperatorPanel {

@@ -1,0 +1,115 @@
+name: Sync upstream + zh replay
+
+# 自动跟随上游: 定时(或手动)检查 erik-sutton95/OpenPocketCine main,
+# 有新提交时把 scripts/zh/rules.json 的全部中文翻译规则在上游新代码上重放,
+# versionCode 自动递增, force push 到本 fork main, 并触发 APK 构建.
+# 若上游源码自带中文(CJK 字面量 >= 30), 只同步不再套翻译.
+# fork main 始终 = 上游某个 commit + 1 个翻译重放 commit, 请勿手工提交到 main.
+
+on:
+  schedule:
+    - cron: '17 */8 * * *' # 每 8 小时一次
+  workflow_dispatch:
+    inputs:
+      force:
+        description: '上游无新提交也强制重放'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: sync-upstream-zh
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          path: fork
+
+      - name: Fetch upstream and read state
+        working-directory: fork
+        run: |
+          git remote add upstream https://github.com/erik-sutton95/OpenPocketCine.git
+          git fetch upstream main
+          UP=$(git rev-parse upstream/main)
+          BASE=$(git show origin/main:.opc-zh-state.json 2>/dev/null | jq -r '.base // "none"')
+          VC=$(git show origin/main:.opc-zh-state.json 2>/dev/null | jq -r '.versionCode // "5"')
+          {
+            echo "UPSTREAM_SHA=$UP"
+            echo "LAST_BASE=$BASE"
+            echo "LAST_VC=$VC"
+          } >> "$GITHUB_ENV"
+          if [ "$BASE" = "$UP" ] && [ "${{ inputs.force }}" != "true" ]; then
+            echo "SKIP=1" >> "$GITHUB_ENV"
+            echo "上游无新提交 ($UP), 跳过"
+          fi
+
+      - name: Replay translations on new upstream tree
+        if: env.SKIP != '1'
+        working-directory: fork
+        run: |
+          git config user.name "zh-sync-bot"
+          git config user.email "zh-sync-bot@users.noreply.github.com"
+          git checkout -B zh-work upstream/main
+
+          # 恢复翻译基础设施 (规则集/重放器/本 workflow/状态文件)
+          git checkout origin/main -- scripts/zh .github/workflows/sync-upstream-zh.yml
+
+          # GITHUB_TOKEN 无法推送 workflow 文件变更: .github 固定为 fork 现行版,
+          # 上游对 CI workflow 的改动不跟进 (APK 构建入口 android-apk.yml 在 fork 侧独立维护)
+          git checkout origin/main -- .github
+
+          # fork 独有文件: 稳定调试签名 (覆盖安装的关键), 不在上游树里
+          git checkout origin/main -- .ci/debug.keystore
+
+          # 上游中文检测: CJK 字符串字面量 >= 30 视为官方已中文化
+          CJK=$(grep -rhoP '"[^"]*\p{Han}[^"]*"' --include='*.kt' Apps/Android | wc -l)
+          echo "upstream CJK literals: $CJK" | tee -a "$GITHUB_STEP_SUMMARY"
+
+          VC=$((LAST_VC + 1))
+          UP_VC=$(sed -n 's/^openpocketcine.versionCode=//p' Apps/Android/gradle.properties)
+          [ -n "$UP_VC" ] && [ "$UP_VC" -ge "$VC" ] && VC=$((UP_VC + 1))
+
+          TRANSLATED=true
+          if [ "$CJK" -lt 30 ]; then
+            python3 scripts/zh/reapply.py --root . --version-code "$VC" --report "$GITHUB_WORKSPACE/zh-report.json" 2>&1 | tee /tmp/replay.log
+            {
+              echo "## 中文重放结果"
+              echo "- base: ${UPSTREAM_SHA:0:7}"
+              echo "- versionCode: $VC"
+              head -1 /tmp/replay.log
+              grep -m 20 '^  SKIP' /tmp/replay.log | sed 's/^  SKIP/- 失配保留英文/' || true
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            TRANSLATED=false
+            sed -i "s/^openpocketcine.versionCode=.*/openpocketcine.versionCode=$VC/" Apps/Android/gradle.properties
+            echo "上游已含中文, 仅同步不重放" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
+          printf '{"base":"%s","versionCode":%s,"translated":%s}\n' \
+            "$UPSTREAM_SHA" "$VC" "$TRANSLATED" > .opc-zh-state.json
+          git add -A
+          if git diff --cached --quiet; then
+            echo "SKIP=1" >> "$GITHUB_ENV"
+            echo "无有效变更, 不推送"
+            exit 0
+          fi
+          git commit -m "chore(zh): replay on upstream ${UPSTREAM_SHA:0:7} (vc$VC)"
+          git push origin zh-work:main --force
+
+      - name: Trigger APK build
+        if: env.SKIP != '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          sleep 5
+          gh api -X POST "repos/${{ github.repository }}/actions/workflows/android-apk.yml/dispatches" -f ref=main
+          echo "已触发 android-apk.yml 构建"

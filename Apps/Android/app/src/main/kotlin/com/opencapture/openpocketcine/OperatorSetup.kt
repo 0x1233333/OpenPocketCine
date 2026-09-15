@@ -108,75 +108,75 @@ import kotlinx.coroutines.delay
 
 object SettingsHelpCopy {
     const val CURRENT_TRANSPORT =
-        "Pocket uses Bluetooth to pair, then the camera's own Wi-Fi for HEVC. USB-C, hotspot, and HDMI capture are not in this build."
-    const val PHASE = "Where the BLE → Wi-Fi → datalink handshake is right now."
+        "Pocket 先用蓝牙配对，再用相机自身的 Wi-Fi 传输 HEVC。此版本不支持 USB-C、热点和 HDMI 采集。"
+    const val PHASE = "蓝牙 → Wi-Fi → 数据链路握手当前进行到哪一步。"
     const val CAMERA_WIFI =
-        "SSID joined for this session. The password stays in the Android Keystore on this phone."
+        "本次会话已加入该 SSID。密码只保存在本手机的 Android Keystore 中。"
     const val SAVED_CAMERAS =
-        "Pair from the home list. Settings does not start a new pair — that stays on Your cameras."
-    const val EDIT_VIEW = "Opens the monitor with an eye on each element you can show or hide."
+        "从主页列表配对。「设置」里不能发起新配对——配对入口在「你的相机」。"
+    const val EDIT_VIEW = "打开监视器，每个可显示/隐藏的元素都带眼睛开关。"
     const val FRAME_IO =
-        "Sign in to upload clips from the share popup. Frame.io needs the internet, so the phone hops off the camera Wi‑Fi for the upload."
-    const val RECORD_CONFIRMATION = "Ask before starting or stopping recording to prevent mistaps."
+        "登录后即可在分享面板上传片段。Frame.io 需要联网，上传时手机会暂时离开相机 Wi‑Fi。"
+    const val RECORD_CONFIRMATION = "开始/停止录制前先确认，防止误触。"
     const val SHOOTING_MODE =
-        "Switch the camera between Video, Photo and the time-based modes. The camera reports " +
-            "the mode back, so this follows a change made on the body itself."
+        "在视频、照片和延时类模式之间切换相机。相机会上报 " +
+            "当前模式，因此在机身上做的更改也会同步到这里。"
     const val HAPTICS =
-        "Short confirmation pulses for switches, settings, and gimbal limits. A connected controller also rumbles at a stop."
+        "开关、设置和云台限位时短促震动确认。连接的手柄在停止时也会震动。"
     const val JOYSTICK_SENSITIVITY =
-        "How far a stick throw moves the gimbal — on-screen and a connected game controller. Small throws crawl; full throw is fastest. 4 is the captured feel. 5 reaches full speed sooner; 1 is the slowest."
+        "摇杆行程对应多大的云台动作——屏幕摇杆和连接的手柄都适用。轻推慢动，推满最快。4 是默认手感；5 更快达到全速，1 最慢。"
     const val GAMEPAD =
-        "A connected game controller. Left stick pans and tilts. Cross/A records. Circle/B recenters. Square/X is rotate-180. Triangle/Y tracks a face. L1/R1 jump zoom out/in. L2/R2 hold-to-zoom (deeper is faster). D-pad up/down ISO, left/right shutter. Unplug rests the stick. On-screen stick wins while you hold it."
+        "已连接的游戏手柄。左摇杆平移/俯仰。叉/A 录制，圆圈/B 回中，方块/X 旋转 180°，三角/Y 跟踪人脸。L1/R1 缩小/放大变焦，L2/R2 按住变焦（按得越深越快）。十字键上下调 ISO、左右调快门。拔掉手柄即恢复。按住屏幕摇杆时屏幕摇杆优先。"
     const val KEEP_SCREEN_AWAKE =
-        "Prevents auto-lock while OpenPocketCine is open. A monitor should stay lit. Android may still dim when the device overheats."
-    const val THEME = "Charcoal field-monitor chrome with Sky Blue accents, tuned for low reflection on set."
-    const val SUPPORT = "Connection, live view, controls, and troubleshooting."
-    const val REPORT = "Opens a public issue form on GitHub for this project."
+        "OpenPocketCine 运行期间阻止自动锁屏。监视器应当常亮。设备过热时系统仍可能调暗屏幕。"
+    const val THEME = "炭黑监视器界面配天蓝点缀，为片场低反光环境调校。"
+    const val SUPPORT = "连接、实时画面、控制和故障排查。"
+    const val REPORT = "在 GitHub 上打开本项目的公开 issue 表单。"
     const val SHARE_DIAGNOSTICS =
-        "Saves a report with connection events, warnings, and crashes. No name, location, or Wi-Fi password. Paste the copied text into a bug report."
-    const val FEATURE = "Start an idea in this project's feature-request discussion."
+        "生成包含连接事件、警告和崩溃的报告。不含姓名、位置或 Wi-Fi 密码。把复制的文本粘贴到 bug 报告里即可。"
+    const val FEATURE = "在本项目的功能征集讨论中发起想法。"
     const val SOURCE =
-        "View the OpenPocketCine project on GitHub. Opening this may leave the camera Wi-Fi if that is the only network."
-    const val LINK_HEALTH = "How healthy the camera link is right now — delivery, not radio RSSI."
+        "在 GitHub 上查看 OpenPocketCine 项目。若相机 Wi-Fi 是唯一网络，打开后会离开该网络。"
+    const val LINK_HEALTH = "相机链路当前的健康状况——看的是送达质量，不是信号 RSSI。"
     const val CLEAR_CACHE =
-        "Removes downloaded clip files from this phone. The clip list stays so you can cache them again from the camera."
-    const val LUT_LOOK = "Looks apply on this phone. The file on the camera is unchanged."
+        "删除本手机上已下载的片段文件。片段列表保留，之后可随时从相机重新缓存。"
+    const val LUT_LOOK = "LUT 只影响手机上的画面，相机里的文件不受影响。"
     const val PROTOCOL =
-        "Camera control speaks DUML over Bluetooth and the camera's Wi-Fi. No DJI SDK is bundled or required."
-    const val APP_VERSION = "Current OpenPocketCine build from the native project metadata."
-    const val LOCAL_CACHE = "Originals and playback proxies downloaded from the camera."
+        "相机控制通过蓝牙和相机 Wi-Fi 上的 DUML 协议实现，不包含也不需要 DJI SDK。"
+    const val APP_VERSION = "来自原生工程元数据的当前构建版本。"
+    const val LOCAL_CACHE = "从相机下载的原片与回放代理。"
     const val CACHE_FULL_RESOLUTION =
-        "Download the original camera file when you open a clip. Off keeps only the 720p proxy to save space. Share needs the original — connect the camera if it is not cached."
+        "打开片段时同时下载相机原文件。关闭则只保留 720p 代理以节省空间。分享需要原文件——未缓存时请连接相机。"
     const val FEED_UPSCALER =
-        "How the live-view frame is enlarged to fill the panel. The camera sends far fewer pixels than the panel has, so something always does this. Off is a plain sample, Fast is a fixed sharpening kernel, and Quality is the OS spatial upscaler.\n\nAI is different in kind: it is a machine-learning model that INFERS detail the camera never captured. It gives the sharpest-looking picture, but the fine texture it adds is invented — plausible rather than real — so it can suggest crispness the lens did not record. Judge critical focus on Quality or Fast, and treat AI as a viewing aid rather than evidence.\n\nOnly the options this device supports are shown."
+        "实时画面如何被放大以铺满面板。相机送出的像素远少于屏幕像素，所以始终需要某种放大。关=普通取样，快速=固定锐化核，高质量=系统空间放大器。\n\nAI 有本质不同：它是机器学习模型，会「推断」相机根本没有拍到的细节。画面看起来最锐，但它添加的细纹理是编造的——看似合理而非真实——可能暗示镜头并没有记录到的清晰度。判断关键合焦请用「高质量」或「快速」，把 AI 当作观看辅助而非证据。\n\n只显示本机支持的选项。"
     const val FALSE_COLOR_SCALE =
-        "The camera color mode selects D-Log, D-Log2, Rec.709, or HLG automatically. " +
-            "CineStop paints video-level IRE stripes (green 41–48, pink 61–70, red clip) " +
-            "over luminance grayscale. EL Zone paints 15 contiguous stops from 18% gray: " +
-            "+6 and above white, −6 and below black. IRE paints six video-level zones over " +
-            "luminance grayscale: purple crush, blue near-black, green 18% gray, pink one " +
-            "stop over, yellow near clip, red clip. Limits paints only shadow and " +
-            "highlight warnings, leaving other colors untouched."
+        "相机色彩模式会自动选择 D-Log、D-Log2、Rec.709 或 HLG。" +
+            "CineStop 涂视频电平 IRE 条纹（绿 41–48、粉 61–70、红=削波）" +
+            "覆盖在亮度灰阶上。EL Zone 从 18% 灰起涂 15 个连续档位：" +
+            "+6 以上为白、−6 以下为黑。IRE 在亮度灰阶上涂六个视频电平区间：" +
+            "亮度灰阶：紫=截止、蓝=近黑、绿=18% 中灰、粉=高一 " +
+            "档、黄=接近削波、红=削波。Limits 只涂阴影和" +
+            "高光警告，其余颜色保持不变。"
     const val FALSE_COLOR_REFERENCE =
-        "Show a compact color key over live view while False Color is active."
+        "伪色开启时，在实时画面上显示小型颜色对照表。"
     const val PEAKING_SENSITIVITY =
-        "Higher sensitivity catches finer edges but can get noisy on detailed scenes."
-    const val PEAKING_COLOR = "Choose the edge color that stays readable over your typical scene."
+        "灵敏度越高，越能捕捉细微边缘，但细节丰富的画面可能出现噪点。"
+    const val PEAKING_COLOR = "选择在常见场景上依然醒目的描边颜色。"
     const val ZEBRA_UNITS =
-        "Switch between native 0-255 encoded codes and a 0-100 monitoring IRE scale."
+        "在原生 0-255 编码值和 0-100 监看 IRE 刻度间切换。"
     const val ZEBRA_HIGHLIGHT =
-        "High zebra warns when bright detail approaches clipping after the active log curve is compensated."
+        "高斑马线：在补偿当前 log 曲线后，高光细节接近削波时警告。"
     const val ZEBRA_MIDTONE =
-        "Midtone zebra gives a curve-compensated reference band for faces or key subject exposure."
+        "中斑马线：给出经曲线补偿的参考带，用于人脸或主体曝光。"
     const val WAVEFORM_BRIGHTNESS =
-        "Raise trace intensity when the waveform is hard to read in bright light."
-    const val PARADE_BRIGHTNESS = "Raise trace intensity when channel separation is hard to see."
+        "强光下波形难读时，提高轨迹亮度。"
+    const val PARADE_BRIGHTNESS = "通道分离难辨认时，提高轨迹亮度。"
     const val VECTORSCOPE_ZOOM =
-        "Magnifies only the chroma trace; the graticule stays at unity. The vectorscope reads the monitor image (your active LUT, or the built-in display tone map), where chroma is meaningful."
+        "只放大色度轨迹，刻度线保持不变。矢量示波器读取的是监视画面（你的活动 LUT 或内置显示色调映射），这里的色度才有意义。"
     const val VECTORSCOPE_BRIGHTNESS =
-        "Raise trace intensity when the chroma plot is hard to read."
+        "色度图难读时，提高轨迹亮度。"
     const val TRAFFIC_LIGHTS_COMPENSATION =
-        "Stops of crush/clip tolerance before a channel indicator glows. Shared with the histogram traffic lights."
+        "通道指示灯点亮前的暗部截止/高光削波容差档数。与直方图红绿灯共用。"
 }
 
 object OpenPocketCineLinks {
@@ -218,12 +218,12 @@ internal object OperatorLinkHealth {
     fun score(bars: Int): Int = (bars * 25).coerceIn(0, 100)
 
     fun caption(isLive: Boolean, bars: Int): String {
-        if (!isLive) return "No live path."
+        if (!isLive) return "无实时画面通道。"
         return when (bars) {
-            in 3..Int.MAX_VALUE -> "Link is clean. · Stable"
-            2 -> "Some loss on the link. · Watch"
-            1 -> "Link is weak. · Poor"
-            else -> "Waiting for the link."
+            in 3..Int.MAX_VALUE -> "链路良好 · 稳定"
+            2 -> "链路有丢包 · 留意"
+            1 -> "链路较弱 · 较差"
+            else -> "正在等待连接。"
         }
     }
 
@@ -248,10 +248,10 @@ internal object OperatorLinkHealth {
         measuredFps: Double,
         phase: ConnectionPhase,
     ): String {
-        if (phase == ConnectionPhase.FAILED) return "FAIL"
-        if (recovering) return "RECOV"
+        if (phase == ConnectionPhase.FAILED) return "失败"
+        if (recovering) return "重连中"
         if (measuredFps > 0.0) return compactFps(formatMeasuredFps(measuredFps))
-        return if (!isLive && phase == ConnectionPhase.IDLE) "—" else "LINK"
+        return if (!isLive && phase == ConnectionPhase.IDLE) "—" else "连接"
     }
 
     fun liveTileDetail(
@@ -259,7 +259,7 @@ internal object OperatorLinkHealth {
         cameraName: String,
         fpsLabel: String,
         phaseLabel: String,
-    ): String = if (isLive) "$cameraName · BLE + Wi-Fi · $fpsLabel FPS" else phaseLabel
+    ): String = if (isLive) "$cameraName · 蓝牙 + Wi-Fi · $fpsLabel FPS" else phaseLabel
 }
 
 internal object OperatorMediaCache {
@@ -293,7 +293,7 @@ internal object OperatorMediaCache {
 }
 
 internal fun formatCacheSize(bytes: Long): String {
-    if (bytes <= 0L) return "Empty"
+    if (bytes <= 0L) return "空"
     val units = arrayOf("B", "KB", "MB", "GB", "TB")
     var value = bytes.toDouble()
     var unit = 0
@@ -334,46 +334,46 @@ internal fun lutPickerAvailable(): Boolean = true
 
 internal enum class CleanPinTool(val key: String, val title: String) {
     LUT("LUT", "LUT"),
-    PEAKING("PEAK", "Peaking"),
-    FALSE_COLOR("FALSE", "False Color"),
-    ZEBRA("ZEBRA", "Zebra"),
-    WAVEFORM("WAVE", "Waveform"),
-    PARADE("PARADE", "Parade"),
-    HISTOGRAM("HISTO", "Histogram"),
-    VECTORSCOPE("VECTOR", "Vectorscope"),
-    TRAFFIC_LIGHTS("LIGHTS", "Traffic Lights"),
-    ND("ND", "ND Suggestion"),
-    GUIDES("GUIDES", "Guides"),
-    GRID("GRID", "Grid"),
-    CROSSHAIR("CROSS", "Crosshair"),
-    MIRROR("MIRROR", "Mirror"),
-    AUDIO("AUDIO", "Audio Levels"),
+    PEAKING("PEAK", "峰值对焦"),
+    FALSE_COLOR("FALSE", "伪色"),
+    ZEBRA("ZEBRA", "斑马纹"),
+    WAVEFORM("WAVE", "波形图"),
+    PARADE("PARADE", "分量图"),
+    HISTOGRAM("HISTO", "直方图"),
+    VECTORSCOPE("VECTOR", "矢量示波器"),
+    TRAFFIC_LIGHTS("LIGHTS", "红绿灯提示"),
+    ND("ND", "ND 建议"),
+    GUIDES("GUIDES", "参考线"),
+    GRID("GRID", "网格"),
+    CROSSHAIR("CROSS", "十字线"),
+    MIRROR("MIRROR", "镜像"),
+    AUDIO("AUDIO", "音频电平"),
 }
 
 internal enum class AssistCard(val title: String) {
-    FALSE_COLOR("False Color"),
-    WAVEFORM("Waveform"),
-    HISTOGRAM("Histogram"),
-    PEAKING("Peaking"),
-    ZEBRA("Zebra"),
-    PARADE("Parade"),
-    VECTORSCOPE("Vectorscope"),
-    TRAFFIC_LIGHTS("Traffic Lights"),
+    FALSE_COLOR("伪色"),
+    WAVEFORM("波形图"),
+    HISTOGRAM("直方图"),
+    PEAKING("峰值对焦"),
+    ZEBRA("斑马纹"),
+    PARADE("分量图"),
+    VECTORSCOPE("矢量示波器"),
+    TRAFFIC_LIGHTS("红绿灯提示"),
 }
 
 internal fun connectionPhaseLabel(phase: ConnectionPhase, failure: String?): String =
     when (phase) {
-        ConnectionPhase.IDLE -> "Idle"
-        ConnectionPhase.SCANNING -> "Scanning for camera…"
-        ConnectionPhase.CONNECTING_GATT -> "Connecting (Bluetooth)…"
-        ConnectionPhase.PAIRING -> "Pairing…"
-        ConnectionPhase.AWAITING_APPROVAL -> "Approve on the camera screen"
-        ConnectionPhase.READING_WIFI_CREDS -> "Reading Wi-Fi credentials…"
-        ConnectionPhase.JOINING_WIFI -> "Joining camera Wi-Fi…"
-        ConnectionPhase.OPENING_DATALINK -> "Opening datalink…"
-        ConnectionPhase.LIVE -> "Connected"
+        ConnectionPhase.IDLE -> "空闲"
+        ConnectionPhase.SCANNING -> "正在搜索相机…"
+        ConnectionPhase.CONNECTING_GATT -> "正在连接（蓝牙）…"
+        ConnectionPhase.PAIRING -> "正在配对…"
+        ConnectionPhase.AWAITING_APPROVAL -> "在相机屏幕上确认"
+        ConnectionPhase.READING_WIFI_CREDS -> "正在读取 Wi-Fi 信息…"
+        ConnectionPhase.JOINING_WIFI -> "正在加入相机 Wi-Fi…"
+        ConnectionPhase.OPENING_DATALINK -> "正在打开数据链路…"
+        ConnectionPhase.LIVE -> "已连接"
         ConnectionPhase.FAILED ->
-            if (failure.isNullOrBlank()) "Failed" else "Failed: $failure"
+            if (failure.isNullOrBlank()) "失败" else "失败：$failure"
     }
 
 internal fun resetDispChrome(model: AppModel, mode: PocketDispMode) {
@@ -548,10 +548,10 @@ fun OperatorSetupScreen(model: AppModel, onClose: () -> Unit) {
             val context = LocalContext.current
             AlertDialog(
                 onDismissRequest = { confirmClearCache = false },
-                title = { Text("Clear cache?", color = LiveDesign.text) },
+                title = { Text("清除缓存？", color = LiveDesign.text) },
                 text = {
                     Text(
-                        "Removes downloaded clip files from this phone. The clip list is kept.",
+                        "删除本手机上已下载的片段文件。片段列表会保留。",
                         color = LiveDesign.muted,
                     )
                 },
@@ -562,12 +562,12 @@ fun OperatorSetupScreen(model: AppModel, onClose: () -> Unit) {
                             confirmClearCache = false
                         },
                     ) {
-                        Text("Clear", color = LiveDesign.rec)
+                        Text("清除", color = LiveDesign.rec)
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { confirmClearCache = false }) {
-                        Text("Cancel", color = LiveDesign.muted)
+                        Text("取消", color = LiveDesign.muted)
                     }
                 },
                 containerColor = LiveDesign.surface,
@@ -613,7 +613,7 @@ private fun SettingsTopBar(
                     color = LiveDesign.accent,
                 )
                 Text(
-                    "Operator Setup",
+                    "操作员设置",
                     style = LiveType.title(24f, FontWeight.SemiBold),
                     color = LiveDesign.text,
                     maxLines = 1,
@@ -642,7 +642,7 @@ private fun SessionControls(
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
         if (isLive) {
             SettingsActionPill(
-                title = "Disconnect",
+                title = "断开连接",
                 icon = OpcIcon.UNPLUG,
                 tint = LiveDesign.rec,
                 background = LiveDesign.rec.copy(alpha = 0.16f),
@@ -816,20 +816,20 @@ private fun SettingsContentPane(
 @Composable
 private fun LinkRows(model: AppModel, isLive: Boolean, phaseLabel: String, bars: Int) {
     SettingsDashScale(
-        title = "Link Health",
+        title = "链路健康",
         caption = OperatorLinkHealth.caption(isLive, bars),
         score = OperatorLinkHealth.score(bars),
     )
-    SettingsRowCard(title = "Connection") {
-        SettingsInlineRow("Current Transport", SettingsHelpCopy.CURRENT_TRANSPORT, showTopDivider = false) {
-            SettingsValueText(if (isLive) "BLE + Wi-Fi active" else "Not connected")
+    SettingsRowCard(title = "连接") {
+        SettingsInlineRow("当前传输方式", SettingsHelpCopy.CURRENT_TRANSPORT, showTopDivider = false) {
+            SettingsValueText(if (isLive) "蓝牙 + Wi-Fi 已连接" else "未连接")
         }
-        SettingsInlineRow("Phase", SettingsHelpCopy.PHASE) {
+        SettingsInlineRow("阶段", SettingsHelpCopy.PHASE) {
             SettingsValueText(phaseLabel)
         }
         val ssid = model.session.joinedSSID
         if (!ssid.isNullOrEmpty()) {
-            SettingsInlineRow("Camera Wi-Fi", SettingsHelpCopy.CAMERA_WIFI) {
+            SettingsInlineRow("相机 Wi-Fi", SettingsHelpCopy.CAMERA_WIFI) {
                 SettingsValueText(ssid)
             }
         }
@@ -837,8 +837,8 @@ private fun LinkRows(model: AppModel, isLive: Boolean, phaseLabel: String, bars:
     if (FeedUpscaler.supported.size > 1) {
         val context = LocalContext.current
         var upscaler by remember { mutableStateOf(OperatorPrefs.feedUpscaler(context)) }
-        SettingsRowCard(title = "Processing") {
-            SettingsInlineRow("Feed Upscaler", SettingsHelpCopy.FEED_UPSCALER, showTopDivider = false) {
+        SettingsRowCard(title = "处理中") {
+            SettingsInlineRow("画面放大", SettingsHelpCopy.FEED_UPSCALER, showTopDivider = false) {
                 SettingsSegmented(
                     options = FeedUpscaler.supported.map { it.label },
                     selected = upscaler.label,
@@ -851,16 +851,16 @@ private fun LinkRows(model: AppModel, isLive: Boolean, phaseLabel: String, bars:
             }
         }
     }
-    SettingsRowCard(title = "Your cameras") {
+    SettingsRowCard(title = "你的相机") {
         if (model.savedCameras.isEmpty()) {
-            SettingsInlineRow("Saved", SettingsHelpCopy.SAVED_CAMERAS, showTopDivider = false) {
-                SettingsValueText("None")
+            SettingsInlineRow("已保存", SettingsHelpCopy.SAVED_CAMERAS, showTopDivider = false) {
+                SettingsValueText("无")
             }
         } else {
             model.savedCameras.forEachIndexed { index, camera ->
                 val help = camera.modelName + (camera.lastSSID?.let { " · $it" } ?: "")
                 SettingsInlineRow(camera.displayName, help, showTopDivider = index > 0) {
-                    SettingsValueText(camera.lastSSID ?: "Saved")
+                    SettingsValueText(camera.lastSSID ?: "已保存")
                 }
             }
         }
@@ -871,7 +871,7 @@ private fun LinkRows(model: AppModel, isLive: Boolean, phaseLabel: String, bars:
 private fun SharingRows() {
     SettingsRowCard {
         Text(
-            "Coming soon...",
+            "敬请期待…",
             style = LiveType.ui(15f, FontWeight.Medium),
             color = LiveDesign.muted,
             modifier = Modifier.fillMaxWidth().padding(vertical = 18.dp, horizontal = 2.dp),
@@ -917,7 +917,7 @@ private fun AssistRows(model: AppModel, statusColorMode: Int, onOpenLut: () -> U
     }
 
     SettingsRowCard(title = "LUT") {
-        SettingsInlineRow("Look", SettingsHelpCopy.LUT_LOOK, showTopDivider = false) {
+        SettingsInlineRow("风格", SettingsHelpCopy.LUT_LOOK, showTopDivider = false) {
             SettingsValueText(
                 lutLookLabel(
                     selection = model.lutSelection,
@@ -928,8 +928,8 @@ private fun AssistRows(model: AppModel, statusColorMode: Int, onOpenLut: () -> U
                 ),
             )
         }
-        SettingsInlineRow("Choose look") {
-            SettingsActionPill(title = "Open", onClick = onOpenLut)
+        SettingsInlineRow("选择 LUT") {
+            SettingsActionPill(title = "打开", onClick = onOpenLut)
         }
     }
 }
@@ -937,26 +937,26 @@ private fun AssistRows(model: AppModel, statusColorMode: Int, onOpenLut: () -> U
 @Composable
 private fun FalseColorAssistCard(assist: LiveAssistState) {
     SettingsRowCard(
-        title = "False Color",
+        title = "伪色",
         onReset = {
             assist.setFalseColor(scale = FalseColorScale.STOPS, reference = true)
         },
     ) {
         SettingsInlineRow(
-            "Scale",
+            "标尺",
             SettingsHelpCopy.FALSE_COLOR_SCALE,
             showTopDivider = false,
             stacked = true,
         ) {
             SettingsSegmented(
-                options = listOf("CineStop", "EL Zone", "IRE", "Limits"),
+                options = listOf("CineStop 档位", "EL Zone 曝光", "IRE 电平", "限值"),
                 selected = assist.falseColorScale.menuLabel,
             ) { label ->
                 assist.setFalseColor(scale = FalseColorScale.fromMenuLabel(label))
             }
         }
         SettingsSwitchRow(
-            title = "Reference Display",
+            title = "基准显示器",
             isOn = assist.falseColorReference,
             help = SettingsHelpCopy.FALSE_COLOR_REFERENCE,
             stacked = true,
@@ -969,11 +969,11 @@ private fun FalseColorAssistCard(assist: LiveAssistState) {
 @Composable
 private fun PeakingAssistCard(assist: LiveAssistState) {
     SettingsRowCard(
-        title = "Peaking",
+        title = "峰值对焦",
         onReset = { assist.setPeaking(color = PeakingColor.RED, sense = PeakingSense.MED) },
     ) {
         SettingsInlineRow(
-            "Sensitivity",
+            "灵敏度",
             SettingsHelpCopy.PEAKING_SENSITIVITY,
             showTopDivider = false,
             stacked = true,
@@ -985,7 +985,7 @@ private fun PeakingAssistCard(assist: LiveAssistState) {
                 assist.setPeaking(sense = PeakingSense.fromPersisted(label))
             }
         }
-        SettingsInlineRow("Color", SettingsHelpCopy.PEAKING_COLOR, stacked = true) {
+        SettingsInlineRow("颜色", SettingsHelpCopy.PEAKING_COLOR, stacked = true) {
             SettingsColorDots(
                 dots = SettingsPalette.peaking,
                 selectedName = assist.peakingColor.label,
@@ -999,7 +999,7 @@ private fun PeakingAssistCard(assist: LiveAssistState) {
 @Composable
 private fun ZebraAssistCard(assist: LiveAssistState, colorMode: Int) {
     SettingsRowCard(
-        title = "Zebra",
+        title = "斑马纹",
         onReset = {
             assist.updateZebraUnit(ZebraUnit.IRE)
             assist.setZebraHighlight(enabled = true, ire = LiveZebra.HIGHLIGHT_IRE, color = ZebraPaint.WHITE)
@@ -1007,7 +1007,7 @@ private fun ZebraAssistCard(assist: LiveAssistState, colorMode: Int) {
         },
     ) {
         SettingsInlineRow(
-            "Units",
+            "单位",
             SettingsHelpCopy.ZEBRA_UNITS,
             showTopDivider = false,
             stacked = true,
@@ -1022,7 +1022,7 @@ private fun ZebraAssistCard(assist: LiveAssistState, colorMode: Int) {
         val transfer = MonitorTransfer.fromColorMode(colorMode)
         val maximum = ZebraEditor.editorMaximum(assist.zebraUnit)
         ZebraZoneRow(
-            title = "Highlight",
+            title = "高光",
             help = SettingsHelpCopy.ZEBRA_HIGHLIGHT,
             enabled = assist.zebraHighlight,
             value = ZebraEditor.displayValue(assist.zebraHighlightIRE, assist.zebraUnit, transfer),
@@ -1036,7 +1036,7 @@ private fun ZebraAssistCard(assist: LiveAssistState, colorMode: Int) {
             onColor = { assist.setZebraHighlight(color = ZebraPaint.fromPersisted(it)) },
         )
         ZebraZoneRow(
-            title = "Midtone",
+            title = "中间调",
             help = SettingsHelpCopy.ZEBRA_MIDTONE,
             enabled = assist.zebraMidtone,
             value = ZebraEditor.displayValue(assist.zebraMidtoneIRE, assist.zebraUnit, transfer),
@@ -1084,10 +1084,10 @@ private fun ZebraZoneRow(
 @Composable
 private fun WaveformAssistCard(assist: LiveAssistState) {
     SettingsRowCard(
-        title = "Waveform",
+        title = "波形图",
         onReset = { assist.setWaveform(mode = WaveformMode.RGB, brightness = 100, guides = ScopeGuides()) },
     ) {
-        SettingsInlineRow("Mode", showTopDivider = false, stacked = true) {
+        SettingsInlineRow("模式", showTopDivider = false, stacked = true) {
             SettingsSegmented(
                 options = WaveformMode.entries.map { it.label },
                 selected = assist.waveMode.label,
@@ -1095,7 +1095,7 @@ private fun WaveformAssistCard(assist: LiveAssistState) {
                 assist.setWaveform(mode = WaveformMode.fromPersisted(label))
             }
         }
-        SettingsInlineRow("Brightness", SettingsHelpCopy.WAVEFORM_BRIGHTNESS, stacked = true) {
+        SettingsInlineRow("亮度", SettingsHelpCopy.WAVEFORM_BRIGHTNESS, stacked = true) {
             SettingsPercentSlider(value = assist.waveBrightness, range = 0..200) {
                 assist.setWaveform(brightness = it)
             }
@@ -1107,10 +1107,10 @@ private fun WaveformAssistCard(assist: LiveAssistState) {
 @Composable
 private fun ParadeAssistCard(assist: LiveAssistState) {
     SettingsRowCard(
-        title = "Parade",
+        title = "分量图",
         onReset = { assist.setParade(mode = ParadeMode.RGB, brightness = 100, guides = ScopeGuides()) },
     ) {
-        SettingsInlineRow("Mode", showTopDivider = false, stacked = true) {
+        SettingsInlineRow("模式", showTopDivider = false, stacked = true) {
             SettingsSegmented(
                 options = ParadeMode.entries.map { it.label },
                 selected = assist.paradeMode.label,
@@ -1118,7 +1118,7 @@ private fun ParadeAssistCard(assist: LiveAssistState) {
                 assist.setParade(mode = ParadeMode.fromPersisted(label))
             }
         }
-        SettingsInlineRow("Brightness", SettingsHelpCopy.PARADE_BRIGHTNESS, stacked = true) {
+        SettingsInlineRow("亮度", SettingsHelpCopy.PARADE_BRIGHTNESS, stacked = true) {
             SettingsPercentSlider(value = assist.paradeBrightness, range = 0..200) {
                 assist.setParade(brightness = it)
             }
@@ -1130,7 +1130,7 @@ private fun ParadeAssistCard(assist: LiveAssistState) {
 @Composable
 private fun HistogramAssistCard(assist: LiveAssistState) {
     SettingsRowCard(
-        title = "Histogram",
+        title = "直方图",
         onReset = {
             assist.setHistogram(traffic = true, compensation = CrushClipCompensation.ZERO)
         },
@@ -1157,11 +1157,11 @@ private fun HistogramAssistCard(assist: LiveAssistState) {
 @Composable
 private fun VectorscopeAssistCard(assist: LiveAssistState) {
     SettingsRowCard(
-        title = "Vectorscope",
+        title = "矢量示波器",
         onReset = { assist.setVectorscope(zoom = VectorscopeZoom.X1, brightness = 100) },
     ) {
         SettingsInlineRow(
-            "Trace Zoom",
+            "轨迹放大",
             SettingsHelpCopy.VECTORSCOPE_ZOOM,
             showTopDivider = false,
             stacked = true,
@@ -1173,7 +1173,7 @@ private fun VectorscopeAssistCard(assist: LiveAssistState) {
                 assist.setVectorscope(zoom = VectorscopeZoom.fromPersisted(label))
             }
         }
-        SettingsInlineRow("Brightness", SettingsHelpCopy.VECTORSCOPE_BRIGHTNESS, stacked = true) {
+        SettingsInlineRow("亮度", SettingsHelpCopy.VECTORSCOPE_BRIGHTNESS, stacked = true) {
             SettingsPercentSlider(value = assist.vectorBrightness, range = 0..200) {
                 assist.setVectorscope(brightness = it)
             }
@@ -1184,7 +1184,7 @@ private fun VectorscopeAssistCard(assist: LiveAssistState) {
 @Composable
 private fun TrafficLightsAssistCard(assist: LiveAssistState) {
     SettingsRowCard(
-        title = "Traffic Lights",
+        title = "红绿灯提示",
         onReset = { assist.setCompensation(CrushClipCompensation.ZERO) },
     ) {
         SettingsInlineRow(
@@ -1210,13 +1210,13 @@ private fun CrushClipControl(selected: CrushClipCompensation, onSelect: (CrushCl
 
 @Composable
 private fun ScopeGuideRows(guides: ScopeGuides, onChange: (ScopeGuides) -> Unit) {
-    SettingsSwitchRow("Safe Border Clip", isOn = guides.clip, stacked = true) {
+    SettingsSwitchRow("安全边界削波", isOn = guides.clip, stacked = true) {
         onChange(guides.copy(clip = !guides.clip))
     }
-    SettingsSwitchRow("Safe Border Crush", isOn = guides.crush, stacked = true) {
+    SettingsSwitchRow("安全边界截止", isOn = guides.crush, stacked = true) {
         onChange(guides.copy(crush = !guides.crush))
     }
-    SettingsSwitchRow("Middle Gray", isOn = guides.middle, stacked = true) {
+    SettingsSwitchRow("中灰", isOn = guides.middle, stacked = true) {
         onChange(guides.copy(middle = !guides.middle))
     }
 }
@@ -1224,8 +1224,8 @@ private fun ScopeGuideRows(guides: ScopeGuides, onChange: (ScopeGuides) -> Unit)
 /**
  * Shooting-mode picker, mirroring the iOS capture sheet.
  *
- * Laid out as two strips of three rather than one six-wide segment so "HyperLapse" and
- * "SuperNight" stay readable, keeping the camera's own carousel order reading left to right,
+ * Laid out as two strips of three rather than one six-wide segment so "移动延时" and
+ * "超级夜景" stay readable, keeping the camera's own carousel order reading left to right,
  * top to bottom. Selection comes from the camera's `0x02/0x80` status push, so it follows a
  * mode changed on the body itself; [CameraCommands.shootingModeCarousel] is the only source of
  * values written back.
@@ -1237,7 +1237,7 @@ private fun ShootingModeRow(model: AppModel, view: View) {
     val carousel = remember(cameraName) { CameraCommands.shootingModeCarousel(cameraName) }
     val selectedLabel = CameraCommands.shootingModeLabel(status.shootingMode)
     SettingsInlineRow(
-        title = "Shooting Mode",
+        title = "拍摄模式",
         help = SettingsHelpCopy.SHOOTING_MODE,
         showTopDivider = false,
         stacked = true,
@@ -1266,13 +1266,13 @@ private fun ShootingModeRow(model: AppModel, view: View) {
 private fun ControlsRows(model: AppModel, isLive: Boolean) {
     val view = LocalView.current
     if (isLive) {
-        SettingsRowCard(title = "Capture") {
+        SettingsRowCard(title = "拍摄") {
             ShootingModeRow(model, view)
         }
     }
     SettingsRowCard {
         SettingsSwitchInlineRow(
-            title = "Record Confirmation",
+            title = "录制确认",
             help = SettingsHelpCopy.RECORD_CONFIRMATION,
             showTopDivider = false,
             isOn = model.recordConfirmationEnabled,
@@ -1281,7 +1281,7 @@ private fun ControlsRows(model: AppModel, isLive: Boolean) {
             model.updateRecordConfirmationEnabled(!model.recordConfirmationEnabled)
         }
         SettingsSwitchInlineRow(
-            title = "Haptics",
+            title = "触感反馈",
             help = SettingsHelpCopy.HAPTICS,
             isOn = model.hapticsEnabled,
         ) {
@@ -1290,7 +1290,7 @@ private fun ControlsRows(model: AppModel, isLive: Boolean) {
             model.updateHapticsEnabled(next)
         }
         SettingsInlineRow(
-            title = "Joystick Sensitivity",
+            title = "摇杆灵敏度",
             help = SettingsHelpCopy.JOYSTICK_SENSITIVITY,
             stacked = true,
         ) {
@@ -1318,11 +1318,11 @@ private fun ControlsRows(model: AppModel, isLive: Boolean) {
                 )
             }
         }
-        SettingsInlineRow("Gamepad", SettingsHelpCopy.GAMEPAD) {
-            SettingsValueText(if (model.gamepadConnected) "Connected" else "Not connected")
+        SettingsInlineRow("手柄", SettingsHelpCopy.GAMEPAD) {
+            SettingsValueText(if (model.gamepadConnected) "已连接" else "未连接")
         }
         SettingsSwitchInlineRow(
-            title = "Keep Screen Awake",
+            title = "保持屏幕常亮",
             help = SettingsHelpCopy.KEEP_SCREEN_AWAKE,
             isOn = model.keepScreenAwake,
         ) {
@@ -1364,7 +1364,7 @@ private fun DisplayRows(
 private fun DispSectionBody(model: AppModel, mode: PocketDispMode, isLive: Boolean, view: View) {
     if (isLive) {
         SettingsActionPill(
-            title = "Edit view",
+            title = "编辑视图",
             modifier = Modifier.padding(vertical = 8.dp),
             onClick = {
                 operatorHaptic(view, model.hapticsEnabled)
@@ -1374,7 +1374,7 @@ private fun DispSectionBody(model: AppModel, mode: PocketDispMode, isLive: Boole
         )
     } else {
         Text(
-            "Connect to arrange this on the monitor.",
+            "连接相机后才能在监视器上排列。",
             style = LiveType.ui(11f, FontWeight.SemiBold),
             color = LiveDesign.muted,
             modifier = Modifier.padding(vertical = 6.dp),
@@ -1383,7 +1383,7 @@ private fun DispSectionBody(model: AppModel, mode: PocketDispMode, isLive: Boole
     }
     if (mode == PocketDispMode.CLEAN) {
         Text(
-            "View assists that stay on in clean view",
+            "简洁视图下保持开启的画面辅助",
             style = LiveType.ui(11f, FontWeight.SemiBold),
             color = LiveDesign.muted,
             modifier = Modifier.padding(top = 8.dp, bottom = 6.dp),
@@ -1398,33 +1398,33 @@ private val dispToggleSpecs =
     listOf(
         DispToggleSpec(
             PocketDispSection.STATUS_BAR,
-            "Status Bar",
-            "REC, timecode, format, and FPS along the top of the feed.",
+            "状态栏",
+            "画面顶部的录制、时间码、格式和 FPS。",
         ),
-        DispToggleSpec(PocketDispSection.TOOL_BAR, "Tool Bar", "The view-assist strip under the feed."),
+        DispToggleSpec(PocketDispSection.TOOL_BAR, "工具栏", "画面下方的辅助工具条。"),
         DispToggleSpec(
             PocketDispSection.CAMERA_VALUES,
-            "Camera Values",
-            "ISO, shutter, white balance, and the rest of the capture strip.",
+            "相机数值",
+            "ISO、快门、白平衡等整条拍摄控制栏。",
         ),
         DispToggleSpec(
             PocketDispSection.LOCK_BUTTON,
-            "Lock Button",
-            "Side-rail lock. Remounts while the interface is locked.",
+            "锁定按钮",
+            "侧栏锁定。界面锁定时仍可重新挂载。",
         ),
-        DispToggleSpec(PocketDispSection.BATTERIES, "Batteries", "Phone and camera battery cluster."),
-        DispToggleSpec(PocketDispSection.REC_READOUT, "REC", "Standby / recording chip on the status bar."),
-        DispToggleSpec(PocketDispSection.TIMECODE, "Timecode", "Running timecode on the status bar."),
-        DispToggleSpec(PocketDispSection.FORMAT, "Format", "Recording resolution and frame rate."),
-        DispToggleSpec(PocketDispSection.COLOR, "Color", "Color mode chip on the status bar."),
-        DispToggleSpec(PocketDispSection.STORAGE, "Storage", "Remaining media time on the status bar."),
-        DispToggleSpec(PocketDispSection.FPS, "FPS", "Live-view rate and link bars."),
-        DispToggleSpec(PocketDispSection.RAIL_RECORD, "Record", "Rail record lamp. Stays available while rolling."),
-        DispToggleSpec(PocketDispSection.RAIL_MEDIA, "Media", "Rail media button."),
-        DispToggleSpec(PocketDispSection.RAIL_SETTINGS, "Settings", "Rail settings button. Always an escape hatch."),
-        DispToggleSpec(PocketDispSection.ZOOM_CHIP, "Zoom Chip", "Live zoom readout on the feed."),
-        DispToggleSpec(PocketDispSection.GIMBAL_STICK, "Gimbal Stick", "On-screen gimbal stick."),
-        DispToggleSpec(PocketDispSection.FOCUS_BOX, "AF Box", "Focus and face-tracking brackets on the feed."),
+        DispToggleSpec(PocketDispSection.BATTERIES, "电量", "手机与相机电量组件。"),
+        DispToggleSpec(PocketDispSection.REC_READOUT, "REC", "状态栏上的待机/录制指示。"),
+        DispToggleSpec(PocketDispSection.TIMECODE, "时间码", "状态栏上的运行时间码。"),
+        DispToggleSpec(PocketDispSection.FORMAT, "格式", "录制分辨率与帧率。"),
+        DispToggleSpec(PocketDispSection.COLOR, "色彩", "状态栏上的色彩模式。"),
+        DispToggleSpec(PocketDispSection.STORAGE, "存储", "状态栏上的剩余可录时长。"),
+        DispToggleSpec(PocketDispSection.FPS, "FPS", "实时画面帧率与信号条。"),
+        DispToggleSpec(PocketDispSection.RAIL_RECORD, "录制", "侧栏录制灯。录制中仍可操作。"),
+        DispToggleSpec(PocketDispSection.RAIL_MEDIA, "媒体", "侧栏媒体按钮。"),
+        DispToggleSpec(PocketDispSection.RAIL_SETTINGS, "设置", "侧栏设置按钮。随时可用。"),
+        DispToggleSpec(PocketDispSection.ZOOM_CHIP, "变焦指示", "画面上的变焦读数。"),
+        DispToggleSpec(PocketDispSection.GIMBAL_STICK, "云台摇杆", "屏幕云台摇杆。"),
+        DispToggleSpec(PocketDispSection.FOCUS_BOX, "对焦框", "画面上的对焦与人脸跟踪框。"),
     )
 
 @Composable
@@ -1476,15 +1476,15 @@ private fun StorageRows(model: AppModel, onClearCache: () -> Unit) {
     val view = LocalView.current
     val bytes = OperatorMediaCache.byteCount(context)
     val cacheLabel =
-        if (OperatorMediaCache.existingDir(context) == null) "Empty" else formatCacheSize(bytes)
+        if (OperatorMediaCache.existingDir(context) == null) "空" else formatCacheSize(bytes)
     SettingsRowCard {
         SettingsInlineRow("Frame.io", SettingsHelpCopy.FRAME_IO, showTopDivider = false) {
-            SettingsValueText("Not configured")
+            SettingsValueText("未配置")
         }
     }
     SettingsRowCard {
         SettingsSwitchInlineRow(
-            title = "Full Resolution Caching",
+            title = "全分辨率缓存",
             isOn = model.cacheFullResolution,
             help = SettingsHelpCopy.CACHE_FULL_RESOLUTION,
             showTopDivider = false,
@@ -1492,12 +1492,12 @@ private fun StorageRows(model: AppModel, onClearCache: () -> Unit) {
             operatorHaptic(view, model.hapticsEnabled)
             model.updateCacheFullResolution(!model.cacheFullResolution)
         }
-        SettingsInlineRow("Local Media Cache", SettingsHelpCopy.LOCAL_CACHE) {
+        SettingsInlineRow("本地媒体缓存", SettingsHelpCopy.LOCAL_CACHE) {
             SettingsValueText(cacheLabel)
         }
-        SettingsInlineRow("Clear Cache", SettingsHelpCopy.CLEAR_CACHE) {
+        SettingsInlineRow("清除缓存", SettingsHelpCopy.CLEAR_CACHE) {
             Text(
-                "Clear",
+                "清除",
                 style = LiveType.ui(13f, FontWeight.SemiBold),
                 color = LiveDesign.rec,
                 modifier = Modifier.settingsClickable(role = Role.Button, onClick = onClearCache),
@@ -1509,47 +1509,47 @@ private fun StorageRows(model: AppModel, onClearCache: () -> Unit) {
 @Composable
 private fun SystemRows(model: AppModel, onLegal: (LegalKind) -> Unit) {
     val context = LocalContext.current
-    SettingsRowCard(title = "Help & Feedback") {
-        SettingsInlineRow("Support", SettingsHelpCopy.SUPPORT, showTopDivider = false) {
-            SettingsActionPill("Open") { openUrl(context, OpenPocketCineLinks.SUPPORT) }
+    SettingsRowCard(title = "帮助与反馈") {
+        SettingsInlineRow("支持", SettingsHelpCopy.SUPPORT, showTopDivider = false) {
+            SettingsActionPill("打开") { openUrl(context, OpenPocketCineLinks.SUPPORT) }
         }
-        SettingsInlineRow("Share Diagnostics", SettingsHelpCopy.SHARE_DIAGNOSTICS) {
-            SettingsActionPill("Share") {
+        SettingsInlineRow("分享诊断", SettingsHelpCopy.SHARE_DIAGNOSTICS) {
+            SettingsActionPill("分享") {
                 DiagnosticCenter.shareReport(context, model.session)
             }
         }
-        SettingsInlineRow("Report a Problem", SettingsHelpCopy.REPORT) {
-            SettingsActionPill("Report") { openUrl(context, OpenPocketCineLinks.REPORT_PROBLEM) }
+        SettingsInlineRow("报告问题", SettingsHelpCopy.REPORT) {
+            SettingsActionPill("报告") { openUrl(context, OpenPocketCineLinks.REPORT_PROBLEM) }
         }
-        SettingsInlineRow("Request a Feature", SettingsHelpCopy.FEATURE) {
-            SettingsActionPill("Request") { openUrl(context, OpenPocketCineLinks.FEATURE_REQUEST) }
-        }
-    }
-    SettingsRowCard(title = "Project & Legal") {
-        SettingsInlineRow("Source Code", SettingsHelpCopy.SOURCE, showTopDivider = false) {
-            SettingsActionPill("Open") { openUrl(context, OpenPocketCineLinks.SOURCE) }
-        }
-        SettingsInlineRow("Privacy", "What this app stores on this phone.") {
-            SettingsActionPill("Open") { openUrl(context, OpenPocketCineLinks.PRIVACY) }
-        }
-        SettingsInlineRow("Terms", "How you can use OpenPocketCine.") {
-            SettingsActionPill("Open") { openUrl(context, OpenPocketCineLinks.TERMS) }
-        }
-        SettingsInlineRow("Licenses", "Apache 2.0 and third-party notices.") {
-            SettingsActionPill("Open") { onLegal(LegalKind.LICENSES) }
-        }
-        SettingsInlineRow("NOTICE", "Attribution shipped with the app.") {
-            SettingsActionPill("Open") { onLegal(LegalKind.NOTICE) }
+        SettingsInlineRow("功能建议", SettingsHelpCopy.FEATURE) {
+            SettingsActionPill("建议") { openUrl(context, OpenPocketCineLinks.FEATURE_REQUEST) }
         }
     }
-    SettingsRowCard(title = "App Information") {
-        SettingsInlineRow("Theme", SettingsHelpCopy.THEME, showTopDivider = false) {
-            SettingsValueText("DJI Black")
+    SettingsRowCard(title = "项目与法律信息") {
+        SettingsInlineRow("源代码", SettingsHelpCopy.SOURCE, showTopDivider = false) {
+            SettingsActionPill("打开") { openUrl(context, OpenPocketCineLinks.SOURCE) }
         }
-        SettingsInlineRow("Protocol Implementation", SettingsHelpCopy.PROTOCOL) {
-            SettingsValueText("DUML / BLE + Wi-Fi")
+        SettingsInlineRow("隐私", "本应用在此手机上保存了什么。") {
+            SettingsActionPill("打开") { openUrl(context, OpenPocketCineLinks.PRIVACY) }
         }
-        SettingsInlineRow("App Version", SettingsHelpCopy.APP_VERSION) {
+        SettingsInlineRow("条款", "OpenPocketCine 的使用许可说明。") {
+            SettingsActionPill("打开") { openUrl(context, OpenPocketCineLinks.TERMS) }
+        }
+        SettingsInlineRow("许可证", "Apache 2.0 与第三方声明。") {
+            SettingsActionPill("打开") { onLegal(LegalKind.LICENSES) }
+        }
+        SettingsInlineRow("声明", "随应用内置的署名信息。") {
+            SettingsActionPill("打开") { onLegal(LegalKind.NOTICE) }
+        }
+    }
+    SettingsRowCard(title = "应用信息") {
+        SettingsInlineRow("主题", SettingsHelpCopy.THEME, showTopDivider = false) {
+            SettingsValueText("DJI 黑")
+        }
+        SettingsInlineRow("协议实现", SettingsHelpCopy.PROTOCOL) {
+            SettingsValueText("DUML / 蓝牙 + Wi-Fi")
+        }
+        SettingsInlineRow("应用版本", SettingsHelpCopy.APP_VERSION) {
             SettingsValueText(formatAppVersion(BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE.toLong()))
         }
     }
@@ -1606,7 +1606,7 @@ private fun SettingsLiveTile(
         Box(Modifier.size(8.dp).background(tint, CircleShape))
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
-                if (isLive) "Active Link" else "No Link",
+                if (isLive) "活动连接" else "无连接",
                 style = LiveType.ui(12f, FontWeight.SemiBold),
                 color = LiveDesign.text,
                 maxLines = 1,
@@ -1649,7 +1649,7 @@ private fun ScrollMoreCue(modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.Bottom,
     ) {
         Text(
-            "MORE",
+            "更多",
             style = LiveType.mono(9.5f, FontWeight.Bold).copy(letterSpacing = 1.2.sp, color = LiveDesign.muted),
         )
         OpcIcon(

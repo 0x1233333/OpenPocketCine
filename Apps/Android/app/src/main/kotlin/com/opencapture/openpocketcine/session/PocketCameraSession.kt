@@ -371,19 +371,19 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
     init {
         ble.onLinkLost = {
             if (_phase.value == ConnectionPhase.LIVE || holdsMonitor) {
-                beginSessionRecovery("BLE dropped", SessionRecoveryTrigger.BLE_DROPPED)
+                beginSessionRecovery("蓝牙掉线", SessionRecoveryTrigger.BLE_DROPPED)
             } else {
-                failLink("the camera disconnected")
+                failLink("相机已断开")
             }
         }
         joiner.onPathLost = {
             if (_phase.value == ConnectionPhase.LIVE || holdsMonitor) {
                 beginSessionRecovery(
-                    "the camera Wi-Fi disconnected",
+                    "相机 Wi-Fi 已断开",
                     SessionRecoveryTrigger.SOFTAP_LOST,
                 )
             } else {
-                failLink("the camera Wi-Fi disconnected")
+                failLink("相机 Wi-Fi 已断开")
             }
         }
         joiner.onReassociated = {
@@ -495,7 +495,7 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
         frameJob?.cancel()
         resetGimbalControls()
         endGimbalStick()
-        failAllWaiters(IllegalStateException("the camera disconnected"))
+        failAllWaiters(IllegalStateException("相机已断开"))
         pairingHold.clear()
         inflight.clear()
         inflightPending.clear()
@@ -576,7 +576,7 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
     }
 
     private suspend fun run(camera: FoundCamera) {
-        if (!SwiftCore.isAvailable) error("Swift core is not loaded — run just android-core")
+        if (!SwiftCore.isAvailable) error("Swift 核心未加载——请运行 just android-core")
         connectedCamera = camera
         rawAccessUnits = 0
         lastIdrRequest = 0L
@@ -608,7 +608,7 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
         try {
             completePairing()
         } catch (_: TimeoutCancellationException) {
-            error("pairing timed out — tap Approve on the camera if it asked")
+            error("配对超时——如果相机有提示，请在相机上点按 Approve")
         }
 
         startKeepalive(joinedSSID)
@@ -631,7 +631,7 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
         if (!joiner.isProcessBound()) {
             val joined = joiner.join(ssid, pass, camera.model.wpa3)
             if (!joined) {
-                // iOS parity: a Pocket "Reset Wi-Fi" regenerates the passphrase.
+                // iOS parity: a Pocket "重置 Wi-Fi" regenerates the passphrase.
                 // Drop cached creds so the next tap re-reads them over BLE.
                 if (credsFromCache) {
                     DiagnosticCenter.log(
@@ -643,8 +643,8 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
                     wifiCache.remove(camera.id)
                 }
                 error(
-                    "couldn't join camera Wi-Fi — tap the system Join prompt if Android asked. " +
-                        "On 5.8 GHz the camera Wi-Fi can take about a minute to appear. Try again, or set the camera to 2.4 GHz (Settings, Wireless, Frequency) for a faster join.",
+                    "无法加入相机 Wi-Fi——如果系统有询问，请点「加入」。" +
+                        "5.8 GHz 下相机 Wi-Fi 可能要约一分钟才出现。请重试，或把相机设为 2.4 GHz（设置→无线→频率）以更快连接。",
                 )
             }
         }
@@ -757,7 +757,7 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
                                     return@open
                                 }
                                 publishPhase(ConnectionPhase.LIVE)
-                                sendCapturedLiveView("first picture")
+                                sendCapturedLiveView("首帧")
                             },
                         )
                     }
@@ -767,7 +767,7 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
                 kotlinx.coroutines.currentCoroutineContext().ensureActive()
                 Log.i(TAG, "session: handshake open timed out")
                 val miss =
-                    DatalinkHandshakeException("camera never answered the datalink handshake")
+                    DatalinkHandshakeException("相机没有响应数据链路握手")
                 if (LiveViewEnablePolicy.shouldKickAfterHandshakeTimeout(joiner.isProcessBound())) {
                     throw miss
                 }
@@ -960,7 +960,7 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
         nalTypes = decoder.nalTypesSeen.ifEmpty { "—" }
         val keyframe = decoder.lastKeyframeAt
         lastKeyframeAge =
-            if (keyframe == null) "none yet"
+            if (keyframe == null) "暂无"
             else String.format("%.1fs", (System.currentTimeMillis() - keyframe) / 1000.0)
     }
 
@@ -1111,7 +1111,7 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
                 // Do not route through sendRecoverEnable — inPlayback / decoder-ready
                 // holds skipped the only PLI and sat on WAITING FOR LIVE VIEW.
                 sendCapturedLiveView(
-                    if (liveViewEnableSends == 0) "first picture" else "first-picture resend",
+                    if (liveViewEnableSends == 0) "首帧" else "first-picture resend",
                 )
             }
             LiveViewEnablePolicy.FirstPictureStep.REBUILD_UDP -> {
@@ -1516,7 +1516,7 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
             disposeDatalink()
             // A null datalink under LIVE has no repair owner — bounded session
             // recovery (warm rehandshake, then BLE reconnect) takes it from here.
-            beginSessionRecovery("datalink rejoin failed", SessionRecoveryTrigger.DATALINK_LOST)
+            beginSessionRecovery("数据链路重连失败", SessionRecoveryTrigger.DATALINK_LOST)
         }
     }
 
@@ -1595,7 +1595,7 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
             beginSessionRecovery(reason)
             return
         }
-        Log.i(TAG, "link lost: $reason")
+        Log.i(TAG, "连接丢失：$reason")
         _failure.value = reason
         _phase.value = ConnectionPhase.FAILED
         connectJob?.cancel()
@@ -1924,7 +1924,7 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
         fireKind(
             if (starting) SwiftCore.CMD_RECORD_START else SwiftCore.CMD_RECORD_STOP,
             null,
-            if (starting) "Record" else "Stop",
+            if (starting) "录制" else "停止",
             onSettle = { _controlBusy.value = false },
         )
     }
@@ -1936,7 +1936,7 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
             fireKind(
                 SwiftCore.CMD_SHOOT_PHOTO,
                 null,
-                "Photo",
+                "拍照",
                 retransmits = false,
                 onSettle = { _controlBusy.value = false },
             )
@@ -1988,7 +1988,7 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
         fireKind(
             SwiftCore.CMD_SET_ISO_LIMIT,
             "$raw",
-            "ISO limit",
+            "ISO 上限",
             coalesce = true,
             onFail = {
                 if (_status.value.isoLimit == raw) {
@@ -2020,7 +2020,7 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
         fireKind(
             SwiftCore.CMD_SET_SHOOTING_MODE,
             "$raw",
-            "Mode",
+            "模式",
             onFail = {
                 if (_status.value.shootingMode == raw) {
                     _status.value = _status.value.copy(shootingMode = previous)
@@ -2065,7 +2065,7 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
         }
         zoomOptimistic = factor
         markZoomStop(factor)
-        val name = "Zoom $to"
+        val name = "变焦 $to"
         _controlNote.value = name
         when (write) {
             is CamFov.ChipWrite.Lens ->
@@ -2150,7 +2150,7 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
             payload = CameraCommands.gimbalRecenter(),
             receiver = CameraCommands.RX_GIMBAL,
         )
-        _controlNote.value = "Gimbal re-centered"
+        _controlNote.value = "云台已回中"
     }
 
     fun flipGimbal() {
@@ -2457,7 +2457,7 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
     fun beginMediaBrowse() {
         isBrowsingMedia = true
         scope.launch {
-            sendDumlWait(0x02, CameraCommands.CMD_PLAYBACK, CameraCommands.enterPlayback(), "Playback")
+            sendDumlWait(0x02, CameraCommands.CMD_PLAYBACK, CameraCommands.enterPlayback(), "回放")
             listMedia()
         }
     }
@@ -2465,7 +2465,7 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
     fun endMediaBrowse() {
         isBrowsingMedia = false
         scope.launch {
-            sendDumlWait(0x02, CameraCommands.CMD_PLAYBACK, CameraCommands.exitPlayback(), "Live")
+            sendDumlWait(0x02, CameraCommands.CMD_PLAYBACK, CameraCommands.exitPlayback(), "实时")
             sendCapturedLiveView("media browse ended")
         }
     }
@@ -2488,7 +2488,7 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
                 0x00,
                 CameraCommands.CMD_MEDIA_DELETE,
                 CameraCommands.deleteMedia(handle, mediaListCounter),
-                "Delete",
+                "删除",
             )
         }
     }
@@ -2528,7 +2528,7 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
             fireKind(
                 SwiftCore.CMD_SET_EXPO_MODE,
                 "manual",
-                "Manual expo",
+                "手动曝光",
                 onFail = {
                     if (_status.value.expoMode == CameraCommands.EXPO_MANUAL) {
                         _status.value = _status.value.copy(expoMode = previousExpo)
@@ -2573,7 +2573,7 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
         fireKind(
             SwiftCore.CMD_SET_WB_AUTO,
             "$next",
-            "WB Auto tint $next",
+            "白平衡自动 色调 $next",
             coalesce = true,
         )
     }
@@ -2584,7 +2584,7 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
         fireKind(
             SwiftCore.CMD_SET_WB_CUSTOM,
             "$k\u001f$t",
-            "WB ${k}K tint $t",
+            "白平衡 ${k}K 色调 $t",
             coalesce = true,
         )
     }
@@ -2598,7 +2598,7 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
         fireKind(
             SwiftCore.CMD_SET_FOCUS_MODE,
             if (continuous) "2" else "1",
-            "Focus",
+            "对焦",
             onFail = {
                 if (_status.value.focusMode == next) {
                     _status.value = _status.value.copy(focusMode = previous)
@@ -2822,7 +2822,7 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
         val from = _status.value.colorMode
         // Do not pin color — holdZoomWrite must see live D-Log2 until the body hops.
         colorPin = null
-        _controlNote.value = "D-Log — D-Log2 cannot zoom"
+        _controlNote.value = "D-Log——D-Log2 下无法变焦"
         fireKind(
             SwiftCore.CMD_SET_COLOR_MODE,
             colorModeExtra(next),
@@ -2896,7 +2896,7 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
     private fun fireZoom(payload: ByteArray, announce: Boolean, name: String) {
         val dl = datalink
         if (dl == null) {
-            _controlNote.value = "Zoom not available"
+            _controlNote.value = "变焦不可用"
             return
         }
         if (announce) {
@@ -2997,7 +2997,7 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
         _status.value = _status.value.copy(audioChannel = value)
         val label = CameraCommands.audioChannelLabel(value) ?: value.toString()
         enqueueAudio {
-            val ok = sendKind(SwiftCore.CMD_SET_AUDIO_CHANNEL, "$value", "Audio $label")
+            val ok = sendKind(SwiftCore.CMD_SET_AUDIO_CHANNEL, "$value", "音频 $label")
             if (!ok) {
                 if (_status.value.audioChannel == value) {
                     _status.value = _status.value.copy(audioChannel = previous)
@@ -3012,9 +3012,9 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
         pinAudio(vocal = boost)
         val previous = _status.value.vocalBoost
         _status.value = _status.value.copy(vocalBoost = boost)
-        val label = if (on) "On" else "Off"
+        val label = if (on) "开" else "关"
         enqueueAudio {
-            val ok = sendKind(SwiftCore.CMD_SET_VOCAL_BOOST, if (on) "1" else "0", "Vocal $label")
+            val ok = sendKind(SwiftCore.CMD_SET_VOCAL_BOOST, if (on) "1" else "0", "人声 $label")
             if (!ok) {
                 if (_status.value.vocalBoost == boost) {
                     _status.value = _status.value.copy(vocalBoost = previous)
@@ -3029,7 +3029,7 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
         pinAudio(wind = value)
         _status.value = _status.value.copy(windNr = value)
         enqueueAudio {
-            patchAudioDsp("Wind ${if (on) "On" else "Off"}") { CameraCommands.patchWind(it, on) }
+            patchAudioDsp("风噪降噪 ${if (on) "开" else "关"}") { CameraCommands.patchWind(it, on) }
         }
     }
 
@@ -3038,7 +3038,7 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
         _status.value = _status.value.copy(directionalAudio = mode, windNr = 1)
         val label = CameraCommands.audioDirLabel(mode) ?: mode.toString()
         enqueueAudio {
-            patchAudioDsp("Dir $label") { CameraCommands.patchDirectional(it, mode) }
+            patchAudioDsp("方向 $label") { CameraCommands.patchDirectional(it, mode) }
         }
     }
 
@@ -3176,7 +3176,7 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
             return
         }
         if (point != point.clamped()) {
-            _controlNote.value = "Set the gimbal within its tilt limits"
+            _controlNote.value = "在云台俯仰限位范围内设置"
             return
         }
         if (point.nativePitchDeg == null) {
@@ -3230,7 +3230,7 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
             return
         }
         if (!firstPictureSettled || decoder.lastPresentedAt == null || isLiveVideoStale()) {
-            _controlNote.value = "Wait for live video before running a move"
+            _controlNote.value = "等实时画面出现后再运行移动"
             return
         }
         val link = datalink ?: return
@@ -3242,7 +3242,7 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
         val program = _gimbalProgram.value
         if (live.pose.nativePitchDeg == null || listOfNotNull(program.a, program.b, program.c)
                 .any { it.nativePitchDeg == null }) {
-            _controlNote.value = "Set the gimbal points again"
+            _controlNote.value = "重新设置云台点位"
             return
         }
         restGimbalStickWire()
@@ -3260,7 +3260,7 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
             if (moveDatalink !== link || !_gimbalMoveRunning.value) return@launch
             if (!canRunProgrammedMove) {
                 cancelProgrammedMove()
-                _controlNote.value = "Wait for live video before running a move"
+                _controlNote.value = "等实时画面出现后再运行移动"
                 return@launch
             }
             prepProgrammedMoveGimbal()
@@ -3313,7 +3313,7 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
         if (was) {
             gimbalRestedAt = SystemClock.elapsedRealtime()
             restGimbalStickWire()
-            lastMoveReadout = lastMoveReadout?.copy(phase = "STOP")
+            lastMoveReadout = lastMoveReadout?.copy(phase = "停止")
         }
         publishMoveDebug(gimbalDebugText(), force = true)
     }
@@ -3472,10 +3472,10 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
         val xy = "$nx\u001f$ny"
         scope.launch {
             val focused =
-                sendKind(SwiftCore.CMD_TAP_FOCUS_POINT, xy, "Focus region", timeoutMs = 800)
+                sendKind(SwiftCore.CMD_TAP_FOCUS_POINT, xy, "对焦区域", timeoutMs = 800)
             if (!focused) return@launch
-            sendKind(SwiftCore.CMD_TAP_FOCUS_HINT, null, "AE hint", timeoutMs = 800)
-            sendKind(SwiftCore.CMD_TAP_FOCUS_COMMIT, xy, "Focus", timeoutMs = 800)
+            sendKind(SwiftCore.CMD_TAP_FOCUS_HINT, null, "AE 提示", timeoutMs = 800)
+            sendKind(SwiftCore.CMD_TAP_FOCUS_COMMIT, xy, "对焦", timeoutMs = 800)
         }
     }
 
@@ -3484,10 +3484,10 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
         subjectBox = null
         isTracking = false
         refreshTrackingHud()
-        _controlNote.value = "Frame Too Small"
+        _controlNote.value = "画面过小"
         scope.launch {
             delay(2_000)
-            if (_controlNote.value == "Frame Too Small") _controlNote.value = null
+            if (_controlNote.value == "画面过小") _controlNote.value = null
         }
     }
 
@@ -3777,7 +3777,7 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
     ) {
         val dl = datalink
         if (dl == null || !endpointCommandAdmission.allows(dl.isClosed, dl.isRebuilding)) {
-            _controlNote.value = "not live"
+            _controlNote.value = "非实时"
             onFail?.invoke()
             onSettle?.invoke(false)
             return
@@ -3986,7 +3986,7 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
 
     private suspend fun readWifiString(name: String, set: Int, cmd: Int, send: () -> Unit): String {
         val deadline = SystemClock.elapsedRealtime() + 30_000
-        var last = "couldn't read the camera's Wi-Fi credentials"
+        var last = "无法读取相机的 Wi-Fi 信息"
         var attempt = 0
         while (SystemClock.elapsedRealtime() < deadline) {
             attempt += 1
@@ -3996,9 +3996,9 @@ class PocketCameraSession(context: Context) : CameraSessionSeam {
                 val frame = waitFrame(set, cmd, 6_000)
                 val value = SwiftCore.unpackStatusString(frame.payload).orEmpty()
                 if (value.isNotEmpty()) return value
-                last = "$name came back empty — camera AP not up yet"
+                last = "$name 返回为空——相机热点尚未就绪"
             } catch (_: Exception) {
-                last = "$name timed out — camera didn't reply (AP still coming up?)"
+                last = "$name 超时——相机没有响应（热点可能还在启动）"
             }
             delay(400)
         }
