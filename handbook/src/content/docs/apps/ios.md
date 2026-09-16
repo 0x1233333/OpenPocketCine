@@ -254,7 +254,7 @@ Wi-Fi. From **Your cameras**, tap the grid icon to set up the network and add
 cameras. Each camera has its own preview and recording controls; Record all
 requests recording together without frame-accurate synchronization. See the
 [Multiview guide](https://openpocketcine.app/docs/guides/multiview-prototype/) for supported observations,
-setup, saved stages and remaining physical checks. Pocket 3, Pocket 4 Pro and
+session network selection, saved preferences and remaining physical checks. Pocket 3, Pocket 4 Pro and
 Nano preview and recording have been checked together on iPhone. Pocket 3
 recovery after an app switch required a full rejoin and roughly a minute in the
 recorded test. Android Multiview remains unavailable.
@@ -372,3 +372,8 @@ send optional crash, error and feed-dropout reports. This also applies after an
 update if you have never made that choice. Enable or Not now is remembered;
 updates do not ask again after a decision. You can change the choice in
 **Operator Setup → System → Automatic error reports**.
+
+If System says “This build cannot send automatic reports,” the installed build
+has no reporting destination. A configured TestFlight update is required;
+reinstalling the same build will not enable it. When that update arrives, the
+app asks if you have not previously chosen Enable or Not now.
