@@ -104,7 +104,7 @@ fun FavoriteStar(
     ) {
         OpcIcon(
             icon = OpcIcon.STAR,
-            contentDescription = if (favorite) "Remove from favorites" else "Add to favorites",
+            contentDescription = if (favorite) "取消收藏" else "加入收藏",
             tint = if (favorite) Color(0xFFE9C35A) else LiveDesign.faint,
             modifier = Modifier.size(iconSize),
             filled = favorite,

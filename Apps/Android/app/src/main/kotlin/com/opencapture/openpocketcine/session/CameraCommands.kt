@@ -324,17 +324,17 @@ object CameraCommands {
 
     fun audioChannelLabel(value: Int): String? =
         when (value) {
-            AUDIO_MONO -> "Mono"
-            AUDIO_STEREO -> "Stereo"
-            AUDIO_SPATIAL -> "Spatial"
+            AUDIO_MONO -> "单声道"
+            AUDIO_STEREO -> "立体声"
+            AUDIO_SPATIAL -> "空间音频"
             else -> null
         }
 
     fun audioDirLabel(mode: Int): String? =
         when (mode) {
-            0 -> "All"
-            1 -> "Front"
-            2 -> "Front+back"
+            0 -> "全部"
+            1 -> "前置"
+            2 -> "前+后"
             else -> null
         }
 
@@ -393,17 +393,17 @@ object CameraCommands {
 
     /**
      * Label for a tabled `0x02/0xE1` value, or null when the camera reports one we do not know.
-     * Both photo encodings read back as "Photo" — the body decides which it uses.
+     * Both photo encodings read back as "拍照" — the body decides which it uses.
      * Pocket 3 presents `0x28` as Low-Light video; other bodies keep SuperNight.
      */
     fun shootingModeLabel(raw: Int, cameraName: String? = null): String? =
         when (raw) {
-            SHOOT_SLOWMO -> "SlowMo"
-            SHOOT_VIDEO -> "Video"
-            SHOOT_TIMELAPSE -> "TimeLapse"
-            SHOOT_PHOTO, SHOOT_PHOTO_POCKET4 -> "Photo"
+            SHOOT_SLOWMO -> "慢动作"
+            SHOOT_VIDEO -> "视频"
+            SHOOT_TIMELAPSE -> "延时摄影"
+            SHOOT_PHOTO, SHOOT_PHOTO_POCKET4 -> "拍照"
             SHOOT_LIVE_PHOTO -> "Live Photo"
-            SHOOT_HYPERLAPSE -> "HyperLapse"
+            SHOOT_HYPERLAPSE -> "移动延时"
             SHOOT_SUPER_NIGHT ->
                 if (CameraModel.looksLikePocket3(cameraName.orEmpty())) "Low-Light" else "SuperNight"
             else -> null
@@ -430,7 +430,7 @@ object CameraCommands {
      * Panorama (`0x0c`) is documented but left out: no hardware here has confirmed it.
      *
      * Note this is `0x02/0xE1`, never `0x02/0x02`. That opcode is nominally DJI's four-value
-     * *work* mode, but on a Nano it **is** record control — a "Video" entry mapped to `[01]`
+     * *work* mode, but on a Nano it **is** record control — a "视频" entry mapped to `[01]`
      * would start a recording behind the operator's back.
      */
     fun shootingModeCarousel(cameraName: String?): List<Int> =
@@ -894,11 +894,11 @@ object CameraCommands {
 
     fun colorLabel(mode: Int, family: String = "pocket"): String =
         when (mode) {
-            COLOR_NORMAL -> if (family == "nano") "Normal 8-bit" else "Normal"
+            COLOR_NORMAL -> if (family == "nano") "普通 8-bit" else "普通"
             COLOR_HDR -> "HDR"
             COLOR_DLOG -> "D-Log"
             COLOR_DLOG2 -> "D-Log2"
-            COLOR_NORMAL10 -> "Normal 10-bit"
+            COLOR_NORMAL10 -> "普通 10-bit"
             COLOR_DLOG_M -> if (family == "nano") "D-Log M 10-bit" else "D-Log M"
             else -> "—"
         }
@@ -909,7 +909,7 @@ object CameraCommands {
 
     fun isoLabel(index: Int): String =
         when (index) {
-            0x00 -> "Auto"
+            0x00 -> "自动"
             0x03 -> "100"
             0x04 -> "200"
             0x05 -> "400"
@@ -1005,7 +1005,7 @@ object CameraCommands {
     fun isoChoices(colorMode: Int): List<Pair<Int, String>> {
         val all =
             listOf(
-                0x00 to "Auto",
+                0x00 to "自动",
                 0x03 to "100",
                 0x04 to "200",
                 0x05 to "400",
@@ -1170,10 +1170,10 @@ object CameraCommands {
 
 /** AF-C submenu. `0x02/0x8E` pid `0x003B`. SET/GET value is `01 <mode>`. */
 enum class FocusTrackMode(val raw: Int, val label: String) {
-    DEFAULT(0x00, "Default"),
-    PRODUCT_SHOWCASE(0x01, "Product Showcase"),
-    SUBJECT_LOCK(0x02, "Subject Lock Tracking"),
-    REGISTERED_PRIORITY(0x03, "Registered Subject Priority"),
+    DEFAULT(0x00, "默认"),
+    PRODUCT_SHOWCASE(0x01, "产品展示"),
+    SUBJECT_LOCK(0x02, "主体锁定跟踪"),
+    REGISTERED_PRIORITY(0x03, "已注册主体优先"),
     ;
 
     companion object {
@@ -1206,9 +1206,9 @@ enum class FocusTrackMode(val raw: Int, val label: String) {
 enum class FocusOption(val chip: String) {
     SINGLE("AF-S"),
     CONTINUOUS_DEFAULT("AF-C"),
-    PRODUCT_SHOWCASE("Showcase"),
-    SUBJECT_LOCK("Lock"),
-    REGISTERED_PRIORITY("Priority"),
+    PRODUCT_SHOWCASE("产品展示"),
+    SUBJECT_LOCK("主体锁定"),
+    REGISTERED_PRIORITY("注册主体优先"),
     ;
 
     companion object {

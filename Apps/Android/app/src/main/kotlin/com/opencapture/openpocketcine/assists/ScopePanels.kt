@@ -362,7 +362,7 @@ internal fun WaveformPanel(state: LiveAssistState, colorMode: Int, modifier: Mod
         val livePlot = WaveformAxis.plotRect(this.size.width, this.size.height, this.density)
         blitScopePlot(trace, livePlot)
         drawWaveGuides(livePlot, state.waveGuides, colorMode, this.density)
-        drawScopeTitle(measurer, "WAVE", state.waveMode.label.uppercase())
+        drawScopeTitle(measurer, "波形", state.waveMode.label.uppercase())
     }
 }
 
@@ -390,7 +390,7 @@ internal fun ParadePanel(state: LiveAssistState, colorMode: Int, modifier: Modif
         blitScopePlot(trace, livePlot)
         // iOS ParadeOverlay does not paint lane letters or vertical dividers.
         drawWaveGuides(livePlot, state.paradeGuides, colorMode, this.density)
-        drawScopeTitle(measurer, "PARADE", ParadeAssist.chip(state.paradeMode))
+        drawScopeTitle(measurer, "分量", ParadeAssist.chip(state.paradeMode))
     }
 }
 
@@ -502,7 +502,7 @@ internal fun VectorscopePanel(state: LiveAssistState, modifier: Modifier = Modif
                 TextStyle(color = VectorRing, fontSize = 6.5.sp, fontFamily = com.opencapture.openpocketcine.OpcFonts.sora, fontWeight = FontWeight.Bold),
             )
         }
-        drawScopeTitle(measurer, "VECTOR", VectorscopeAssist.chip(state.vectorZoom))
+        drawScopeTitle(measurer, "矢量", VectorscopeAssist.chip(state.vectorZoom))
     }
 }
 
@@ -541,11 +541,11 @@ internal fun TrafficLightsPanel(state: LiveAssistState, modifier: Modifier = Mod
 
 object NDAssist {
     const val HELP =
-        "Meters the live picture against middle gray and suggests a screw-on ND — stops and ND number — to balance it. The app cannot set a filter."
+        "以中灰为基准测量实时画面，并建议外接 ND 滤镜——给出档位和 ND 数值——以平衡曝光。应用无法替你安装滤镜。"
     const val METER_TITLE = "ND"
-    const val NOTATION_TITLE = "Units"
+    const val NOTATION_TITLE = "单位"
     const val NOTATION_HELP =
-        "Stops vs middle gray, filter factor (ND16 / ND32 / ND64), or optical density (ND 0.3 = 1 stop)."
+        "可选择：相对中灰的档数、滤镜系数（ND16 / ND32 / ND64）或光密度（ND 0.3 = 1 档）。"
 }
 
 @Composable

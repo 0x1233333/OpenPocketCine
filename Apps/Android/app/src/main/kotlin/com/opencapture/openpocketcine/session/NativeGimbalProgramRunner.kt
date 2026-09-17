@@ -68,7 +68,7 @@ internal class NativeGimbalProgramRunner(
                     stop()
                     releaseRequest(token)
                     publish(Progress(token, program, sample?.pose, null,
-                        "Move interrupted — timing or camera feedback lost", true, epoch = epoch))
+                        "移动被打断——时序或相机反馈丢失", true, epoch = epoch))
                     return@schedule
                 }
                 val engine = GimbalMoveEngine()
@@ -76,7 +76,7 @@ internal class NativeGimbalProgramRunner(
                     stop()
                     releaseRequest(token)
                     publish(Progress(token, program, sample.pose, null,
-                        engine.failure ?: "Set reachable gimbal points again", true, epoch = epoch))
+                        engine.failure ?: "重新设置可到达的云台点位", true, epoch = epoch))
                     return@schedule
                 }
                 val run = Run(token, program, engine, publish, current)
@@ -126,7 +126,7 @@ internal class NativeGimbalProgramRunner(
             if (run != null) active = null
             val live = feedback()?.pose
             interrupted.publish(Progress(interrupted.token, interrupted.program, live,
-                live?.let { run?.engine?.readout(it) }, "Move interrupted — camera connection changed", true, epoch = callbackEpoch.get()))
+                live?.let { run?.engine?.readout(it) }, "移动被打断——相机连接发生变化", true, epoch = callbackEpoch.get()))
         }
     }
 
@@ -152,7 +152,7 @@ internal class NativeGimbalProgramRunner(
             if (run == null || sample == null || !run.engine.pause(sample.pose)) {
                 stop()
                 saved.publish(Progress(token, saved.program, sample?.pose, null,
-                    "Move interrupted — camera feedback lost", true, epoch = epoch))
+                    "移动被打断——相机反馈丢失", true, epoch = epoch))
                 releaseRequest(token)
                 active = null
                 return@schedule
@@ -175,7 +175,7 @@ internal class NativeGimbalProgramRunner(
             val sample = run.stability.ready(now())
             if (sample == null || !run.engine.resume(sample.pose)) {
                 run.publish(Progress(token, run.program, feedback()?.pose, feedback()?.pose?.let { run.engine.readout(it) },
-                    null, false, paused = true, note = "Hold the camera still before resuming", epoch = epoch,
+                    null, false, paused = true, note = "恢复前请保持相机静止", epoch = epoch,
                     verificationInterruptedByPause = run.engine.verificationInterruptedByPause))
                 return@schedule
             }
@@ -208,19 +208,19 @@ internal class NativeGimbalProgramRunner(
             val current = now()
             val sample = feedback()
             if (sample == null) {
-                fail(run, null, "Move interrupted — camera feedback lost")
+                fail(run, null, "移动被打断——相机反馈丢失")
                 return@schedule
             }
             val out = run.engine.tick(current - run.lastTick, sample.pose, current - sample.receivedAt)
             run.lastTick = current
             if (out == null) {
-                fail(run, sample.pose, "Move interrupted — timing or camera feedback lost")
+                fail(run, sample.pose, "移动被打断——时序或相机反馈丢失")
                 return@schedule
             }
             if (generation.get() != run.token || callbackEpoch.get() != epoch) return@schedule
             if (out.stop) stop()
             if (out.target != null && !send(out.target, out.duration)) {
-                fail(run, sample.pose, "Set reachable gimbal points again")
+                fail(run, sample.pose, "重新设置可到达的云台点位")
                 return@schedule
             }
             if (out.finished) {

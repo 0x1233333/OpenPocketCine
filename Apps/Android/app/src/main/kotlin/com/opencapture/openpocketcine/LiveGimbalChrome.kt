@@ -107,7 +107,7 @@ fun LiveGimbalButton(
         modifier
             .size(LiveDesign.ZOOM_CHIP_DP.dp)
             .chromeClickable(enabled = !locked, onClick = onClick)
-            .semantics { contentDescription = "Gimbal controls" },
+            .semantics { contentDescription = "云台控制" },
         contentAlignment = Alignment.Center,
     ) {
         OpcIcon(
@@ -473,7 +473,7 @@ private fun LiveGimbalEditor(model: AppModel, program: GimbalProgram, running: B
             ) {
                 OpcIcon(
                     OpcIcon.MINIMIZE,
-                    contentDescription = "Minimize",
+                    contentDescription = "最小化",
                     modifier = Modifier.size(16.dp),
                     tint = LiveDesign.text,
                 )
@@ -501,7 +501,7 @@ private fun LiveGimbalEditor(model: AppModel, program: GimbalProgram, running: B
             running, cameraId, phase,
         )
         if (program.b != null && program.c != null) {
-            Text(String.format(java.util.Locale.US, "Smoothness %.2f", program.smoothness),
+            Text(String.format(java.util.Locale.US, "平滑度 %.2f", program.smoothness),
                 color = LiveDesign.text, style = LiveType.ui(13f, FontWeight.SemiBold))
             Slider(value = program.smoothness.toFloat(),
                 onValueChange = { model.session.setGimbalSmoothness(it.toDouble()) },
@@ -509,18 +509,18 @@ private fun LiveGimbalEditor(model: AppModel, program: GimbalProgram, running: B
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (!running) {
-                Chip("Clear", selected = false, modifier = Modifier.weight(1f)) { model.session.clearGimbalProgram() }
+                Chip("清除", selected = false, modifier = Modifier.weight(1f)) { model.session.clearGimbalProgram() }
                 Chip(GimbalHudCopy.RUN, selected = model.session.canRunProgrammedMove,
                     modifier = Modifier.weight(1f).testTag("motion.startStop"),
                     enabled = model.session.canRunProgrammedMove) { model.session.runProgrammedMove() }
             } else {
                 if (countdown == null) {
-                    Chip(if (paused) "Resume" else "Pause", selected = true,
+                    Chip(if (paused) "继续" else "暂停", selected = true,
                         modifier = Modifier.weight(1f).testTag("motion.pauseResume")) {
                         if (paused) model.session.resumeProgrammedMove() else model.session.pauseProgrammedMove()
                     }
                 }
-                Chip(countdown?.let { "Stop · $it" } ?: "Stop", selected = true,
+                Chip(countdown?.let { "停止 · $it" } ?: "停止", selected = true,
                     modifier = Modifier.weight(1f).testTag("motion.startStop")) { model.session.cancelProgrammedMove() }
             }
         }
@@ -618,14 +618,14 @@ private fun LiveGimbalRunPill(model: AppModel, program: GimbalProgram, running: 
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (running && countdown == null) {
-            Text(if (paused) "RESUME" else "PAUSE", color = LiveDesign.text,
+            Text(if (paused) "继续" else "暂停", color = LiveDesign.text,
                 style = LiveType.ui(13f, FontWeight.Bold),
                 modifier = Modifier.testTag("motion.pauseResume")
                     .chromeClickable(onClick = {
                         if (paused) model.session.resumeProgrammedMove() else model.session.pauseProgrammedMove()
                     }).padding(horizontal = 14.dp, vertical = 12.dp))
         }
-        Text(countdown?.let { "STOP · $it" } ?: if (running) "STOP" else GimbalHudCopy.RUN.uppercase(),
+        Text(countdown?.let { "停止 · $it" } ?: if (running) "停止" else GimbalHudCopy.RUN.uppercase(),
             color = LiveDesign.text, style = LiveType.ui(13f, FontWeight.Bold),
             modifier = Modifier.testTag("motion.startStop")
                 .chromeClickable(enabled = model.session.canRunProgrammedMove || running,
@@ -639,7 +639,7 @@ private fun LiveGimbalRunPill(model: AppModel, program: GimbalProgram, running: 
         ) {
             OpcIcon(
                 OpcIcon.MAXIMIZE,
-                contentDescription = "Expand Motion Control",
+                contentDescription = "展开运动控制",
                 modifier = Modifier.size(16.dp),
                 tint = LiveDesign.text,
             )

@@ -80,12 +80,12 @@ fun SavedCamerasExperience(model: AppModel) {
         actions = {
             MonitorIconButton(
                 OpcIcon.FILM,
-                "Media library",
+                "媒体库",
                 onClick = { model.homePanel = AppPanel.MEDIA },
             )
             MonitorIconButton(
                 OpcIcon.SETTINGS,
-                "Settings",
+                "设置",
                 onClick = { model.homePanel = AppPanel.SETTINGS },
             )
         },
@@ -187,7 +187,7 @@ private fun SavedCameraRow(
                 }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     DropdownMenuItem(
-                        text = { Text("Rename") },
+                        text = { Text("重命名") },
                         leadingIcon = {
                             OpcIcon(OpcIcon.PENCIL, contentDescription = null, modifier = Modifier.size(18.dp))
                         },
@@ -198,7 +198,7 @@ private fun SavedCameraRow(
                         },
                     )
                     DropdownMenuItem(
-                        text = { Text("Remove") },
+                        text = { Text("移除") },
                         leadingIcon = {
                             OpcIcon(OpcIcon.TRASH, contentDescription = null, modifier = Modifier.size(18.dp))
                         },
@@ -214,11 +214,11 @@ private fun SavedCameraRow(
     if (rename) {
         AlertDialog(
             onDismissRequest = { rename = false },
-            title = { Text("Rename camera") },
+            title = { Text("重命名相机") },
             text = {
                 Column {
-                    Text("Give this camera a name you'll recognize.")
-                    OutlinedTextField(value = renameText, onValueChange = { renameText = it }, label = { Text("Name") })
+                    Text("给这台相机起个好认的名字。")
+                    OutlinedTextField(value = renameText, onValueChange = { renameText = it }, label = { Text("名称") })
                 }
             },
             confirmButton = {
@@ -227,25 +227,25 @@ private fun SavedCameraRow(
                         onRename(renameText)
                         rename = false
                     }
-                ) { Text("Save") }
+                ) { Text("保存") }
             },
-            dismissButton = { TextButton(onClick = { rename = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { rename = false }) { Text("取消") } },
         )
     }
     if (remove) {
         AlertDialog(
             onDismissRequest = { remove = false },
-            title = { Text("Remove camera?") },
-            text = { Text("This removes ${camera.displayName} from this phone. You can pair it again later.") },
+            title = { Text("移除相机？") },
+            text = { Text("这会从手机上移除 ${camera.displayName}，之后可以重新配对。") },
             confirmButton = {
                 TextButton(
                     onClick = {
                         onRemove()
                         remove = false
                     }
-                ) { Text("Remove") }
+                ) { Text("移除") }
             },
-            dismissButton = { TextButton(onClick = { remove = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { remove = false }) { Text("取消") } },
         )
     }
 }

@@ -151,7 +151,7 @@ fun SettingsRowCard(
 /** Circular counter-clockwise reset control (iOS `SettingsResetButton`, 28dp). */
 @Composable
 fun SettingsResetButton(onClick: () -> Unit) {
-    val description = "Reset to defaults"
+    val description = "恢复默认设置"
     Box(
         Modifier.size(28.dp)
             .background(LiveDesign.background.copy(alpha = 0.42f), CircleShape)
@@ -588,22 +588,22 @@ data class SettingsColorDot(val name: String, val color: Color)
 object SettingsPalette {
     val highlight: List<SettingsColorDot> =
         listOf(
-            SettingsColorDot("White", LiveDesign.text),
-            SettingsColorDot("Amber", LiveDesign.accent),
-            SettingsColorDot("Red", LiveDesign.rec),
+            SettingsColorDot("白色", LiveDesign.text),
+            SettingsColorDot("琥珀色", LiveDesign.accent),
+            SettingsColorDot("红色", LiveDesign.rec),
         )
     val midtone: List<SettingsColorDot> =
         listOf(
-            SettingsColorDot("Amber", LiveDesign.accent),
-            SettingsColorDot("Cyan", LiveDesign.info),
-            SettingsColorDot("Green", LiveDesign.good),
+            SettingsColorDot("琥珀色", LiveDesign.accent),
+            SettingsColorDot("青色", LiveDesign.info),
+            SettingsColorDot("绿色", LiveDesign.good),
         )
     val peaking: List<SettingsColorDot> =
         listOf(
-            SettingsColorDot("White", LiveDesign.text),
-            SettingsColorDot("Blue", LiveDesign.info),
-            SettingsColorDot("Red", LiveDesign.rec),
-            SettingsColorDot("Green", LiveDesign.good),
+            SettingsColorDot("白色", LiveDesign.text),
+            SettingsColorDot("蓝色", LiveDesign.info),
+            SettingsColorDot("红色", LiveDesign.rec),
+            SettingsColorDot("绿色", LiveDesign.good),
         )
 }
 
@@ -855,7 +855,7 @@ fun SettingsValueText(value: String) {
     )
 }
 
-/** Accent inline action ("Open", "Sign in") — the iOS System-tab link button treatment. */
+/** Accent inline action ("打开", "登录") — the iOS System-tab link button treatment. */
 @Composable
 fun SettingsLinkAction(
     title: String,
@@ -1009,7 +1009,7 @@ fun PanelCloseButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
             .size(37.dp)
             .panelGlass(CircleShape)
             .settingsClickable(role = Role.Button, onClick = onClick)
-            .semantics { contentDescription = "Close" },
+            .semantics { contentDescription = "关闭" },
         contentAlignment = Alignment.Center,
     ) {
         OpcIcon(

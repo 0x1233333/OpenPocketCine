@@ -7,7 +7,7 @@ import kotlin.math.floor
 
 /** How the ND chip names the reading. Operator setting, not a camera SET. */
 enum class NDFilterNotation(val persisted: String, val editorLabel: String) {
-    STOPS("stops", "Stops"),
+    STOPS("stops", "档"),
     FACTOR("factor", "ND32"),
     DENSITY("density", "ND 0.3"),
     ;

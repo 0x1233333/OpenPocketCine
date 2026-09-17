@@ -146,7 +146,7 @@ class BleLink(context: Context) {
         val radio = adapter
         if (radio == null || !radio.isEnabled) {
             _radioOn.value = false
-            Log.w(TAG, "BLE scan waiting: Bluetooth is not fully on (state=${radio?.state})")
+            Log.w(TAG, "蓝牙扫描等待中：蓝牙未完全开启（state=${radio?.state}）")
             return
         }
         _radioOn.value = true
@@ -156,7 +156,7 @@ class BleLink(context: Context) {
         }
         if (scanning) return
         if (!hasScanPermission()) {
-            Log.w(TAG, "BLE scan skipped: nearby-device permission not granted")
+            Log.w(TAG, "跳过蓝牙扫描：未授予附近设备权限")
             return
         }
         foundDevices.clear()
@@ -165,7 +165,7 @@ class BleLink(context: Context) {
             ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build()
         val started =
             runCatching { scanner.startScan(null, settings, scanCallback) }
-                .onFailure { Log.w(TAG, "BLE scan failed to start", it) }
+                .onFailure { Log.w(TAG, "蓝牙扫描启动失败", it) }
                 .isSuccess
         scanning = started
         if (started) Log.i(TAG, "BLE scan started")
@@ -197,7 +197,7 @@ class BleLink(context: Context) {
 
     @SuppressLint("MissingPermission")
     suspend fun connect(camera: FoundCamera) {
-        val device = foundDevices[camera.address] ?: error("camera disappeared")
+        val device = foundDevices[camera.address] ?: error("相机失去响应")
         stopScan()
         suspendCancellableCoroutine { cont ->
             val attempt = operations.begin()
@@ -413,7 +413,7 @@ class BleLink(context: Context) {
         return FoundCamera(
             id = id,
             address = address,
-            name = name ?: "DJI camera",
+            name = name ?: "DJI 相机",
             model = model,
             modelId = modelId,
         )
@@ -425,7 +425,7 @@ class BleLink(context: Context) {
             override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
                 onGattCallback(attempt, gatt) {
                     if (status != BluetoothGatt.GATT_SUCCESS || newState == BluetoothProfile.STATE_DISCONNECTED) {
-                        finishConnect(IllegalStateException("the camera disconnected"))
+                        finishConnect(IllegalStateException("相机已断开"))
                         notifyLinkLostIfSettled(attempt)
                         closeGatt(IllegalStateException("the camera disconnected"))
                     } else if (newState == BluetoothProfile.STATE_CONNECTED) {

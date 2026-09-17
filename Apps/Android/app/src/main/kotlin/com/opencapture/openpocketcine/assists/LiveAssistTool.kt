@@ -33,21 +33,21 @@ enum class LiveAssistTool {
     val title: String
         get() =
             when (this) {
-                LUT -> "LUT"
-                PEAK -> "Peaking"
-                FALSE -> "False Color"
-                ZEBRA -> "Zebra"
-                WAVE -> "Waveform"
-                PARADE -> "RGB Parade"
-                HISTO -> "Histogram"
-                VECTOR -> "Vectorscope"
-                LIGHTS -> "Traffic Lights"
-                ND -> "ND Suggestion"
-                AUDIO -> "Audio Levels"
-                GUIDES -> "Guides"
-                GRID -> "Grid"
-                CROSS -> "Crosshair"
-                MIRROR -> "Mirror"
+                LUT -> "LUT 调色"
+                PEAK -> "峰值对焦"
+                FALSE -> "伪色"
+                ZEBRA -> "斑马纹"
+                WAVE -> "波形图"
+                PARADE -> "RGB 分量图"
+                HISTO -> "直方图"
+                VECTOR -> "矢量示波器"
+                LIGHTS -> "红绿灯提示"
+                ND -> "ND 建议"
+                AUDIO -> "音频电平"
+                GUIDES -> "参考线"
+                GRID -> "网格"
+                CROSS -> "十字线"
+                MIRROR -> "镜像"
             }
 
     /** Audio exposes monitor orientation; mirror has no H/V-flip submenu. */
@@ -84,8 +84,8 @@ enum class LiveAssistTool {
 }
 
 enum class GuideFamily(val label: String) {
-    FILM("Film"),
-    SOCIAL("Social"),
+    FILM("电影"),
+    SOCIAL("社交"),
     ;
 
     companion object {
@@ -136,10 +136,10 @@ enum class GuideAspect(val label: String) {
 }
 
 enum class PeakingColor(val label: String) {
-    WHITE("White"),
-    BLUE("Blue"),
-    RED("Red"),
-    GREEN("Green"),
+    WHITE("白色"),
+    BLUE("蓝色"),
+    RED("红色"),
+    GREEN("绿色"),
     ;
 
     /** Overlay RGB OpenZCine paints on focused edges. */
@@ -159,9 +159,9 @@ enum class PeakingColor(val label: String) {
 }
 
 enum class PeakingSense(val label: String) {
-    LOW("Low"),
-    MED("Med"),
-    HIGH("High"),
+    LOW("低"),
+    MED("中"),
+    HIGH("高"),
     ;
 
     val ratioThreshold: Double
@@ -187,24 +187,25 @@ enum class PeakingSense(val label: String) {
 }
 
 enum class FalseColorScale(val persisted: String, val menuLabel: String) {
-    STOPS("CineStop", "CineStop"),
-    IRE("IRE", "IRE"),
-    LIMITS("Limits", "Limits"),
-    EL_ZONE("EL Zone", "EL Zone"),
+    STOPS("CineStop", "CineStop 档位"),
+    IRE("IRE", "IRE 电平"),
+    LIMITS("限值", "限值"),
+    EL_ZONE("EL Zone", "EL Zone 曝光"),
     ;
 
     companion object {
         fun fromPersisted(raw: String): FalseColorScale =
             entries.firstOrNull {
                 it.persisted == raw || it.menuLabel == raw || it.name == raw
-                    || raw == "Stops" || raw == "ZC Stops" || raw == "PStops"
+                    || raw == "Stops" || raw == "档" || raw == "ZC 档位" || raw == "PStops"
+                    || raw == "Limits"
             } ?: STOPS
 
         fun fromMenuLabel(label: String): FalseColorScale =
             when (label) {
-                "IRE" -> IRE
-                "Limits" -> LIMITS
-                "EL Zone" -> EL_ZONE
+                "IRE", "IRE 电平" -> IRE
+                "限值", "Limits" -> LIMITS
+                "EL Zone", "EL Zone 曝光" -> EL_ZONE
                 else -> STOPS
             }
     }
@@ -225,11 +226,11 @@ enum class ZebraUnit(val persisted: String, val editorLabel: String) {
 }
 
 enum class ZebraPaint(val label: String) {
-    WHITE("White"),
-    AMBER("Amber"),
-    RED("Red"),
-    CYAN("Cyan"),
-    GREEN("Green"),
+    WHITE("白色"),
+    AMBER("琥珀色"),
+    RED("红色"),
+    CYAN("青色"),
+    GREEN("绿色"),
     ;
 
     /** Overlay RGB iOS `ZebraPaint.rgb` paints on the feed. */
@@ -250,7 +251,7 @@ enum class ZebraPaint(val label: String) {
 }
 
 enum class WaveformMode(val label: String) {
-    LUMA("Luma"),
+    LUMA("亮度"),
     RGB("RGB"),
     ;
 

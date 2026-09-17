@@ -20,9 +20,9 @@ object FoundCameraIdentity {
                 else -> "Pocket"
             }
         return if (isGenericName(advertisedName) || advertisedName == modelName) {
-            "$kind · nearby"
+            "$kind · 附近"
         } else {
-            "$kind · $modelName · nearby"
+            "$kind · $modelName · 附近"
         }
     }
 

@@ -237,7 +237,7 @@ object SwiftCore {
     external fun conformPreviewJSON(request: String): String?
 
     fun command(kind: Int, seq: Int = 0, extra: String? = null): ByteArray {
-        check(isAvailable) { "Swift core is not loaded" }
+        check(isAvailable) { "Swift 核心未加载" }
         return encodeCommand(kind, seq and 0xFFFF, extra)
             ?: error("encodeCommand($kind) returned null")
     }

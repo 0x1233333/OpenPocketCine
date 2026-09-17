@@ -56,7 +56,7 @@ data class CameraModel(
     }
 
     companion object {
-        val default = CameraModel(name = "DJI Osmo camera")
+        val default = CameraModel(name = "DJI Osmo 相机")
 
         fun looksLikePocket3(name: String): Boolean {
             val n = name.lowercase().replace(" ", "")
@@ -299,22 +299,22 @@ data class CameraStatus(
         get() =
             CameraCommands.shootingModeLabel(shootingMode)
                 ?: when (shootingMode) {
-                    -1 -> if (inPlayback) "Playback" else "Capture"
+                    -1 -> if (inPlayback) "回放" else "拍摄"
                     else -> "0x%02X".format(shootingMode)
                 }
 
     val expoLabel: String
         get() =
             when (expoMode) {
-                CameraCommands.EXPO_AUTO -> "Auto"
-                CameraCommands.EXPO_MANUAL -> "Manual"
+                CameraCommands.EXPO_AUTO -> "自动"
+                CameraCommands.EXPO_MANUAL -> "手动"
                 else -> "—"
             }
 
     val isoLabel: String
         get() =
             when {
-                isoIndex == 0 -> "Auto"
+                isoIndex == 0 -> "自动"
                 iso > 0 -> "$iso"
                 else -> "—"
             }
@@ -345,7 +345,7 @@ data class CameraStatus(
     val wbLabel: String
         get() =
             when {
-                wbMode == CameraCommands.WB_AUTO -> "Auto"
+                wbMode == CameraCommands.WB_AUTO -> "自动"
                 wbKelvin > 0 -> "${wbKelvin}K"
                 else -> "—"
             }

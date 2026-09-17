@@ -261,7 +261,7 @@ internal object FeedEffectsRenderPlanFactory {
             }
         return PackedCubeCache.value(key) {
             if (!SwiftCore.isAvailable) {
-                Log.w(TAG, "LUT pack needs the Swift core")
+                Log.w(TAG, "LUT 打包需要 Swift 核心")
                 return@value null
             }
             if (source is LutLookSource.Creative) {

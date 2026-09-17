@@ -138,7 +138,7 @@ fun PairingExperience(
             }
             if (!radioOn) {
                 PairingCallout(
-                    title = "Bluetooth",
+                    title = "蓝牙",
                     body = "Turn Bluetooth on so we can find your Pocket.",
                     icon = MonitorIcon.RADIO,
                     action = "Turn on",
@@ -147,7 +147,7 @@ fun PairingExperience(
             }
             if (!permissionsGranted) {
                 PairingCallout(
-                    title = "Nearby devices",
+                    title = "附近设备",
                     body = "Allow Bluetooth and nearby devices so we can find your Pocket.",
                     icon = MonitorIcon.WIFI,
                     action = "Allow",
@@ -191,15 +191,15 @@ private fun pairingPresentation(
                 title = "On the camera",
                 icon = MonitorPairingInstructionIcon.CAMERA,
                 lines = listOf(
-                    "Leave the camera on — it brings up its own Wi-Fi",
-                    "On 5.8 GHz that can take about a minute; we keep trying",
+                    "保持相机开机——它会开启自己的 Wi-Fi",
+                    "5.8 GHz 下可能需要约一分钟，我们会继续尝试",
                 ),
             ),
             MonitorPairingInstruction(
                 title = "On this phone",
                 icon = MonitorPairingInstructionIcon.PHONE,
                 lines = listOf(
-                    "Tap Join when Android asks to join the camera network",
+                    "系统询问加入相机网络时，点「加入」",
                     LocalVPNFilter.JOIN_WIFI_PHONE_STEP,
                 ),
             ),

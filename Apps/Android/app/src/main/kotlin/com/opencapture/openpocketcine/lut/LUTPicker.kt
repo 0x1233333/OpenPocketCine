@@ -82,8 +82,8 @@ import kotlin.math.abs
 
 private enum class LutTab(val label: String) {
     DJI("DJI"),
-    CREATIVE("Creative"),
-    CUSTOM("Custom"),
+    CREATIVE("创意"),
+    CUSTOM("自定义"),
 }
 
 /** iOS `LUTPicker` landscape metrics — caption + drum, not a stretched well.
@@ -197,7 +197,7 @@ internal fun LUTPicker(
                     onArmLut()
                 }
                 .onFailure { error ->
-                    importError = error.message ?: "The .cube file could not be read."
+                    importError = error.message ?: ".cube 文件无法读取。"
                 }
         }
 
@@ -267,7 +267,7 @@ internal fun LUTPicker(
                 Spacer(Modifier.weight(1f))
                 if (onClose != null) {
                     Text(
-                        "Done",
+                        "完成",
                         color = LiveDesign.accent,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -286,8 +286,8 @@ internal fun LUTPicker(
     if (pending != null) {
         AlertDialog(
             onDismissRequest = { pendingDeletion = null },
-            title = { Text("Clear ${LutCatalog.displayName(pending)}?") },
-            text = { Text("This removes the stored LUT from this device. This action cannot be undone.") },
+            title = { Text("清除 ${LutCatalog.displayName(pending)}？") },
+            text = { Text("这会删除本机存储的 LUT。此操作无法撤销。") },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -301,20 +301,20 @@ internal fun LUTPicker(
                                 }
                             }
                             .onFailure { error ->
-                                deletionError = error.message ?: "The LUT could not be deleted."
+                                deletionError = error.message ?: "无法删除该 LUT。"
                             }
                     }
-                ) { Text("Clear LUT", color = StartupColors.destructive) }
+                ) { Text("清除 LUT", color = StartupColors.destructive) }
             },
-            dismissButton = { TextButton(onClick = { pendingDeletion = null }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { pendingDeletion = null }) { Text("取消") } },
         )
     }
     if (deletionError != null) {
         AlertDialog(
             onDismissRequest = { deletionError = null },
-            title = { Text("Couldn’t Delete LUT") },
-            text = { Text(deletionError ?: "The LUT could not be deleted.") },
-            confirmButton = { TextButton(onClick = { deletionError = null }) { Text("OK") } },
+            title = { Text("无法删除 LUT") },
+            text = { Text(deletionError ?: "无法删除该 LUT。") },
+            confirmButton = { TextButton(onClick = { deletionError = null }) { Text("确定") } },
         )
     }
 }
@@ -484,13 +484,13 @@ private fun CustomTab(
                 .padding(vertical = 8.dp),
             contentAlignment = Alignment.Center,
         ) {
-            Text("Import .cube", color = LiveDesign.text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Text("导入 .cube", color = LiveDesign.text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
         }
         Spacer(Modifier.height(6.dp))
         if (imported.isEmpty()) {
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Text(
-                    "Imported looks land here. Auto stays on Built-in or DJI.",
+                    "导入的 LUT 会出现在这里。自动模式使用内置或 DJI LUT。",
                     color = LiveDesign.muted,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium,
@@ -527,7 +527,7 @@ private fun CustomTab(
                                 .clickable { onClear(fileName) }
                                 .padding(horizontal = 8.dp, vertical = 6.dp),
                         ) {
-                            Text("Clear", color = StartupColors.destructive, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            Text("清除", color = StartupColors.destructive, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }
                     Spacer(Modifier.height(6.dp))
@@ -601,10 +601,10 @@ internal fun LUTSplitComparisonBar(
         }
         if (splitComparison) {
             LutSegmentedButtons(
-                items = listOf("Left / Right", "Top / Bottom"),
-                selected = if (splitVertical) "Left / Right" else "Top / Bottom",
+                items = listOf("左 / 右", "上 / 下"),
+                selected = if (splitVertical) "左 / 右" else "上 / 下",
             ) { label ->
-                onSplitVertical(label == "Left / Right")
+                onSplitVertical(label == "左 / 右")
             }
         }
     }
@@ -785,7 +785,7 @@ private fun creativeCaption(
             LutLookResolver.resolve(selection, true, colorMode, family, cameraName, isPhoto),
         )
     } else {
-        "Looks for the displayed picture"
+        "用于当前画面的 LUT"
     }
 
 private fun djiCaption(
@@ -804,9 +804,9 @@ private fun djiCaption(
             )
         else ->
             if (LutCatalog.categoryOf(selection) == LutCategory.DJI) {
-                "Official DJI Rec.709 cube"
+                "DJI 官方 Rec.709 LUT"
             } else {
-                "Official DJI looks for this color / camera"
+                "此色彩模式/机型的官方 DJI LUT"
             }
     }
 
@@ -817,7 +817,7 @@ private fun importCube(context: Context, uri: Uri, directory: File): LutEntry {
     val rawName = queryDisplayName(context, uri) ?: uri.lastPathSegment ?: "Imported.cube"
     val bytes =
         context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-            ?: throw IllegalStateException("The .cube file could not be read.")
+            ?: throw IllegalStateException(".cube 文件无法读取。")
     return LutCatalog.importCube(rawName, bytes, directory)
 }
 

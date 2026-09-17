@@ -9,8 +9,8 @@ package com.opencapture.openpocketcine.feed
  * iOS hides unsupported options. Do not reconstruct log RGB and then cube.
  */
 enum class FeedUpscaler(val label: String) {
-    OFF("Off"),
-    FAST("Fast"),
+    OFF("关"),
+    FAST("快速"),
     ;
 
     companion object {
@@ -21,7 +21,7 @@ enum class FeedUpscaler(val label: String) {
             entries.firstOrNull { it.label.equals(raw, ignoreCase = true) }?.let { return it }
             return when (raw) {
                 "Lanczos" -> FAST
-                "MetalFX", "Quality", "Super Res", "AI" -> FAST
+                "MetalFX", "Quality", "超分辨率", "AI" -> FAST
                 else -> FAST
             }
         }

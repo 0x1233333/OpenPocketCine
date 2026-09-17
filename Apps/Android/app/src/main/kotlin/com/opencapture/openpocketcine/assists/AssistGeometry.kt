@@ -84,7 +84,7 @@ object GridAssist {
     val phiFractions = floatArrayOf(0.382f, 0.618f)
     const val STROKE_OPACITY = 0.22f
     const val STROKE_WIDTH_DP = 1f
-    val optionLabels = listOf("Thirds", "Phi Grid", "Diagonal")
+    val optionLabels = listOf("三分线", "φ 网格", "对角线")
 
     fun segments(
         feed: AssistRect,
@@ -127,7 +127,7 @@ object GuidesAssist {
         when (selected.size) {
             0 -> "—"
             1 -> selected.first().label
-            else -> "${selected.size} ratios"
+            else -> "${selected.size} 种画幅"
         }
 
     /** Letterbox when the guide is wider than the feed, pillarbox when narrower. */
@@ -155,13 +155,13 @@ object CrosshairAssist {
     const val ARM_LENGTH_DP = 40f
     const val STROKE_WIDTH_DP = 1.4f
     const val OPACITY = 0.65f
-    const val HELP = "Tap the toolbar button to show or hide the centre crosshair."
+    const val HELP = "点工具栏按钮显示/隐藏中心十字线。"
 }
 
 object MirrorAssist {
     const val EXPLANATION =
-        "Flips the monitor left-to-right, for a camera pointed back at you. " +
-            "The recording and the scopes are never mirrored."
+        "把监视器左右镜像，适合相机对着自己拍。" +
+            "录制画面和示波器不会镜像。"
 
     fun feedScaleX(mirrored: Boolean, squeeze: Float = 1f): Float = if (mirrored) -squeeze else squeeze
 }
@@ -169,7 +169,7 @@ object MirrorAssist {
 object AudioAssist {
     const val PANEL_WIDTH_DP = 28f
     const val PANEL_HEIGHT_DP = 168f
-    const val HELP = "Meters the camera's audio. Available while live view is up."
+    const val HELP = "显示相机音频电平。实时画面开启时可用。"
     const val FLOOR_DB = -60.0
     const val YELLOW_FROM_DB = -18.0
     const val RED_FROM_DB = -6.0
@@ -277,11 +277,11 @@ object HistogramAssist {
     const val TRAFFIC_LAMP_HEIGHT = 15f
     const val TRAFFIC_OUTER_PAD = 6f
     const val TRAFFIC_LINE_GAP = 4f
-    const val TRAFFIC_LIGHTS_TITLE = "Traffic Lights"
-    const val TRAFFIC_LIGHTS_HELP = "Show small RGB edge blocks for crushed and clipped channels."
-    const val COMPENSATION_TITLE = "Crush/Clip Compensation"
+    const val TRAFFIC_LIGHTS_TITLE = "红绿灯提示"
+    const val TRAFFIC_LIGHTS_HELP = "为截止/削波的通道显示小型 RGB 边缘色块。"
+    const val COMPENSATION_TITLE = "截止/削波补偿"
     const val COMPENSATION_HELP =
-        "Stops of crush/clip tolerance before a traffic light glows. Shared with the goal-post meter."
+        "红绿灯点亮前的暗部截止/高光削波容差档数。与门柱电平表共用。"
 
     val trafficGutter: Float
         get() = TRAFFIC_OUTER_PAD + TRAFFIC_LAMP_WIDTH + TRAFFIC_LINE_GAP
@@ -324,13 +324,13 @@ object ParadeAssist {
     fun chip(mode: ParadeMode): String = mode.label.uppercase()
 
     fun accessibilityLabel(mode: ParadeMode): String =
-        if (mode == ParadeMode.YRGB) "YRGB parade" else "RGB parade"
+        if (mode == ParadeMode.YRGB) "YRGB 分量图" else "RGB 分量图"
 }
 
 object VectorscopeAssist {
     fun intensity(brightness: Int): Double = brightness.coerceIn(0, 200) / 100.0
 
-    fun chip(zoom: VectorscopeZoom): String = "MON · ${zoom.label.uppercase()}"
+    fun chip(zoom: VectorscopeZoom): String = "监视 · ${zoom.label.uppercase()}"
 }
 
 object VectorscopeGraticule {
@@ -783,8 +783,8 @@ object FalseColorReference {
     fun axisLabels(scale: FalseColorScale): List<String> =
         when (scale) {
             FalseColorScale.EL_ZONE -> emptyList()
-            FalseColorScale.STOPS, FalseColorScale.IRE -> listOf("crush", "18%", "skin", "clip")
-            FalseColorScale.LIMITS -> listOf("crushed", "midtones untouched", "clipped")
+            FalseColorScale.STOPS, FalseColorScale.IRE -> listOf("暗部截止", "18%", "肤色", "高光削波")
+            FalseColorScale.LIMITS -> listOf("暗部截止", "中间调不变", "高光削波")
         }
 
     fun maximumSceneStop(transfer: MonitorTransfer): Double {
@@ -825,12 +825,12 @@ object FalseColorReference {
         val domain = stopReferenceDomain(FalseColorScale.STOPS, transfer)
         val maximum = maximumSceneStop(transfer)
         return listOf(
-            "Min" to MINIMUM_SCENE_STOP,
+            "最小" to MINIMUM_SCENE_STOP,
             "−3" to -3.0,
             "18%" to 0.0,
-            "Skin" to 1.0,
+            "肤色" to 1.0,
             "+2" to 2.0,
-            "Max" to maximum,
+            "最大" to maximum,
         ).map { (label, stop) -> AxisMarker(label, stopFraction(stop, domain, 0.0)) }
     }
 
