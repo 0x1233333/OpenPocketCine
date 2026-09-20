@@ -52,6 +52,16 @@ do not publish whole-page geometry. Selection changes publish only when the rang
 endpoint changes. This is a scheduling constraint, not a measured
 sustained-frame-rate claim, and it does not change live feed, scope or HUD budgets.
 
+## Connection follow-up measurements
+
+The [September 20 physical connection follow-up](audits/2026-09-20-physical-connection-followup.md)
+records a five-minute Android segment at 25 fps with a maximum 67.4 ms present
+gap and 33.7 ms ACK gap. Later loss holds lasted 2.3–3.1 seconds; that session
+does not qualify uninterrupted reliability. Explicit known reference loss now
+enters the existing watchdog repair without the otherwise required two-second
+decoder silence, retaining all grace and ownership gates. The unknown-stall
+threshold, ACK rate and repair budgets are unchanged.
+
 ## Image anchoring experiment
 
 A temporary iPhone 16 Pro Max benchmark of Vision homography registration at
@@ -233,6 +243,12 @@ designed: decoder output continued while presentation fell to zero, and the
 shortfall grew without bound. The current counter reports those pictures as
 drops a window after each is lost rather than as a standing shortfall.
 
+LIVE keepalive ticks also retire cadence windows while browsing Media, without
+publishing cadence reports or invoking live recovery. A failed playback-mode
+transition may leave the camera streaming while the browser stays open; if the
+renderer then stops presenting, diagnostic frame stamps must not accumulate for
+the entire browsing interval. This drain adds no camera commands.
+
 `WIFI_MODE_FULL_LOW_LATENCY` stays on while live.
 
 ## When this pointer fires
@@ -272,3 +288,15 @@ deletions remain counted and retryable. A tree still awaiting metadata preservat
 is protected from deletion, including after a failed rollback. These changes have simulator regressions;
 physical live-rate and thermal qualification remain pending for the
 [build 111 triage](audits/2026-09-19-testflight-111-sentry.md).
+
+## September 20 connection corrections
+
+The [regression follow-up](audits/2026-09-20-connection-regressions.md) retains the
+eight-AU queue bound, existing ACK/HUD cadence, enable spacing and picture-repair
+deadline. Delivery carries one additional admission-state flag; Android adds an
+epoch comparison inside the existing queue lock, never a lock around decoder
+callbacks. AU/reference mutation also validates source ownership within the
+existing decoder lock. No per-packet logging, new decoder, extra scope tap or recurring
+repair timer is added. Repeated SET grace is capped against the failed stage.
+These structural bounds are not a measured physical cadence/thermal result;
+that qualification remains pending.

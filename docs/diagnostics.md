@@ -78,6 +78,19 @@ Portable types: `Sources/OpenPocketViewCore/Diagnostics.swift`. iOS
 Android `diagnostics/DiagnosticCenter` (uncaught handler, share sheet).
 Android has no TestFlight screenshot hook — PARITY exception.
 
+Android BLE connection failures journal `status`, `newState` and `connectSettled`
+before cleanup. These are numeric platform values and a boolean, with no device
+name or address. They distinguish an initial GATT failure from a settled link
+drop; a generic status such as 133 does not identify its underlying radio cause.
+The Android setup journal also records typed initialization stages, elapsed time,
+native request admission and callback status. Its ten-second `connecting_gatt`
+deadline covers connection, service discovery, notification setup and pairing
+arm, so that phase alone does not identify a radio-connect failure. Rejected
+writes, failed local notification registration and missing notification
+descriptors must be distinguishable from an accepted request whose callback
+never arrived. These breadcrumbs contain no camera identifiers or credentials
+and do not add retry traffic.
+
 ## Typed feed incidents
 
 A 1 Hz allowlisted spool records packet, AU, decode-submit/accept/output,
@@ -134,6 +147,9 @@ timing and counters only; no picture, audio, camera credentials or device identi
   keeps moving is not a drop and a picture lost once is reported once, one window
   late. These legs follow one picture across one hop; they do not add up to a
   glass-to-glass figure and do not reach physical scanout.
+  While the session is live, cadence windows still close during Media browsing
+  even though their reports and live recovery remain suppressed. This retires
+  unmatched frame stamps if decoding continues without presentation.
 - `session: foreground` / foreground recovery rows record network readiness and
   picture freshness. Recovery stage, failure, completion and exhausted-budget
   rows remain in the journal shared by the operator.
@@ -256,6 +272,10 @@ until that failure clears; fresh decoded/presented frames alone are insufficient
 This corrects incident accounting, not the underlying transport/decoder outages.
 The [build 111 audit](audits/2026-09-19-testflight-111-sentry.md) records reviewed
 Sentry groups, recovered build 111 symbols, reproduced fixes and outstanding device evidence.
+The [September 20 follow-up](audits/2026-09-20-sentry-current-issues.md) records
+resolved prior fixes, feedback moved to Discussions, remaining failures and the
+reproduced iOS display-host ownership defect. Resolved implementation issues
+still require their recorded physical qualification; live-outage groups remain open.
 
 Feed grouping includes incident kind as well as stage and error class, separating
 transport stalls from fresh-input/stale-output incidents at the same stage. New

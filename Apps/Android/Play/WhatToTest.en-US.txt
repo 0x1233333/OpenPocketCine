@@ -1,18 +1,18 @@
 New and changed
 
-- Shared diagnostics now include picture timings and drop estimates to help distinguish a delayed feed from a jumpy one.
-- TalkBack reads live view as whole phrases, such as "Camera battery 87 percent" and "Waveform, on. Hold for options".
-- HDR display (Operator Setup → Display) boosts the phone panel, not the camera's HDR/HLG mode. Off by default; WAVE/HISTO still measure the camera signal.
+- Shared diagnostics include picture timings and drop estimates to help distinguish a delayed feed from a jumpy one.
+- TalkBack reads live-view readouts and assist tools as whole phrases, while preserving tap and hold actions.
+- Pocket 3 zoom follows FORMAT limits and refused values settle back. Shutter, ISO, zoom and ND use consistent formatting across phone languages.
 
 Fixes
 
-- Pocket 3 zoom follows recording FORMAT limits, names the new cap after FORMAT changes, and settles on the camera's value if a stop is refused.
-- Saved settings, remembered cameras and resized pictures use shared helpers. Nothing should look or behave differently.
-- Shutter, ISO, zoom and ND readouts use a fixed number format, including on phones whose language uses decimal commas.
-- Screen recordings stay normal SDR, including on Android 15 and newer phones.
+- Connection setup waits for the camera's command window. Recovery can act sooner after lost video data while keeping the last picture.
+- Replacement keyframes stay protected. First-picture recovery is bounded; repeated controls cannot indefinitely delay a stalled decoder or frame assembly.
+- Media return starts live view once. Older picture-repair deadlines no longer reconnect just because you opened Media.
+- Bluetooth setup advances through supported notification fallbacks and reports rejected setup writes promptly, with more useful diagnostics.
 
 What to test
 
-- Share diagnostics with the time of any freeze and whether the picture felt late or jumpy. Toggle HDR display and check the feed, scopes and a screen recording; the recording should stay SDR.
-- With TalkBack on, swipe through REC, timecode, battery, FPS and assists. Each should speak one sentence. Double-tap and hold an assist tool to check both actions.
-- Check Pocket 3 zoom caps: 1080 4×, 2.7K 3×, 4K 2×, resetting to 1× on FORMAT changes. Change Operator Setup options, force-stop and reopen; settings and remembered cameras should persist.
+- Connect three times. If Bluetooth fails, retry once and share diagnostics. Test five minutes of live view; report the time of any freeze and whether the picture felt late or jumpy.
+- Open Media, play a clip and return repeatedly. Cover Settings, rotate and briefly leave the app; confirm picture returns.
+- With TalkBack on, check REC, timecode, battery and assists each speak one phrase. Double-tap and hold an assist tool to check both actions.
