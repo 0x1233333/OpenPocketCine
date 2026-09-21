@@ -1,15 +1,15 @@
 New and changed
 
-- Report a problem is visible on the pairing screen, even before your first connection. Add a description, optional technical details and screenshots without opening Settings.
+- Anamorphic Desqueeze (DE-SQ) works in live view, video playback and photos. Choose a lens preset or a custom 1.00–2.00× factor in 0.01 steps.
+- Report a problem is visible on the pairing screen, even before your first connection, with optional technical details and screenshots.
 
 Fixes
 
 - Improved recovery when a running preview loses its video format.
 - Live view starts again without the low-latency setting when the phone's decoder refuses it, instead of staying black.
-- Connection setup and stalled-picture recovery have bounded waits. Returning from Media starts live view once and avoids older recovery deadlines.
 
 What to test
 
+- Tap DE-SQ to toggle; hold for presets, Custom and direction. Try LUT, grids, rotation and playback zoom. Check your custom factor survives a restart and files remain unchanged.
 - Before connecting a camera, open Report a problem in portrait and landscape. Close it and confirm pairing is still available. Share Diagnostics remains in the pairing menu.
-- Connect three times, then return from Media, Settings and the background. Watch preview recovery and report any freeze with the time it happened and technical details.
-- If live view previously stayed black on your phone, retry and report whether a picture now appears.
+- Connect three times and check recovery after Media, Settings and background use. If live view previously stayed black on your phone, retry and report whether a picture now appears.
