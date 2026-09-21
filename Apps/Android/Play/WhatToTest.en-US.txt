@@ -6,13 +6,13 @@ New and changed
 
 Fixes
 
-- Connection setup waits for the camera's command window. Recovery can act sooner after lost video data while keeping the last picture.
-- Replacement keyframes stay protected. First-picture recovery is bounded; repeated controls cannot indefinitely delay a stalled decoder or frame assembly.
+- Live view no longer stays black on phones whose video decoder turns down the low-latency setting; it starts again without that setting.
+- Connection setup waits for the camera's command window and keeps the last picture; first-picture recovery is bounded so repeated controls cannot stall the decoder or frame assembly.
 - Media return starts live view once. Older picture-repair deadlines no longer reconnect just because you opened Media.
 - Bluetooth setup advances through supported notification fallbacks and reports rejected setup writes promptly, with more useful diagnostics.
 
 What to test
 
-- Connect three times. If Bluetooth fails, retry once and share diagnostics. Test five minutes of live view; report the time of any freeze and whether the picture felt late or jumpy.
+- Connect three times; if live view ever stayed black on your phone, say whether a picture now arrives. If Bluetooth fails, retry once and share diagnostics.
 - Open Media, play a clip and return repeatedly. Cover Settings, rotate and briefly leave the app; confirm picture returns.
-- With TalkBack on, check REC, timecode, battery and assists each speak one phrase. Double-tap and hold an assist tool to check both actions.
+- With TalkBack on, check REC, timecode, battery and assists each speak one phrase. Report any freeze and whether the picture felt late or jumpy.
