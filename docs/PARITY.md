@@ -7,6 +7,30 @@ incomplete.
 
 ## Connection regression follow-up
 
+The [connection stress matrix](connection-stress-testing.md) is shared maintainer
+tooling for both platforms, with the same evidence and teardown contract. It
+ships a script interface and local agent mailbox. Separate native feed runners
+now target both platforms: iOS overlaps existing loss/burst/output suppression
+with its UI scenarios; Android combines local video loss with Settings/ISO SET
+pressure, joystick input and lifecycle changes. Android does not yet match iOS
+assist/rotation/changing-settings or opt-in recording coverage. Its fault hook
+is Debug-gated, and cumulative cadence snapshots preserve existing windows.
+The [September 22 campaign](audits/2026-09-22-connection-stress-campaign.md)
+reproduced delayed Android picture recovery under local loss; no complete
+all-action overlap run passed. The later USB-connected
+[iPhone follow-up](audits/2026-09-22-iphone-connection-stress.md) passed a
+five-minute steady baseline and five impaired-feed/Media-return cycles, and
+reproduced delayed foreground and overlapping-fault recovery. Stronger gimbal
+throws, ISO/WB sweeps, matched automatic/Media recovery probes and the verified
+attachment launcher are iOS-only test tooling; Android does not yet have
+equivalent workloads. Separate
+Android host experiments exercised actual Wi-Fi interruptions with Settings
+taps; these are not native matrix adapters or congestion qualification.
+Complete overlap qualifications and the matrix's native adapters remain
+pending. Unsupported paths remain explicit coverage gaps.
+The portable chaos suite does not cover Android's still-local SET mailbox;
+consolidation is tracked in the guide. No operator-visible shell behavior changes.
+
 Android's GATT initialization checks native request admission and advances the
 existing tolerated descriptor fallback through both characteristics before
 arming pairing. Failed local registration of required FFF4 notifications or a
@@ -94,7 +118,7 @@ write the exception in the table in the same PR.
 | Media | Camera catalog, SoftAP HTTP cache, 720p LRF/XRF proxy playback, View Assist parked on the live Field Monitor assist slot, LUT / PEAK / FALSE / ZEBRA grade that proxy (identity player + overlay/replace feed), live HEVC held while library or Operator Setup covers the monitor (do not drop pktType `0x02` ingest — #177; Android keeps the SurfaceView attached under that overlay — #248). Next/prev keeps the processed-feed host so an armed LUT rebakes the new item without cycling the chip. Shot color lives in the media cache (`color.json`) so Auto LUT works disconnected. **Proxy** tag when only the 720p sidecar is on the phone. Storage **Full Resolution Caching** (on by default) also caches the original on open. Playback LUT replace hides the identity player once the GPU owns the cube (live already does). Pocket 3 `/v2` is always storage 0 (single microSD), even when the list handle has the internal bit. Newest catalog page lists even if `0x02/0x0c` ACKs E0 after a take; older pages still need playback. | Frame.io upload and LUT bake on export: iOS only. iOS Share **Bake LUT** has **Bake exposure** (on by default) so the LUT exposure pull is written into the file; off keeps the cube at 0.0. iOS Share **Convert log** (off by default) is a technical D-Log ↔ D-Log2 transform, exclusive with Bake LUT; Rec.709 display stays Bake LUT. Android share/save uses the original (`MediaHTTP.deliveryPath`). Playback uses the shared UI 2.0 header/footer and a separate 82% metadata drawer; Android does not capture a backdrop for glass. GPU backends: iOS `CIFeedView` vs Android GLES. iOS playback stacks `AVPlayerLayer` and `CIFeedView` as siblings — Metal nested in `AVPlayerLayer` is a black LUT plate. Android playback already matches live: ExoPlayer writes an OES surface and `LiveFeedEffectsSession` grades LUT/FALSE/PEAK/ZEBRA in GLES (`PlaybackFeedView`); TextureView is only the window. | **physical** both |
 | Present path | `FeedPresentPolicy`: skip duplicate timestamps, latest-wins bake, freeze ≠ flush (2 s keep last sample), unhide replace-grade before the drawable, offscreen `isEnabled = false`, one `0x09/0xa8` in flight (`SerialSessionGate`), one Metal/GLES present in flight (`maxInFlightMetalPresents`). LUT 50/50 is a cube option, not a decoder/swapchain tear — split without a cube must not cover identity. LUT cubes at the 720p feed raster then stretches Rec.709 (`bakeSize` then bilinear). Decoder-output age and present age are separate; GPU completion / layer enqueue is not display scanout. | iOS Metal / `CIFeedView` vs Android Vulkan / GLES `LiveFeedEffectsSession`; debug line is `control-live.log` / logcat, not operator chrome. Extra-mirror commits on the feed host at present (TT180) after holding the last picture 3 frames / 120 ms so the current orientation is not X-flipped in place. iOS `CAMetalLayer.allowsNextDrawableTimeout` (no MainActor block). Android already gates GPU split on a loaded cube. | **physical** both for existing present policy. Decoder-output follow-up: **qualification pending** (see Decoder-output recovery). |
 | Diagnostics | Operator Setup → System → **Report a problem** (native Sentry form) or **Diagnostic options → Save diagnostic report**; Connection setup always shows **Report a problem** below the target and retains **Share Diagnostics** in its overflow menu. Journal in app documents. Typed feed-incident spool is local on both shells (Share extras, bounded retention). | iOS copies a compact paste on screenshot for TestFlight feedback (Apple cannot attach files to that form). Android has no TestFlight screenshot hook — Share only. MetricKit is iOS. Automatic error reports require a configured HTTPS DSN and explicit consent. iOS hosted incident delivery, crash symbolication and the upload gate were physically verified in a development build. Both shells provide an adjacent Reporting Privacy link and optional consent copy naming Sentry/OpenCapture. Android adapter qualification and release-CI enablement are tracked in [deployment](sentry-deployment.md). | Local spool: unit tests. **Physical qualification pending both.** No Android device attached; Earlier iOS baseline was blocked; later operator-assisted Pocket 4 Pro runs passed 11 focused lifecycle cycles and 21 mixed checks. iOS synthetic cloud delivery and symbolication are proven; Android physical reporting and distributed-release enablement remain pending. |
-| Decoder-output recovery | Fresh complete AUs + silent native output: one decoder rebuild and one enable; retain last image; 16 s picture deadline then datalink rejoin. Fresh native output does not PLI. Blocked enable is not a spent rung. Settings cover does not drop `0x02` ingest. | iOS VideoToolbox vs Android MediaCodec. Packet-without-complete-AU stall uses the existing enable ×2 / endpoint ladder (portable tests). Renderer-only local repair is **not implemented**. Seeded physical stress harness is **iOS Debug XCTest only**. | iPhone + Pocket 4 Pro: 11 focused lifecycle cycles and 21 mixed checks passed after fixing iOS foreground/watchdog ownership. See [physical results](audits/2026-09-14-physical-feed-stress.md). Broader performance qualification and physical Android remain pending. |
+| Decoder-output recovery | Fresh complete AUs + silent native output: one decoder rebuild and one enable; retain last image; 16 s picture deadline then datalink rejoin. Fresh native output does not PLI. Blocked enable is not a spent rung. Settings cover does not drop `0x02` ingest. | iOS VideoToolbox vs Android MediaCodec. Packet-without-complete-AU stall uses the existing enable / endpoint ladder (portable tests). Renderer-only local repair is **not implemented**. Seeded physical runners now cover iOS Debug XCTest and opt-in Android instrumentation; see the connection stress guide. | iPhone + Pocket 4 Pro: 11 focused lifecycle cycles and 21 mixed checks passed after fixing iOS foreground/watchdog ownership. See [physical results](audits/2026-09-14-physical-feed-stress.md). The [September 22 Android campaign](audits/2026-09-22-connection-stress-campaign.md) reproduced delayed post-loss picture recovery, including a ~20.5 s presentation gap. Complete overlap and broader performance qualification remain pending. |
 | Multiview prototype | Experimental shared Wi-Fi with independent per-camera BLE provisioning, bounded identity-verified LAN discovery, normal UDP preview, per-camera and group recording with fresh status confirmation. | iOS only; Android deferred. Pocket 3/4/4 Pro and Nano have preview profiles. Action/360 and unprofiled Osmo can attempt network-only setup. Audio, phone hotspot, unprofiled models and four-camera thermal behavior remain unverified. | Physical iPhone: Pocket 4 Pro, Pocket 3 and Nano preview together, automatic discovery, all three record starts/stops and tally borders confirmed. Dedicated parallel-setup, saved-stage restoration and AP-return checks remain pending. |
 | Multiview stage polish | Camera-list grid icon, four-slot grid/Center stage, portrait centered vertical thumbnail strip / landscape trailing strip, floating close/layout/network controls, Clean DISP and supported Auto LUT, Live View record lamp, centered network setup and Add picker, device-only credentials, bounded recovery and borrowed Live View. | iOS experimental only; Android deferred. Borrowed Live View disables Sharing; the relay lifecycle and watcher controls remain single-camera only. Returning to the stage cancels programmed motion and head tracking. Hotspot status is interface detection, not a reliable Settings-switch flag. No frame-accurate synchronization. | Physical iPhone: setup navigation, scan cancellation, all Add buttons, password bounds, touch targets, three-camera portrait/landscape Fit/Fill and tally checks pass. All three feeds resumed after app switching; Pocket 3 took roughly a minute. Borrowed full controls, hotspot transitions and repeated Wi-Fi joins still need physical verification. |
 | Nano transport assembly | Shared length-based assembly across transport groups and length-aware private AVC metadata parsing. | Both shells use shared assembly. Android passes raw access units to MediaCodec, so applying the private metadata filter to its decoder input and physical regression remain pending. | iPhone captured-stream replay: 359/359 decoded, zero errors. Nano normal monitor physically confirmed smooth by the operator; live counters matched ~25 fps with no missing decoded pictures. Android and Pocket regression pending. |
@@ -1138,6 +1162,49 @@ Physical iPhone/iPad camera proof and live-rate/thermal budget measurements are
 outstanding: no device was connected during this task. Simulator tests are not
 physical qualification. Remaining OS crashes and live-camera outages
 are recorded in the [Sentry audit](audits/2026-09-19-testflight-111-sentry.md).
+
+### Field-driven stall recovery (2026-09-22)
+
+Evidence: 1,960 TestFlight feed incidents (14 days) pulled from Sentry. Shared
+core, both shells through the JNI facade: the encoder-pause ladder sends one
+enable, not two, before the endpoint rebuild, and the post-enable GOP hold follows
+the stage that stopped once the enable is older than `stallThreshold`.
+
+iOS-only implementation fixes, each with an Android counterpart that differs:
+the SoftAP AU queue keeps complete AUs across a later gap and holds 50 (was 8);
+`-12903` after picture is known reference loss; the mirror-flip hold decodes
+compressed frames with `DoNotDisplay`; foreground return renegotiates the
+endpoint (keeping BLE) instead of a full reconnect when video is stale on the
+same network. Android's queue lives in `CompressedAccessUnitAdmission` and its
+foreground path in `PocketCameraSession`; they were not changed here and are an
+explicit exception. Android did change: a MediaCodec input miss marks references
+broken, and the P-frame input wait is 20 ms instead of 0.
+
+iOS-only diagnostics exception: incident samples add `statusAge`,
+`uplinkReplyAge`, `sendErrorAge` and `sendErrorCode`, and Sentry events add
+`trigger`, `recoveredBy` and `gap`. Android's Kotlin incident models are unchanged.
+
+Registration heartbeat, both shells: the 1 Hz `0x00/0x88` registration runs
+whenever a datalink exists, and the watchdog's encoder-pause rung re-registers
+before its enable. iOS previously skipped the heartbeat whenever the scene was
+inactive or a foreground check ran; Android skipped it while `holdsMonitor` and
+Media overlapped. Proven on iPhone + Pocket 4 Pro with RVI captures (Control
+Center 20 s: old build lost video for 22.1 s, fixed build none; forced 30 s
+heartbeat loss: re-register restored video in 2.0 s, twice). Android is not
+physically verified.
+
+iOS-only: a BLE drop with fresh UDP video reconnects BLE beside the picture.
+Android's `onLinkLost` still starts full session recovery; explicit exception
+until the camera's behaviour without BLE is measured on Android. Not physically
+exercised on iOS either (see live-session).
+
+Camera-body gallery follow (#273) is on both shells, verified on iPhone + Pocket 4
+Pro and Galaxy S25 + Nano. Android BLE
+setup now discovers services from `onMtuChanged` (1.5 s fallback) instead of
+overlapping the MTU request (#369, #351); verified on a Galaxy S25 (ready in
+842 ms), not yet on the reporters' phones.
+
+Physical qualification is pending for the rest of the above.
 
 ### iOS live-display ownership follow-up (2026-09-20)
 

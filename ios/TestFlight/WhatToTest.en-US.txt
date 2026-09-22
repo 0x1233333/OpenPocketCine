@@ -8,6 +8,8 @@ Fixes
 
 - EV is separate from compensation settings. It shows a dash when camera metering is unavailable; DISP 2 and playback hide it.
 - Auto exposure shows the camera's applied shutter under EV. Missing or unsupported shutter readings leave only EV visible.
+- Live preview no longer drops after Control Center, alerts or returning from another app; stalled video recovers in about 2 seconds.
+- Opening the camera's own gallery opens Media here; leaving on either side returns to live.
 
 What to test
 

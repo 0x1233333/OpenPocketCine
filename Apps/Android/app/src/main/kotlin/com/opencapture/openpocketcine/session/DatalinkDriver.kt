@@ -4,6 +4,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.util.Log
+import com.opencapture.openpocketcine.BuildConfig
 import com.opencapture.openpocketcine.bridge.SwiftCore
 import com.opencapture.openpocketcine.pairing.CameraApJoiner
 import java.io.IOException
@@ -163,6 +164,7 @@ class DatalinkDriver internal constructor(
     private val cadence: LivePipelineCadence = LivePipelineCadence(),
     private val videoHistory: LiveSessionVideoHistory = LiveSessionVideoHistory(),
     private val cameraModel: CameraModel = CameraModel.default,
+    private val debugVideoPacketAdmission: (() -> Boolean)? = null,
 ) {
     private val main = Handler(Looper.getMainLooper())
     private val running = AtomicBoolean(false)
@@ -444,6 +446,21 @@ class DatalinkDriver internal constructor(
                 }
             }
             false
+        }
+    }
+
+    /**
+     * The camera stops video ~10 s after the last registration while telemetry
+     * continues and ignores enables until it sees one again. Re-registering on the
+     * same socket restarted video with no new handshake (Pocket 4 Pro, 2026-09-22).
+     */
+    fun reRegister() {
+        enqueueTx {
+            if (!rebuilding && handshakeAcked) {
+                sendCommandLocked(SwiftCore.CMD_APP_DEVICE_INFO, null)
+                sendCommandLocked(SwiftCore.CMD_APP_PRESENCE, null)
+                sendWindowAckOnTx()
+            }
         }
     }
 
@@ -1151,6 +1168,9 @@ class DatalinkDriver internal constructor(
             lastVideoElapsed.set(SystemClock.elapsedRealtime())
             videoHistory.noteVideoPacket()
             val n = rawVideoPackets.incrementAndGet()
+            // Local post-ACK impairment, not an RF or camera-side ACK-loss simulation.
+            // Release builds cannot activate it; instrumentation owns the bounded gate.
+            if (BuildConfig.DEBUG && debugVideoPacketAdmission?.invoke() == false) return
             if (n <= 8) {
                 Log.i(TAG, "datalink: video pktType=0x02 #$n bytes=${datagram.size}")
             }

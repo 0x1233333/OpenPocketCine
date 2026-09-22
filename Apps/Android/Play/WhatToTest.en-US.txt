@@ -8,6 +8,8 @@ Fixes
 
 - EV is separate from compensation settings. It shows a dash when camera metering is unavailable; DISP 2 and playback hide it.
 - Auto exposure shows the camera's applied shutter under EV. Missing or unsupported shutter readings leave only EV visible.
+- Pairing no longer times out on phones where the camera approval never appeared.
+- Stalled video recovers in about 2 seconds, and opening the camera's own gallery opens Media here.
 
 What to test
 

@@ -324,6 +324,30 @@ separate iOS and Android lists.
 
 ### Fixed
 
+- Opening the gallery on the camera now opens Media in the app, like DJI Mimo,
+  instead of being kicked back to live within a second. Leaving on either side
+  returns the camera to live view.
+
+- Android pairing no longer times out on phones where Bluetooth service
+  discovery overlapped the MTU request (camera approval never appeared).
+
+- The live picture no longer drops about 10 seconds after opening Control
+  Center, a system alert or another overlay. The camera stops video when the app
+  stops re-registering with it, and that 1 Hz heartbeat was paused whenever the
+  app was not in front. It now always runs, and when video does stop the first
+  repair re-registers, which restored the picture in about 2 seconds on an
+  iPhone instead of a 16-second median reconnect. The camera's TCP link is now
+  read continuously, as DJI Mimo does.
+
+- Live picture recovers sooner after the camera stops sending video. Recovery
+  sends one restart request instead of two before renegotiating the connection;
+  in 1,960 field incidents the second request almost never helped and delayed
+  the fix by about 5 seconds. On iOS, returning from another app renegotiates
+  the video link instead of fully reconnecting, a short main-thread pause no
+  longer freezes the picture until the next keyframe, and frames that arrived
+  before a gap are no longer discarded. On Android, a decoder input miss now
+  requests repair instead of leaving a smeared picture.
+
 - Auto exposure on iOS and Android reads applied shutter telemetry for the EV
   caption instead of retaining the remembered manual shutter. Missing or
   unsupported applied values clear the shutter caption; Manual controls keep

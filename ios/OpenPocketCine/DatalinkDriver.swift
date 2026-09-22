@@ -148,6 +148,9 @@ final class DatalinkDriver {
         var gimbalSendRest = false
         var lastGimbalStickAt: TimeInterval = 0
         var totalACKs = 0
+        /// Last UDP write the stack rejected on the current socket. Diagnostic only.
+        var lastSendErrorAt: Date?
+        var lastSendErrorCode: Int?
         var ackTiming = DeliveryCadence(startedAt: ProcessInfo.processInfo.systemUptime)
         var lastDeliveryLogAt = ProcessInfo.processInfo.systemUptime
         var stickWrites = 0
@@ -164,6 +167,9 @@ final class DatalinkDriver {
     /// Snapshot of video-pipeline counters. Safe to read from the main actor for the HUD.
     var videoPackets: Int { videoAssembler.snapshot().packets }
     var incidentACKs: Int { wire.withLock { $0.totalACKs } }
+    var lastSendError: (at: Date, code: Int)? {
+        wire.withLock { w in w.lastSendErrorAt.map { ($0, w.lastSendErrorCode ?? 0) } }
+    }
     var incidentQueue: FeedIncidentQueue { videoAssembler.incidentQueue }
     var droppedIncomplete: Int { videoAssembler.snapshot().dropped }
     var receiveErrorCount: Int { receiveErrors }
@@ -412,6 +418,17 @@ final class DatalinkDriver {
     /// Re-assert app-presence + ack; call ~1 Hz to hold the session (and playback) open.
     func keepalive() {
         if closed || rebuilding || !handshakeAcked { return }
+        sendDuml(Commands.appPresenceFrame(seq: 0))
+        sendAck()
+    }
+
+    /// The camera stops video ~10 s after the last registration while telemetry
+    /// continues, and ignores `0x09/0xa8` until it sees one again. Re-registering
+    /// on the same socket restarted video with no new handshake (Pocket 4 Pro,
+    /// 2026-09-22); the field repair used to spend a 5-16 s endpoint rebuild.
+    func reRegister() {
+        if closed || rebuilding || !handshakeAcked { return }
+        sendDuml(Commands.appDeviceInfo(seq: 0))
         sendDuml(Commands.appPresenceFrame(seq: 0))
         sendAck()
     }
@@ -1080,7 +1097,7 @@ final class DatalinkDriver {
         let generation = udpGeneration
         let socket = conn
         if !trackCommand {
-            conn.send(content: Data(bytes), completion: .idempotent)
+            conn.send(content: Data(bytes), completion: noteSendError(on: conn))
             return
         }
         conn.send(
@@ -1132,6 +1149,31 @@ final class DatalinkDriver {
         ackTimer = t
     }
 
+    /// `.idempotent` hid every rejected ACK/enable, so a dead outbound flow
+    /// looked like a healthy 40 Hz pump in field incidents.
+    /// Cancelling a retired socket completes its queued sends with ECANCELED;
+    /// only errors on the socket still in use are recorded.
+    nonisolated private func noteSendError(on socket: NWConnection)
+        -> NWConnection.SendCompletion
+    {
+        .contentProcessed { [wire] error in
+            guard let error else { return }
+            let code: Int
+            switch error {
+            case .posix(let posix): code = Int(posix.rawValue)
+            case .dns(let dns): code = Int(dns)
+            case .tls(let status): code = Int(status)
+            @unknown default: code = -1
+            }
+            guard code != Int(POSIXErrorCode.ECANCELED.rawValue) else { return }
+            wire.withLock {
+                guard $0.conn === socket else { return }
+                $0.lastSendErrorAt = Date()
+                $0.lastSendErrorCode = code
+            }
+        }
+    }
+
     /// Window ACK from the UDP queue. Does not hop to MainActor.
     nonisolated private func sendWindowAck() {
         let cursor = videoAssembler.peerCursor(fallback: 0)
@@ -1151,7 +1193,7 @@ final class DatalinkDriver {
             DumlTransport.transportHeader(
                 pktType: 0x04, payloadLen: payload.count, sessionId: session, seq: 0
             ) + payload
-        conn.send(content: Data(pkt), completion: .idempotent)
+        conn.send(content: Data(pkt), completion: noteSendError(on: conn))
         wire.withLock {
             $0.ackTiming.note(at: ProcessInfo.processInfo.systemUptime)
             $0.totalACKs += 1
@@ -1335,6 +1377,7 @@ final class DatalinkDriver {
         let base = baseSeq
         let socket = conn
         wire.withLock {
+            if $0.conn !== socket { $0.lastSendErrorAt = nil; $0.lastSendErrorCode = nil }
             $0.sessionId = sid
             $0.baseSeq = base
             $0.conn = socket
@@ -1352,6 +1395,7 @@ final class DatalinkDriver {
         wire.withLock {
             $0.sessionId = sid
             $0.baseSeq = base
+            if $0.conn !== socket { $0.lastSendErrorAt = nil; $0.lastSendErrorCode = nil }
             $0.conn = socket
             $0.dumlSeq = ds
             $0.cmdCounter = cc
@@ -1861,9 +1905,21 @@ final class DatalinkDriver {
             completion: .idempotent)
         try await Task.sleep(for: .milliseconds(400))
         switch tcp.state {
-        case .ready: return
+        case .ready:
+            Self.drain(tcp)
+            return
         case .failed(let e): throw e
         default: throw DatalinkError.notReady
+        }
+    }
+
+    /// The camera writes 0x21/0x06 frames to 7001 about 3 times a second for
+    /// the whole session. Mimo reads them; leaving them unread fills the
+    /// receive window on long takes. The content is not used.
+    nonisolated private static func drain(_ tcp: NWConnection) {
+        tcp.receive(minimumIncompleteLength: 1, maximumLength: 65_536) { _, _, complete, error in
+            guard !complete, error == nil else { return }
+            drain(tcp)
         }
     }
 
@@ -1882,6 +1938,11 @@ final class DatalinkDriver {
 /// HEVC reassembly on the UDP queue. Main hops only complete access units (~25 Hz),
 /// not every SoftAP datagram.
 final class SoftAPVideoAssembler: @unchecked Sendable {
+    /// Complete AUs held for the main actor: 2 s at 25 fps. The old cap of 8
+    /// (320 ms) turned an ordinary main-thread hitch into reference loss, and
+    /// Pocket only sends the next keyframe when asked.
+    static let pendingLimit = 50
+
     struct Delivery {
         let accessUnits: [[UInt8]]
         let discontinuity: Bool
@@ -1962,9 +2023,9 @@ final class SoftAPVideoAssembler: @unchecked Sendable {
             var shouldHop = false
             var droppedPending = 0
             if state.depacketizer.droppedIncomplete > state.incompleteSeen {
+                // Queued AUs completed before the gap and still decode; one may be
+                // the keyframe that repairs it. Only later dependants are lost.
                 state.incompleteSeen = state.depacketizer.droppedIncomplete
-                droppedPending += state.pending.count
-                state.pending.removeAll(keepingCapacity: true)
                 state.awaitingRandomAccess = true
                 state.discontinuity = true
             }
@@ -1984,13 +2045,13 @@ final class SoftAPVideoAssembler: @unchecked Sendable {
                     droppedPending += 1
                 }
                 if state.pendingSince == nil { state.pendingSince = now }
-                if state.pending.count > 8 {
+                if state.pending.count > Self.pendingLimit {
                     // Keep a complete independently decodable suffix. Removing
                     // arbitrary P-frames leaves their dependants undecodable.
                     let lastIRAP = state.pending.lastIndex {
                         Self.hasRandomAccess($0, codec: codec)
                     }
-                    if let lastIRAP, state.pending.count - lastIRAP <= 8 {
+                    if let lastIRAP, state.pending.count - lastIRAP <= Self.pendingLimit {
                         droppedPending += lastIRAP
                         state.pending.removeFirst(lastIRAP)
                     } else {
