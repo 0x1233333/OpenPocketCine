@@ -1,16 +1,15 @@
 New and changed
 
-- Motion Control loops through saved zooms and offers Restart while paused. The existing zoom chip and long-press disc stay accessible; D-Log2 blocks zoom-changing programs.
-- Anamorphic Desqueeze (DE-SQ) works in live view, videos and photos, with lens presets and a custom 1.00–2.00× factor in 0.01 steps.
-- Report a problem is available before pairing, with optional technical details and screenshots.
+- Motion Control loops through saved zooms and offers Restart while paused. The zoom chip and long-press disc stay accessible; D-Log2 blocks zoom-changing programs.
+- Anamorphic Desqueeze (DE-SQ) works in live view, videos and photos, with lens presets and a custom 1.00–2.00× factor.
 
 Fixes
 
-- Motion Control drags more smoothly and keeps duration dials usable after moving. Help text is brighter, and loop reversals avoid false waypoint failures.
-- Preview recovers after video format loss. Connection and stalled-picture recovery have bounded waits; Media return starts live view once.
+- Auto exposure reads the camera's applied shutter under EV instead of the remembered manual shutter. Missing or unsupported readings leave only EV visible.
+- Improved recovery when a running preview loses its video format.
 
 What to test
 
-- Save A/B/C at different zooms; try both loop directions, Pause/Resume and Restart. Drag the editor, adjust a duration, then close/reopen it. Check saved settings remain and actions stay fixed.
-- Tap DE-SQ to toggle; hold for presets, Custom and direction. Try LUTs, guides and playback. Before pairing, open and close Report a problem.
-- Connect three times, then return from Media, Settings and the background. Report any freeze with its time and technical details.
+- In Auto, change the lighting and compare the shutter under EV with the camera. Switch to Manual, select a shutter, then return to Auto and repeat.
+- Save A/B/C at different zooms; try both loop directions, Pause/Resume and Restart. Drag the editor, adjust a duration, then close/reopen it and check saved settings remain.
+- Try DE-SQ with LUTs, guides and playback. Check preview recovery after Media, Settings and background use.
