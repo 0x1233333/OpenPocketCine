@@ -22,6 +22,7 @@ struct LiveViewScreen: View {
     @State private var zoomDialMounted = false
     @State private var zoomDismissTask: Task<Void, Never>?
     @State private var assistsExpanded = false
+    @State private var assistsRevealing = false
     @State private var zoomGestureAnchor = 1.0
 
     /// OpenZCine `DisplayChromeVisibility.cleanDefaults`: status + strips + lock off;
@@ -459,6 +460,26 @@ struct LiveViewScreen: View {
                 chromeClearance: scopeClearance(layout: layout)
             )
 
+            if model.assist.isVisible(.evMeter) {
+                CameraEVMeterOverlay(
+                    feed: model.assist.isVisible(.desqueeze)
+                        ? DesqueezeAssist.presentationRect(
+                            sourceSize: CGSize(
+                                width: model.session.decoder.pictureAspect, height: 1),
+                            in: layout.onFeed, effects: model.assist.effects
+                        )
+                        .intersection(layout.onFeed)
+                        : layout.onFeed,
+                    avoiding: model.chromeSectionMounts(.toolBar)
+                        ? FieldMonitorAssistPalette.visibleFrame(
+                            in: layout,
+                            toolCount: LiveAssistTool.toolbarCases.count
+                                + (model.session.status.isPhoto ? 0 : 1),
+                            expanded: assistsExpanded || assistsRevealing) : nil
+                )
+                .accessibilityHidden(!liveChromeVisible || zoomDialMounted)
+            }
+
             // The collapse backdrop is above the picture/scopes and below
             // fixed controls. A Record or Settings tap keeps its own action.
             if assistsExpanded, model.chromeSectionMounts(.toolBar), !interfaceLocked,
@@ -630,7 +651,8 @@ struct LiveViewScreen: View {
                 FieldMonitorAssistPalette(
                     layout: layout, isLocked: interfaceLocked,
                     otherOverlayPresented: topMenu != nil || zoomDialVisible,
-                    expanded: $assistsExpanded
+                    expanded: $assistsExpanded,
+                    onExpansionActivityChange: { assistsRevealing = $0 }
                 )
                 .opacity(interfaceLocked ? 0.4 : 1)
                 .allowsHitTesting(!interfaceLocked)

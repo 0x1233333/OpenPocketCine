@@ -153,6 +153,23 @@ LUTs and picture warnings follow the correction, and framing guides align with
 the corrected picture. Desqueeze changes only the display: recordings, shared
 files and scope measurements keep the original image.
 
+## EV meter
+
+Enable **EV** in View Assist to show a slim white exposure line with a sun
+marker and a dark glow in **DISP 1**. The camera's signed EV number sits above the line, with
++3 and −3 at its ends. The text **EV** identifies its toolbar button.
+The meter sits just inside the picture's left edge, slightly above center.
+It moves upward or shortens to clear the View Assist toolbar, including expansion.
+If the toolbar leaves no room, the meter returns when the toolbar closes.
+Tap EV again to hide it; the on/off choice is saved. The meter disappears in
+**DISP 2** and playback.
+
+The reading comes directly from the camera's exposure telemetry in Auto and
+Manual. It is separate from the EV compensation setting in the camera controls.
+No image analysis, LUT conversion or additional camera polling is needed for
+this meter. A dash without a needle means the camera has not supplied a supported
+value. It never substitutes the compensation setting or an image-derived estimate.
+
 ## Moving scopes
 
 Newly enabled windowed scopes start in the center, ready for you to place them.
