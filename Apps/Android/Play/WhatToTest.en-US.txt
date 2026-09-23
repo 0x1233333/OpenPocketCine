@@ -6,10 +6,11 @@ New and changed
 
 Fixes
 
+- Deleting a clip from clip playback works again: Delete and Cancel no longer play or pause the clip behind the dialog.
 - Live video no longer stops shortly after connecting while the app is busy.
 
 What to test
 
 - Connect a Nano: check there is no zoom chip and that pinch and controller L1/R1 and L2/R2 do not zoom. Switch to a Pocket without relaunching and check zoom and the gimbal stick return.
 - If you have an Action 6: pair it, confirm live view appears, then try APERTURE, COLOR, Photo and Timelapse.
-- Add two or more cameras in Multiview, then close it and check each camera returns to its own Wi-Fi.
+- In Media, open a clip, tap the trash icon, and try Cancel, then Delete.

@@ -340,6 +340,9 @@ separate iOS and Android lists.
 
 ### Fixed
 
+- Android clip playback: Delete and Cancel in the "Delete this clip from the
+  camera?" dialog now respond instead of playing or pausing the clip behind it.
+
 - Osmo Nano no longer shows zoom controls. The zoom chip, pinch, hold disc and
   game controller zoom are hidden or inert, and no zoom command is sent. DISP
   settings list Zoom Chip and Gimbal Stick only when the connected camera has
