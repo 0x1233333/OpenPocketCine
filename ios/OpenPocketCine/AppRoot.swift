@@ -386,7 +386,46 @@ final class AppModel {
     }
 
     func reconnect(_ camera: SavedCamera) {
+        reconnect(camera, setup: camera.preferredSetup)
+    }
+
+    func reconnect(_ camera: SavedCamera, setup: CameraConnectionSetup) {
+        // Switching setups is a new connection, never a live-session no-op.
+        if session.connectedCamera?.id == camera.id, session.connectionSetup != setup {
+            session.disconnect()
+        }
+        savedCameras = SavedCameras.startingStation(setup, for: camera.id, in: savedCameras)
+        SavedCameraStore.save(savedCameras)
+        session.connectionSetup = setup
         session.reconnect(to: camera.id)
+    }
+
+    /// Password goes to the Keychain entries Multiview also reads; the name stays per camera.
+    func addSetup(
+        _ setup: CameraConnectionSetup, ssid: String, password: String, to camera: SavedCamera
+    ) {
+        guard setup.movesCamera else { return }
+        MultiviewNetworkStore.save(ssid: ssid, password: password, hotspot: setup == .phoneHotspot)
+        savedCameras = SavedCameras.setting(setup, ssid: ssid, for: camera.id, in: savedCameras)
+        SavedCameraStore.save(savedCameras)
+        guard let updated = savedCameras.first(where: { $0.id == camera.id }) else { return }
+        reconnect(updated, setup: setup)
+    }
+
+    func forgetSetup(_ setup: CameraConnectionSetup, of camera: SavedCamera) {
+        savedCameras = SavedCameras.setting(setup, ssid: nil, for: camera.id, in: savedCameras)
+        SavedCameraStore.save(savedCameras)
+    }
+
+    /// "Scan with the camera" in Add setup. Stamped first: the scan moves the camera to
+    /// station role, so a lost reset is repaired by the next Camera Wi-Fi connect.
+    func scanNetworks(
+        with camera: SavedCamera, onFound: @escaping @MainActor (String) -> Void
+    ) async throws {
+        guard let found = session.found.first(where: { $0.id == camera.id }) else { return }
+        savedCameras = SavedCameras.startingStation(.wifi, for: camera.id, in: savedCameras)
+        SavedCameraStore.save(savedCameras)
+        try await MultiviewProvisioner.scanNetworks(found, onFound: onFound)
     }
 
     func forget(_ camera: SavedCamera) {
@@ -601,7 +640,7 @@ final class AppModel {
                 return
             }
         }
-        let record = SavedCamera(
+        var record = SavedCamera(
             id: found.id,
             advertisedName: found.name,
             modelName: found.model.name,
@@ -609,6 +648,7 @@ final class AppModel {
             lastConnectedAt: Date(),
             modelId: found.modelId
         )
+        record.lastSetup = session.connectionSetup
         savedCameras = SavedCameras.upserting(record, into: savedCameras)
         SavedCameraStore.save(savedCameras)
         isPairingNewCamera = false

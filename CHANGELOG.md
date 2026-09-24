@@ -34,6 +34,19 @@ separate iOS and Android lists.
   slot: live iris readout and the aperture strategies the camera offers.
   Gimbal, tap focus and focus modes are hidden. Not yet checked on a physical
   Action 6; see the Action 6 handbook page for what is and is not wired.
+- Per-camera **setups** on iOS **Your cameras** (discussion #406): each saved
+  camera shows **Camera Wi-Fi** plus, after **Add setup** (a native sheet),
+  **Wi-Fi** (a router; the camera scans as the page opens and lists networks as
+  it finds them) and **Hotspot** (name filled from that scan) chips, on every
+  Osmo camera including Action 6. The camera moves onto that network with the
+  Multiview commands and goes live only on the address that proves its
+  identity. A Hotspot connect first asks you to turn on Personal Hotspot unless
+  the phone already shows it in use. Connecting shows a progress bar with one
+  line of status; a failure offers Edit setup, Try again or Camera Wi-Fi and
+  names router causes (WPA3-only, MLO, client isolation). The next Camera Wi-Fi
+  connect restores the camera's own access point. Wi-Fi and Camera Wi-Fi are
+  checked on an iPhone 16 Pro Max with a Pocket 4 Pro; Hotspot and Action 6
+  are pending, and Android is not yet ported.
 - Experimental **Multiview on Android**, matching iOS: the grid button on
   **Your cameras**, the two-step Local Wi-Fi / phone hotspot setup, up to four
   identity-verified camera tiles with Auto LUT, per-tile and group recording,

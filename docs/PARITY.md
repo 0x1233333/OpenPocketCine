@@ -1318,3 +1318,22 @@ recording, promotion, Grid, Fill, DISP clean, Live View round trip, watchdog
 repair and camera Wi-Fi return (one Nano reset failed and succeeded on the next
 close). Pending on Android: Local Wi-Fi join, landscape/tablet, four cameras,
 Pocket 3, app-switch recovery and thermal behavior.
+
+### Per-camera connection setups (discussion #406)
+
+iOS saved cameras carry OpenZCine-style setup chips: **Camera Wi-Fi**, plus
+optional **Wi-Fi** (a router, which the iPhone joins too) and **Hotspot** added
+per camera, for every Osmo body. Both reuse the Multiview station sequence, now
+shared as core `StationJoin`, then verify the camera's `07/07` identity on that
+subnet before registering. Bodies without a captured preview profile (Action,
+360) take its experimental path. A Camera Wi-Fi connect after either sends
+`07/48 00` first to restore the access point. Add setup's camera scan returns
+the camera to its access point on the same link. Core, iOS simulator and
+portrait/landscape UI checks pass. Physical iPhone 16 Pro Max with a Pocket 4 Pro
+(2026-09-24, `PhysicalStationSetupTests`): Add setup › Wi-Fi from the camera scan,
+Wi-Fi from the camera's access point (live 23 s after the join), Camera Wi-Fi
+back (live in 13 s) and Wi-Fi again (24 s) all went live and stayed live.
+
+Exceptions: Android keeps the single camera Wi-Fi path; its Multiview already
+provisions the phone hotspot and a port would reuse `StationJoin` through the
+facade. The hotspot setup and Action 6 still need physical proof.
