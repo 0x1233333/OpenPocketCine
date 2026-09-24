@@ -117,7 +117,7 @@ struct LiveGimbalStick: View {
                 guard !Task.isCancelled else { return }
                 if taps.commitDouble() {
                     hapticRecenter()
-                    model.session.recenterGimbal()
+                    model.session.performGimbalDoubleTap()
                 }
             }
         case .third:

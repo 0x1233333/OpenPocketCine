@@ -500,6 +500,14 @@ struct LiveViewScreen: View {
                 }
             }
 
+            if model.assist.isVisible(.level) {
+                FeedLevelView(
+                    feed: meterFeed(layout),
+                    viewport: CGRect(origin: .zero, size: layout.viewport),
+                    portrait: layout.viewport.height > layout.viewport.width)
+                    .accessibilityHidden(!liveChromeVisible || zoomDialMounted)
+            }
+
             // The collapse backdrop is above the picture/scopes and below
             // fixed controls. A Record or Settings tap keeps its own action.
             if assistsExpanded, model.chromeSectionMounts(.toolBar), !interfaceLocked,
@@ -1243,6 +1251,17 @@ enum LiveCanvasSpace {
 }
 
 extension LiveViewScreen {
+    /// Visible picture the LEVEL strips seat against (de-squeezed when on).
+    private func meterFeed(_ layout: LiveMonitorLayout) -> CGRect {
+        model.assist.isVisible(.desqueeze)
+            ? DesqueezeAssist.presentationRect(
+                sourceSize: CGSize(width: model.session.decoder.pictureAspect, height: 1),
+                in: layout.onFeed, effects: model.assist.effects
+            )
+            .intersection(layout.onFeed)
+            : layout.onFeed
+    }
+
     /// One rectangle shared by all movable tools; full-canvas coordinates remain persisted.
     private func scopeClearance(layout: LiveMonitorLayout) -> EdgeInsets {
         let portrait = layout.presentation?.portrait == true

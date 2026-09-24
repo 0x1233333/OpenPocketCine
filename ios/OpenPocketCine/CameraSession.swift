@@ -213,6 +213,9 @@ final class CameraSession {
     var gimbalMode: GimbalMode = .follow
     var gimbalSpeed: GimbalSpeed = .defaultSpeed
     var gimbalRamp: GimbalRamp = OperatorPrefs.gimbalRamp
+    var gimbalDoubleTap: GimbalDoubleTap = OperatorPrefs.gimbalDoubleTap
+    /// In-flight Double-tap Level move, judged on each attitude push.
+    @ObservationIgnored private var worldLevelSnap: WorldLevelSnap?
     var gimbalProgram = GimbalProgram()
     var gimbalMoveRunning = false
     var gimbalMovePaused = false
@@ -288,6 +291,9 @@ final class CameraSession {
     /// Last `0x04/0x05` hex + i16 dump (pitch-field hunt; payload is ~50 B).
     @ObservationIgnored var lastGimbalAttitudeHex = ""
     @ObservationIgnored var lastGimbalAttitudeDump = ""
+    /// World level from the attitude quaternion. LEVEL polls it at 10 Hz;
+    /// ingest at push rate must not invalidate observers.
+    @ObservationIgnored private(set) var levelReading = LevelReading()
     /// Pose-only stick invert (TT180). Shell XORs MIRROR assist.
     private(set) var gimbalPoseInvertPan = false
     /// Increments on a rising-edge gimbal-limit contact. Shell plays haptics.
@@ -2644,11 +2650,75 @@ final class CameraSession {
         )
     }
 
+    /// On-screen stick double-tap and gamepad Circle/B, per the Double-tap setting.
+    func performGimbalDoubleTap() {
+        switch gimbalDoubleTap {
+        case .recenter: recenterGimbal()
+        case .level: levelGimbalToWorld()
+        }
+    }
+
+    /// Double-tap Level: one `0x04/0x14` move to the nearest world target
+    /// (horizon or plumb), judged on the attitude quaternion. Roll is not commanded.
+    func levelGimbalToWorld() {
+        guard !isLocked else { return }
+        let now = ProcessInfo.processInfo.systemUptime
+        guard let tilt = levelReading.pitchDeg(now: now) else {
+            controlNote = WorldLevelSnap.noLevelData
+            return
+        }
+        guard let datalink else { return }
+        guard let pose = lastNativeGimbalWaypoint,
+            let plan = WorldLevelSnap.plan(tiltDeg: tilt, pose: pose, now: now)
+        else {
+            controlNote = WorldLevelSnap.unreachableNote
+            return
+        }
+        endGimbalStick(cancelMove: true)
+        movePoseStableSince = nil
+        lastMoveObservedPose = nil
+        gimbalOverlayMotion.reset()
+        lastGimbalStickAt = Date()
+        worldLevelSnap = plan.snap
+        let seq = datalink.send(plan.frame)
+        ControlLiveLog.line(
+            "control: send World level 0x04/0x14 seq=\(seq) tilt=\(String(format: "%.1f", tilt)) target=\(plan.snap.target) payload=\(Duml.hex(plan.frame.payload))"
+        )
+    }
+
+    private func judgeWorldLevelSnap() {
+        guard let snap = worldLevelSnap else { return }
+        // The operator or a programmed move took the gimbal: drop it silently.
+        // A stick takeover also ends the camera's timed move so it cannot fight the stick.
+        if gimbalStickHeld || gimbalMoveRunning {
+            worldLevelSnap = nil
+            if gimbalStickHeld { _ = datalink?.sendUntracked(Commands.gimbalTimedStop()) }
+            return
+        }
+        let now = ProcessInfo.processInfo.systemUptime
+        let fpv = gimbalMode == .fpv ? WorldLevelSnap.fpvRollNote : ""
+        switch snap.evaluate(tiltDeg: levelReading.pitchDeg(now: now), now: now) {
+        case .pending:
+            return
+        case .expired:
+            worldLevelSnap = nil
+            return
+        case .arrived:
+            controlNote = snap.target.successNote + fpv
+        case .failed(let error):
+            _ = datalink?.sendUntracked(Commands.gimbalTimedStop())
+            controlNote = WorldLevelSnap.failureNote(errorDeg: error) + fpv
+        }
+        worldLevelSnap = nil
+        ControlLiveLog.line("control: world level \(controlNote ?? "-")")
+    }
+
     /// Stick double-tap (hardware joystick). Wire is Mimo's recenter button:
     /// `0x04/0x4C` `FE 08`. Mimo has no stick double-tap.
     func recenterGimbal() {
         guard !isLocked else { return }
         guard datalink != nil else { return }
+        worldLevelSnap = nil
         endGimbalStick(cancelMove: true)
         movePoseStableSince = nil
         lastMoveObservedPose = nil
@@ -3096,7 +3166,7 @@ final class CameraSession {
             guard !controlBusy else { return }
             pressShutter()
         case .recenter:
-            recenterGimbal()
+            performGimbalDoubleTap()
         case .flip:
             flipGimbal()
         case .track:
@@ -5652,6 +5722,8 @@ final class CameraSession {
             }
             lastGimbalAttitudeHex = Duml.hex(frame.payload, limit: 80)
             lastGimbalAttitudeDump = GimbalStick.attitudeAngleDump(frame.payload)
+            levelReading.ingest(frame.payload, now: ProcessInfo.processInfo.systemUptime)
+            judgeWorldLevelSnap()
             let wasTT180 = gimbalStickMapping.commanded180
             gimbalStickMapping.applyAttitude(frame.payload)
             syncGimbalPose()

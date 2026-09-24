@@ -17,6 +17,15 @@ separate iOS and Android lists.
 
 ### Added
 
+- **LEVEL** View Assist on iOS and Android: roll and tilt gauges against
+  gravity from the camera's own attitude sensor, laid out like a Nikon Z virtual
+  horizon (roll along the bottom, tilt right of centre), with a round bubble for
+  top-down and straight-up shots. Shows **No level data** instead of
+  a false level when attitude stops.
+- Gimbal drawer **Double-tap**: keep **Recenter**, or choose **Level** so a
+  joystick double-tap (and gamepad Circle/B) moves the lens to world level or
+  straight down / up, with a toast that confirms the result. Experimental until
+  checked on more cameras.
 - **Osmo Action 6** support on iOS and Android, implemented from the
   2026-09-21 Mimo survey: live view (one `0x09/0xa8` enable to receiver `0x41`,
   AVC, no Nano gate or Pocket prepare), Normal 10-bit / D-Log M color with the

@@ -1,8 +1,8 @@
 New and changed
 
-- Scopes, paused playback and camera status updates use less power. Clips without a proxy are graded at monitoring size.
-- Osmo Action 6 support: live view, Normal 10-bit and D-Log M color, the official D-Log M LUT, and an APERTURE control in place of FOCUS. Not yet checked on a real Action 6.
-- Experimental Multiview is now on Android: tap the grid button on Your cameras and add up to four Pocket or Nano cameras.
+- New LEVEL View Assist: roll and tilt meters from the camera's own sensor, plus Double-tap → Level in the gimbal drawer to move the lens to level or straight down.
+- Osmo Action 6 support with live view, D-Log M and an APERTURE control. Not yet checked on a real Action 6.
+- Scopes, paused playback and camera status updates use less power.
 
 Fixes
 
@@ -11,6 +11,6 @@ Fixes
 
 What to test
 
-- Pause a clip with a LUT on, then seek and change the look: the picture should update right away.
+- Turn on LEVEL and roll the handle in FPV: the roll meter should move with the picture. With Double-tap set to Level, angle the handle forward and double-tap.
 - If you have an Action 6: pair it, confirm live view appears, then try APERTURE, COLOR, Photo and Timelapse.
 - In Media, open a clip, tap the trash icon, and try Cancel, then Delete.
