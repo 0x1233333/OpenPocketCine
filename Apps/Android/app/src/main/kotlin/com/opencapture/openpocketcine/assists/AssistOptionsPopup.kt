@@ -237,7 +237,7 @@ private fun SettingsSegmented(options: List<String>, selected: String, compact: 
 @Composable
 private fun PeakingOptions(state: LiveAssistState) {
     val haptics = LocalOperatorHaptics.current
-    SettingsInlineRow("Sensitivity", help = "Higher sensitivity catches finer edges but can get noisy on detailed scenes.", showTopDivider = false, stacked = true) {
+    SettingsInlineRow("灵敏度", help = "灵敏度越高，越能捕捉细微边缘，但细节丰富的画面可能出现噪点。", showTopDivider = false, stacked = true) {
         SettingsSegmented(
             options = PeakingSense.entries.map { it.label },
             selected = state.peakingSensitivity.label,
@@ -246,7 +246,7 @@ private fun PeakingOptions(state: LiveAssistState) {
             state.setPeaking(sense = PeakingSense.fromPersisted(label))
         }
     }
-    SettingsInlineRow("Color", help = "Choose the edge color that stays readable over your typical scene.", stacked = true) {
+    SettingsInlineRow("颜色", help = "选择在常见场景上依然醒目的描边颜色。", stacked = true) {
         SettingsColorDots(
             dots = SettingsPalette.peaking,
             selectedName = state.peakingColor.label,
@@ -261,20 +261,19 @@ private fun PeakingOptions(state: LiveAssistState) {
 private fun FalseColorOptions(state: LiveAssistState, colorMode: Int) {
     val haptics = LocalOperatorHaptics.current
     SettingsInlineRow(
-        "Scale",
+        "标尺",
         help =
-            "The camera color mode selects D-Log, D-Log2, D-Log M, Rec.709, or HLG automatically. " +
-                "CineStop paints video-level IRE stripes over luminance grayscale. EL Zone " +
-                "paints 15 contiguous stops from 18% gray: +6 and above white, −6 and below " +
-                "black. IRE paints six video-level zones over luminance grayscale. Limits " +
-                "paints only shadow and highlight warnings." +
-                " D-Log M uses a direct 0–100 signal scale. Its EL Zone and gray guide are " +
-                "Pocket 3 estimates, not calibrated sensor limits. Use IRE on other D-Log M cameras.",
+            "相机色彩模式会自动选择 D-Log、D-Log2、D-Log M、Rec.709 或 HLG。" +
+                "CineStop 会在亮度灰阶上涂视频电平条纹。EL Zone " +
+                "从 18% 灰起涂 15 个连续档位：+6 以上为白、−6 以下为黑。" +
+                "IRE 在亮度灰阶上涂六个视频电平区间。限值只涂阴影和高光警告。" +
+                "D-Log M 使用 0–100 直接信号刻度，它的 EL Zone 和中灰参考是" +
+                "基于 Pocket 3 的估算值，不是标定过的传感器极限。其他 D-Log M 机型请用 IRE。",
         showTopDivider = false,
         stacked = true,
     ) {
         SettingsSegmented(
-            options = listOf("CineStop", "EL Zone", "IRE", "Limits"),
+            options = listOf("CineStop 档位", "EL Zone 曝光", "IRE 电平", "限值"),
             selected = state.falseColorScale.menuLabel,
         ) { label ->
             haptics.selection()
@@ -285,9 +284,9 @@ private fun FalseColorOptions(state: LiveAssistState, colorMode: Int) {
         color = LiveDesign.faint, modifier = Modifier.padding(top = 10.dp, bottom = 6.dp))
     FalseColorReferenceRuler(state, colorMode, Modifier.fillMaxWidth().height(52.dp))
     SettingsSwitchInlineRow(
-        title = "Reference Display",
+        title = "基准显示器",
         isOn = state.falseColorReference,
-        help = "Show a compact color key over live view while False Color is active.",
+        help = "伪色开启时，在实时画面上显示小型颜色对照表。",
         stacked = false,
     ) {
         haptics.selection()
@@ -301,8 +300,8 @@ private fun ZebraOptions(state: LiveAssistState, colorMode: Int) {
     val transfer = MonitorTransfer.fromColorMode(colorMode)
     val maximum = ZebraEditor.editorMaximum(state.zebraUnit)
     SettingsInlineRow(
-        "Units",
-        help = "Switch between native 0-255 encoded codes and a 0-100 monitoring IRE scale.",
+        "单位",
+        help = "在原生 0-255 编码值和 0-100 监看 IRE 刻度间切换。",
         showTopDivider = false,
         stacked = true,
     ) {
@@ -315,8 +314,8 @@ private fun ZebraOptions(state: LiveAssistState, colorMode: Int) {
         }
     }
     ZebraZoneRow(
-        title = "Highlight",
-        help = "High zebra warns when bright detail approaches clipping after the active log curve is compensated.",
+        title = "高光",
+        help = "高斑马线：在补偿当前 log 曲线后，高光细节接近削波时警告。",
         enabled = state.zebraHighlight,
         value = ZebraEditor.displayValue(state.zebraHighlightIRE, state.zebraUnit, transfer),
         maximum = maximum,
@@ -335,8 +334,8 @@ private fun ZebraOptions(state: LiveAssistState, colorMode: Int) {
         },
     )
     ZebraZoneRow(
-        title = "Midtone",
-        help = "Midtone zebra gives a curve-compensated reference band for faces or key subject exposure.",
+        title = "中间调",
+        help = "中斑马线：给出经曲线补偿的参考带，用于人脸或主体曝光。",
         enabled = state.zebraMidtone,
         value = ZebraEditor.displayValue(state.zebraMidtoneIRE, state.zebraUnit, transfer),
         maximum = maximum,
@@ -448,8 +447,8 @@ private fun HistogramOptions(state: LiveAssistState) {
 private fun VectorscopeOptions(state: LiveAssistState) {
     val haptics = LocalOperatorHaptics.current
     SettingsInlineRow(
-        "Trace Zoom",
-        help = "Magnifies only the chroma trace; the graticule stays at unity.",
+        "轨迹放大",
+        help = "只放大色度轨迹，刻度线保持不变。",
         showTopDivider = false,
         stacked = true,
     ) {
@@ -461,7 +460,7 @@ private fun VectorscopeOptions(state: LiveAssistState) {
             state.setVectorscope(zoom = VectorscopeZoom.fromPersisted(it))
         }
     }
-    SettingsInlineRow("Brightness", help = "Raise trace intensity when the chroma plot is hard to read.", stacked = true) {
+    SettingsInlineRow("亮度", help = "色度图难读时，提高轨迹亮度。", stacked = true) {
         SettingsPercentSlider(value = state.vectorBrightness, range = 0..200) {
             state.setVectorscope(brightness = it)
         }
@@ -473,7 +472,7 @@ private fun LightsOptions(state: LiveAssistState) {
     val haptics = LocalOperatorHaptics.current
     SettingsInlineRow(
         HistogramAssist.COMPENSATION_TITLE,
-        help = "Stops of crush/clip tolerance before a channel indicator glows. Shared with the histogram traffic lights.",
+        help = "通道指示灯点亮前的暗部截止/高光削波容差档数。与直方图红绿灯共用。",
         showTopDivider = false,
         stacked = true,
     ) {

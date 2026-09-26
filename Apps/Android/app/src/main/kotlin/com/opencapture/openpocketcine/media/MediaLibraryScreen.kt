@@ -181,19 +181,19 @@ fun MediaLibraryScreen(model: AppModel, onClose: () -> Unit) {
 
     val headerCount =
         when {
-            controller.fetchInProgress && controller.listedCount == 0 -> "Scanning…"
-            controller.fetchInProgress -> "Listing… ${controller.listedCount} found"
+            controller.fetchInProgress && controller.listedCount == 0 -> "正在搜索…"
+            controller.fetchInProgress -> "正在列出… 已找到 ${controller.listedCount} 个"
             else -> {
                 val n = displayed.size
-                "$n item${if (n == 1) "" else "s"}"
+                "$n 项"
             }
         }
     val headerTitle =
         when (category) {
-            MediaLibraryTab.ALL -> "All clips"
-            MediaLibraryTab.VIDEOS -> "Videos"
-            MediaLibraryTab.PHOTOS -> "Photos"
-            MediaLibraryTab.FAVORITES -> "Favorites"
+            MediaLibraryTab.ALL -> "全部片段"
+            MediaLibraryTab.VIDEOS -> "视频"
+            MediaLibraryTab.PHOTOS -> "照片"
+            MediaLibraryTab.FAVORITES -> "收藏"
         }
     val emptySubtitle =
         when {
@@ -403,8 +403,8 @@ fun MediaLibraryScreen(model: AppModel, onClose: () -> Unit) {
 
         if (confirmBatchDelete) {
             MediaConfirmPopup(
-                title = "Delete ${selectedIDs.size} item${if (selectedIDs.size == 1) "" else "s"} from the camera?",
-                confirmTitle = "Delete",
+                title = "从相机删除 ${selectedIDs.size} 个项目？",
+                confirmTitle = "删除",
                 onDismiss = { confirmBatchDelete = false },
                 onConfirm = {
                     confirmBatchDelete = false
@@ -455,10 +455,10 @@ private fun CategoryStrip(category: MediaLibraryTab, onSelect: (MediaLibraryTab)
 private fun CategoryTab(tab: MediaLibraryTab, active: Boolean, fill: Boolean = false, onClick: () -> Unit) {
     val (icon, label) =
         when (tab) {
-            MediaLibraryTab.ALL -> OpcIcon.LAYOUT_GRID to "All"
-            MediaLibraryTab.VIDEOS -> OpcIcon.FILM to "Videos"
-            MediaLibraryTab.PHOTOS -> OpcIcon.IMAGE to "Photos"
-            MediaLibraryTab.FAVORITES -> OpcIcon.STAR to "Favorites"
+            MediaLibraryTab.ALL -> OpcIcon.LAYOUT_GRID to "全部"
+            MediaLibraryTab.VIDEOS -> OpcIcon.FILM to "视频"
+            MediaLibraryTab.PHOTOS -> OpcIcon.IMAGE to "照片"
+            MediaLibraryTab.FAVORITES -> OpcIcon.STAR to "收藏"
         }
     Row(
         Modifier
@@ -467,7 +467,7 @@ private fun CategoryTab(tab: MediaLibraryTab, active: Boolean, fill: Boolean = f
             .background(if (active) LiveDesign.accentDim else Color.Transparent)
             .chromeClickable(onClick = onClick)
             .semantics {
-                contentDescription = "Show $label media"
+                contentDescription = "显示 $label 媒体"
                 role = Role.Tab
             }
             .padding(horizontal = 12.dp, vertical = 10.dp),
@@ -646,7 +646,7 @@ private fun CacheBar(filename: String, progress: Double) {
     ) {
         MediaGlassTrack(fraction = progress.toFloat(), trackWidth = 120.dp)
         Text(
-            "CACHING $filename ${(progress * 100).toInt()}%",
+            "缓存中 $filename ${(progress * 100).toInt()}%",
             color = LiveDesign.muted,
             fontSize = 10.sp,
             fontFamily = com.opencapture.openpocketcine.OpcFonts.sora,
@@ -685,7 +685,7 @@ private fun EmptyState(listing: Boolean, subtitle: String) {
             )
         }
         Text(
-            if (listing) "Listing clips" else "No clips yet",
+            if (listing) "正在列出片段" else "还没有片段",
             color = LiveDesign.muted,
             style = LiveType.ui(15f, FontWeight.Medium),
             modifier = Modifier.padding(top = 12.dp),
@@ -707,10 +707,10 @@ private fun ListingState(listed: Int) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         CircularProgressIndicator(color = LiveDesign.muted)
-        Text("Listing clips on camera…", color = LiveDesign.muted, style = LiveType.ui(15f, FontWeight.Medium), modifier = Modifier.padding(top = 12.dp))
+        Text("正在列出相机片段…", color = LiveDesign.muted, style = LiveType.ui(15f, FontWeight.Medium), modifier = Modifier.padding(top = 12.dp))
         Text(
-            if (listed == 0) "Querying card storage…"
-            else "$listed clip${if (listed == 1) "" else "s"} found so far",
+            if (listed == 0) "正在查询存储卡…"
+            else "已找到 $listed 个片段",
             color = LiveDesign.faint,
             style = LiveType.ui(12f),
         )
@@ -820,7 +820,7 @@ private fun FilterPopup(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    "FILTER",
+                    "筛选",
                     color = LiveDesign.muted,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,

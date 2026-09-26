@@ -69,9 +69,9 @@ enum class MediaDeliveryDestination(
     val actionTitle: String,
 ) {
     NATIVE_SHARE(
-        title = "Share",
-        subtitle = "Nearby Share, Files, and other apps",
-        actionTitle = "Share",
+        title = "分享",
+        subtitle = "附近分享、文件管理器等应用",
+        actionTitle = "分享",
     ),
 }
 
@@ -136,7 +136,7 @@ fun MediaDeliveryHost(
                 onDeliver = { action ->
                     overlay =
                         MediaDeliveryOverlayState(
-                            statusLine = "Preparing…",
+                            statusLine = "准备中…",
                             isPreparing = true,
                         )
                     onDismissPopup()
@@ -240,7 +240,7 @@ fun MediaDeliveryPopup(
                 DeliveryStep.DESTINATION -> DestinationHeader(onClose = onDismiss)
                 DeliveryStep.OPTIONS ->
                     OptionsHeader(
-                        title = destination?.title ?: "Share",
+                        title = destination?.title ?: "分享",
                         onBack = { step = DeliveryStep.DESTINATION },
                     )
             }
@@ -250,16 +250,16 @@ fun MediaDeliveryPopup(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 Text(
-                    "${files.size} clip${if (files.size == 1) "" else "s"}",
+                    "${files.size} 个片段",
                     style = LiveType.ui(12.5f, FontWeight.SemiBold),
                     color = LiveDesign.text,
                 )
                 if (cachedCount < files.size) {
                     Text(
                         if (controller.isLive) {
-                            "${files.size - cachedCount} on-camera clip(s) will be cached from the camera first."
+                            "将先从相机缓存 ${files.size - cachedCount} 个相机片段。"
                         } else {
-                            "${files.size - cachedCount} on-camera clip(s) will be skipped — reconnect to cache them."
+                            "将跳过 ${files.size - cachedCount} 个相机片段——重新连接后可再缓存。"
                         },
                         style = LiveType.ui(12f, FontWeight.Medium),
                         color = LiveDesign.muted,
@@ -268,7 +268,7 @@ fun MediaDeliveryPopup(
                 when (step) {
                     DeliveryStep.DESTINATION -> {
                         Text(
-                            "DESTINATION",
+                            "目标",
                             style = LiveType.mono(10f, FontWeight.Bold),
                             color = LiveDesign.muted,
                         )
@@ -293,7 +293,7 @@ fun MediaDeliveryPopup(
                                     .padding(12.dp),
                                 verticalArrangement = Arrangement.spacedBy(4.dp),
                             ) {
-                                Text("Filename", style = LiveType.ui(12f, FontWeight.SemiBold), color = LiveDesign.muted)
+                                Text("文件名", style = LiveType.ui(12f, FontWeight.SemiBold), color = LiveDesign.muted)
                                 Text(
                                     files.first().filename,
                                     style = LiveType.mono(13f, FontWeight.Medium),
@@ -313,9 +313,9 @@ fun MediaDeliveryPopup(
                 FooterActionButton(
                     title =
                         if (shareAction == MediaDeliveryPostExportAction.SAVE_TO_PHOTOS) {
-                            "Save to Photos"
+                            "保存到相册"
                         } else {
-                            "Share"
+                            "分享"
                         },
                     enabled = canContinue,
                     onClick = { onDeliver(shareAction) },
@@ -372,7 +372,7 @@ fun MediaDeliveryProgressOverlay(
         }
         if (onCancel != null) {
             Text(
-                "Cancel",
+                "取消",
                 style = LiveType.ui(11f, FontWeight.SemiBold),
                 color = LiveDesign.muted,
                 modifier = Modifier.chromeClickable(onClick = onCancel),
@@ -406,7 +406,7 @@ private fun DestinationHeader(onClose: () -> Unit) {
     ) {
         OpcIcon(OpcIcon.SHARE, contentDescription = null, tint = LiveDesign.text, modifier = Modifier.size(13.dp))
         Text(
-            "SHARE",
+            "分享",
             style = LiveType.ui(9f, FontWeight.SemiBold),
             color = LiveDesign.text,
         )
@@ -429,7 +429,7 @@ private fun OptionsHeader(title: String, onBack: () -> Unit) {
         }
         Column(Modifier.weight(1f)) {
             Text(title, style = LiveType.ui(12.5f, FontWeight.SemiBold), color = LiveDesign.text)
-            Text("Options", style = LiveType.ui(11f, FontWeight.Medium), color = LiveDesign.muted)
+            Text("选项", style = LiveType.ui(11f, FontWeight.Medium), color = LiveDesign.muted)
         }
     }
 }
@@ -521,8 +521,8 @@ private fun SegmentedShareAction(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         listOf(
-            MediaDeliveryPostExportAction.SYSTEM_SHARE to "Share",
-            MediaDeliveryPostExportAction.SAVE_TO_PHOTOS to "Save to Photos",
+            MediaDeliveryPostExportAction.SYSTEM_SHARE to "分享",
+            MediaDeliveryPostExportAction.SAVE_TO_PHOTOS to "保存到相册",
         ).forEach { (action, label) ->
             val on = selected == action
             Box(
@@ -587,8 +587,8 @@ private suspend fun runDelivery(
                     onProgress(
                         MediaDeliveryOverlayState(
                             statusLine =
-                                if (fraction > 0.0) "Caching from camera" else "Caching from camera…",
-                            batchLine = if (toCache.size > 1) "Clip ${index + 1} of ${toCache.size}" else null,
+                                if (fraction > 0.0) "正在从相机缓存" else "正在从相机缓存…",
+                            batchLine = if (toCache.size > 1) "片段 ${index + 1}/${toCache.size}" else null,
                             overallFraction = fraction,
                             isPreparing = fraction <= 0.0,
                             filename = file.filename,
@@ -617,9 +617,9 @@ private suspend fun runDelivery(
         }
     if (ready.isEmpty()) {
         return if (toCache.isNotEmpty()) {
-            "Couldn't cache ${toCache.size} clip(s) from the camera — check the connection and try again."
+            "无法从相机缓存 ${toCache.size} 个片段——请检查连接后重试。"
         } else {
-            "Select at least one clip."
+            "请至少选择一个片段。"
         }
     }
     return when (action) {
@@ -627,7 +627,7 @@ private suspend fun runDelivery(
             for ((index, file) in ready.withIndex()) {
                 onProgress(
                     MediaDeliveryOverlayState(
-                        statusLine = "Preparing to share",
+                        statusLine = "正在准备分享",
                         batchLine = if (ready.size > 1) "Clip ${index + 1} of ${ready.size}" else null,
                         overallFraction = (index + 1).toDouble() / ready.size,
                         isPreparing = false,
@@ -639,7 +639,7 @@ private suspend fun runDelivery(
                 if (ready.size == 1) "Couldn't share this clip."
                 else "Couldn't share these clips."
             } else {
-                "Ready to share ${ready.size} clip${if (ready.size == 1) "" else "s"}"
+                "准备分享 ${ready.size} 个片段"
             }
         }
         MediaDeliveryPostExportAction.SAVE_TO_PHOTOS -> {
@@ -647,7 +647,7 @@ private suspend fun runDelivery(
             for ((index, file) in ready.withIndex()) {
                 onProgress(
                     MediaDeliveryOverlayState(
-                        statusLine = "Saving to Photos ${(index * 100 / ready.size)}%",
+                        statusLine = "正在保存到相册 ${(index * 100 / ready.size)}%",
                         batchLine = if (ready.size > 1) "Clip ${index + 1} of ${ready.size}" else null,
                         overallFraction = (index + 1).toDouble() / ready.size,
                         isPreparing = false,
@@ -660,8 +660,8 @@ private suspend fun runDelivery(
                     }
                 if (ok) saved += 1
             }
-            if (saved == 0) "Couldn't save clips to Photos."
-            else "Saved $saved clip${if (saved == 1) "" else "s"} to Photos"
+            if (saved == 0) "无法保存片段到相册。"
+            else "已保存 $saved 个片段到相册"
         }
     }
 }

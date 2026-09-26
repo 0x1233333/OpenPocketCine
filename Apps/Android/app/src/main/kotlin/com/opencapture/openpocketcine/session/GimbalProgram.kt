@@ -54,10 +54,10 @@ enum class GimbalWaypointSlot(val letter: String) {
 }
 
 enum class GimbalMode(val label: String) {
-    FOLLOW("Follow"),
-    TILT_LOCKED("Tilt locked"),
-    FPV("FPV"),
-    DIRECTION_LOCK("Direction Lock"),
+    FOLLOW("跟随"),
+    TILT_LOCKED("俯仰已锁定"),
+    FPV("FPV 第一人称"),
+    DIRECTION_LOCK("方向锁定"),
     ;
 
     companion object {
@@ -77,9 +77,9 @@ class GimbalParamPoll {
 }
 
 enum class GimbalSpeed(val wire: Int, val label: String) {
-    FAST(0, "Fast"),
-    DEFAULT(1, "Default"),
-    SLOW(2, "Slow"),
+    FAST(0, "快速"),
+    DEFAULT(1, "默认"),
+    SLOW(2, "慢速"),
     ;
 
     companion object {
@@ -90,9 +90,9 @@ enum class GimbalSpeed(val wire: Int, val label: String) {
 }
 
 enum class GimbalRamp(val raw: Int, val label: String, val tau: Double) {
-    OFF(0, "Off", 0.0),
-    SOFT(1, "Soft", 0.35),
-    MEDIUM(2, "Medium", 0.18),
+    OFF(0, "关", 0.0),
+    SOFT(1, "柔和", 0.35),
+    MEDIUM(2, "适中", 0.18),
     ;
 
     companion object {
@@ -133,8 +133,8 @@ data class GimbalProgram(
             when {
                 a != null && b != null && c != null -> "A·B·C"
                 a != null && b != null -> "A·B"
-                a != null || b != null || c != null -> "Partial"
-                else -> "Not set"
+                a != null || b != null || c != null -> "部分已设"
+                else -> "未设置"
             }
 
     fun point(slot: GimbalWaypointSlot): GimbalWaypoint? =
@@ -400,7 +400,7 @@ class GimbalMoveEngine {
         val a = program.a
         val b = program.b
         if (a == null || b == null) {
-            failure = "Set A and B before running"
+            failure = "运行前请先设置 A/B 点"
             return false
         }
         if (!program.smoothness.isFinite() || program.smoothness !in 0.0..1.0) return false
@@ -408,18 +408,18 @@ class GimbalMoveEngine {
         if (!points.all {
                 it.yawDeg.isFinite() && it.pitchDeg.isFinite() && it.zoom.isFinite() && it == it.clamped() &&
                     (it.nativePitchDeg == null || (it.nativePitchDeg.isFinite() && it.nativePitchDeg in -180.0..180.0)) }) {
-            failure = "Set reachable gimbal points again"
+            failure = "重新设置可到达的云台点位"
             return false
         }
         if (points.any { it.nativePitchDeg != null } && !points.all { it.nativePitchDeg != null }) {
-            failure = "Set gimbal points from fresh camera feedback"
+            failure = "基于相机最新反馈设置云台点位"
             return false
         }
         val next = mutableListOf(Leg("A→B", a, b, program.durationAB))
         program.c?.let { next += Leg("B→C", b, it, program.durationBC) }
         if (!next.all { it.duration.isFinite() && it.duration in GimbalProgram.MIN_DURATION..GimbalProgram.MAX_DURATION &&
                 abs(it.duration * 10 - kotlin.math.round(it.duration * 10)) < 1e-6 }) {
-            failure = "Increase the move duration"
+            failure = "加长移动时长"
             return false
         }
         legs = next
@@ -491,7 +491,7 @@ class GimbalMoveEngine {
     }
 
     fun cancel() {
-        if (running) lastReadout = lastReadout?.copy(phase = "STOP")
+        if (running) lastReadout = lastReadout?.copy(phase = "停止")
         running = false
         isPaused = false
         resumeNeedsCommand = false
@@ -524,7 +524,7 @@ class GimbalMoveEngine {
             !live.yawDeg.isFinite() || !live.pitchDeg.isFinite() ||
             (legs[0].from.nativePitchDeg != null && live.nativePitchDeg == null) ||
             (live.nativePitchDeg != null && (!live.nativePitchDeg.isFinite() || live.nativePitchDeg !in -180.0..180.0))) {
-            return stop(live, "Move interrupted — timing or camera feedback lost")
+            return stop(live, "移动被打断——时序或相机反馈丢失")
         }
         if (resumeNeedsCommand) {
             resumeNeedsCommand = false
@@ -550,7 +550,7 @@ class GimbalMoveEngine {
         }
         observations.removeAll { it.time < clock - 0.8 }
         checkpoints.removeAll { checkpointIsConsistent(it) }
-        if (checkpoints.any { clock - it.time > 0.4 }) return stop(live, "Camera waypoint could not be verified")
+        if (checkpoints.any { clock - it.time > 0.4 }) return stop(live, "无法确认相机航点")
         val a = legs[0].from
         if (phase == "APPROACH") {
             val approachTarget = approachTargets.firstOrNull() ?: a
@@ -564,11 +564,11 @@ class GimbalMoveEngine {
                 elapsed = 0.0
                 approachTargets.firstOrNull()?.let { return output(live, it, approachDuration) }
                 phase = "HOLD"
-            } else if (elapsed > approachDuration + 0.5) return stop(live, "Camera did not reach A")
+            } else if (elapsed > approachDuration + 0.5) return stop(live, "相机未到达 A 点")
             return output(live)
         }
         if (phase == "HOLD") {
-            if (angularDistance(live, a) > ARRIVE_DEG) return stop(live, "Camera moved before the take")
+            if (angularDistance(live, a) > ARRIVE_DEG) return stop(live, "开拍前相机被移动了")
             if (elapsed + 1e-9 < HOLD_SECONDS) return output(live)
             return beginPassMotion(live)
         }
@@ -577,8 +577,8 @@ class GimbalMoveEngine {
             val leg = legs[index]
             val streamed = abs(leg.to.yawDeg - leg.from.yawDeg) >= 180 || leg.duration > 25.5
             if (elapsed + 1e-9 < leg.duration) return if (streamed) tickLinearLeg(live) else output(live)
-            if (streamed && nextCurveCommand < leg.duration) return stop(live, "Move interrupted — waypoint dispatch was late")
-            if (elapsed - leg.duration > 0.02 + 1e-9) return stop(live, "Move interrupted — waypoint dispatch was late")
+            if (streamed && nextCurveCommand < leg.duration) return stop(live, "移动被打断——航点下发延迟")
+            if (elapsed - leg.duration > 0.02 + 1e-9) return stop(live, "移动被打断——航点下发延迟")
             if (program.changesZoom) pendingZoomEndpoint = leg.to.zoom
             if (index + 1 == legs.size && program.loop) {
                 return turnAround(live, clock - (elapsed - leg.duration))
@@ -595,7 +595,7 @@ class GimbalMoveEngine {
             return output(live)
         }
         if (phase == "VERIFY" && elapsed >= 0.3 && checkpoints.isEmpty()) {
-            if (angularDistance(live, legs[index].to) > ARRIVE_DEG) return stop(live, "Camera missed its final position")
+            if (angularDistance(live, legs[index].to) > ARRIVE_DEG) return stop(live, "相机未到达终点位置")
             phase = "DONE"
             running = false
             return output(live, finished = true)
@@ -672,14 +672,14 @@ class GimbalMoveEngine {
             val target = if (part == parts - 1) leg.to else lerp(leg.from, leg.to, end / leg.duration)
             return output(live, target, partTicks / 10.0)
         }
-        return stop(live, "Move interrupted — waypoint dispatch was late")
+        return stop(live, "移动被打断——航点下发延迟")
     }
 
     private fun tickCurve(curve: GimbalProgramCurve, live: GimbalWaypoint): Output {
         if (program.changesZoom && index == 0 && elapsed + 1e-9 >= curve.durationAB) pendingZoomEndpoint = curve.b.zoom
         index = if (elapsed + 1e-9 >= curve.durationAB) 1 else 0
         if (elapsed + 1e-9 >= curve.duration) {
-            if (nextCurveCommand < curve.duration) return stop(live, "Move interrupted — waypoint dispatch was late")
+            if (nextCurveCommand < curve.duration) return stop(live, "移动被打断——航点下发延迟")
             if (elapsed - curve.duration > 0.02 + 1e-9) return stop(live, "Move interrupted — waypoint dispatch was late")
             if (program.changesZoom) pendingZoomEndpoint = curve.c.zoom
             if (program.loop) return turnAround(live, clock - (elapsed - curve.duration))
@@ -816,8 +816,8 @@ class GimbalMoveEngine {
 
     private fun stop(live: GimbalWaypoint, reason: String): Output {
         failure = reason
-        lastReadout = snapshot(live)?.copy(phase = "STOP")
-        phase = "STOP"
+        lastReadout = snapshot(live)?.copy(phase = "停止")
+        phase = "停止"
         isPaused = false
         running = false
         return Output(stop = true, finished = true)
@@ -826,7 +826,7 @@ class GimbalMoveEngine {
     private fun output(live: GimbalWaypoint, target: GimbalWaypoint? = null,
         duration: Double = 0.0, finished: Boolean = false): Output {
         if (target != null && !canSendNativeTarget(live, target)) {
-            return stop(live, "Camera moved outside the safe rotation path")
+            return stop(live, "相机移出了安全旋转路径")
         }
         if (program.loop && target != null) {
             val from = commandHistory.lastOrNull()?.position(clock) ?: live
@@ -842,7 +842,7 @@ class GimbalMoveEngine {
         val leg = legs[index]
         val atA = phase == "APPROACH" || phase == "HOLD"
         val target = if (atA) legs[0].from else leg.to
-        return Readout(if (atA) "A" else leg.label, if (isPaused) "PAUSED" else phase,
+        return Readout(if (atA) "A" else leg.label, if (isPaused) "已暂停" else phase,
             if (phase == "APPROACH") approachDuration else if (phase == "HOLD") HOLD_SECONDS else leg.duration,
             if (phase == "VERIFY" || phase == "DONE") leg.duration
             else if (curve != null && phase == "RUN" && index == 1) elapsed - curve!!.durationAB else elapsed,
@@ -951,14 +951,14 @@ class GimbalOverlayMotion {
 }
 
 object GimbalHudCopy {
-    const val POSE_NOT_READY = "Gimbal pose not ready"
-    const val NEED_AB = "Set A and B to run"
-    const val HOLD_STILL = "Hold the gimbal still"
-    const val TITLE = "Gimbal"
-    const val MODE = "Mode"
-    const val SPEED = "Speed"
-    const val RAMP = "Ramp"
-    const val PROGRAMMED = "Motion Control"
-    const val RUN = "Start"
-    const val STOP = "Stop"
+    const val POSE_NOT_READY = "云台姿态未就绪"
+    const val NEED_AB = "设置 A/B 点后才能运行"
+    const val HOLD_STILL = "保持云台静止"
+    const val TITLE = "云台"
+    const val MODE = "模式"
+    const val SPEED = "速度"
+    const val RAMP = "缓动"
+    const val PROGRAMMED = "运动控制"
+    const val RUN = "开始"
+    const val STOP = "停止"
 }

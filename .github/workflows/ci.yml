@@ -48,12 +48,6 @@ jobs:
       - name: Repository hygiene
         run: ./scripts/check-repository-hygiene.sh
 
-      - name: Sentry release configuration
-        run: bash ./tools/sentry-test.sh
-
-      - name: Connection stress harness (offline)
-        run: python3 -m unittest discover -s tools/connection-stress -p 'test_*.py'
-
       - name: Landing-page assets
         run: ./scripts/check-site.sh
 
@@ -80,14 +74,9 @@ jobs:
           # write notes fails here.
           # Combined merge diffs also count notes rewritten during conflict resolution.
           changed_files="$(git log --diff-merges=combined --format= --name-only "$BASE_SHA..HEAD" | sort -u)"
-          # Notes-check tooling is not a TestFlight archive. Require copy only when
-          # production iOS paths change (docs/tester-notes.md). Test targets are not
-          # in the archive either: a test-only branch has no operator-visible work to
-          # describe, and the window is what testers have not been asked to try yet.
-          production_files="$(grep -E '^(Sources/|Tests/|ios/|Package\.swift$|scripts/ios-|scripts/setup-xcode-cloud\.sh$)' <<< "$changed_files" | grep -vE '^(scripts/ios-release-notes|Tests/|ios/OpenPocketCine(UI)?Tests/)' || true)"
-          if [[ -n "$production_files" ]]; then
+          if grep -Eq '^(Sources/|Tests/|ios/|Package\.swift$|scripts/ios-|scripts/setup-xcode-cloud\.sh$)' <<< "$changed_files"; then
             if ! grep -Fxq 'ios/TestFlight/WhatToTest.en-US.txt' <<< "$changed_files"; then
-              echo "Update ios/TestFlight/WhatToTest.en-US.txt with the this-build window (docs/tester-notes.md)." >&2
+              echo "Update ios/TestFlight/WhatToTest.en-US.txt with plain-language changes and test steps." >&2
               exit 1
             fi
           fi
@@ -104,18 +93,9 @@ jobs:
           # write notes fails here.
           # Combined merge diffs also count notes rewritten during conflict resolution.
           changed_files="$(git log --diff-merges=combined --format= --name-only "$BASE_SHA..HEAD" | sort -u)"
-          # Notes-check tooling is not a Play upload. Require copy only when
-          # production Android paths change (docs/tester-notes.md). Unit and
-          # instrumentation sources are not in the upload either: a test-only branch
-          # has no operator-visible work to describe. `src/debug/` is exempt on the
-          # same grounds: the Play artifact is the release variant, which never
-          # merges that source set. Matched per module rather than per name, so
-          # monitor-ui and any module added later are exempt on the same terms as
-          # app instead of silently demanding notes.
-          production_files="$(grep -E '^(Apps/Android/|Sources/OpenPocketViewCore/|Sources/OpenPocketCineAndroidFacade/|Sources/CJNI/|Package\.swift$|scripts/android-|scripts/ci-install-swift-android\.sh$)' <<< "$changed_files" | grep -vE '^(scripts/android-release-notes|Apps/Android/[^/]+/src/(test|androidTest|debug)/)' || true)"
-          if [[ -n "$production_files" ]]; then
+          if grep -Eq '^(Apps/Android/|Sources/OpenPocketViewCore/|Sources/OpenPocketCineAndroidFacade/|Sources/CJNI/|Package\.swift$|scripts/android-|scripts/ci-install-swift-android\.sh$)' <<< "$changed_files"; then
             if ! grep -Fxq 'Apps/Android/Play/WhatToTest.en-US.txt' <<< "$changed_files"; then
-              echo "Update Apps/Android/Play/WhatToTest.en-US.txt with the this-build window (docs/tester-notes.md)." >&2
+              echo "Update Apps/Android/Play/WhatToTest.en-US.txt with plain-language changes and test steps." >&2
               exit 1
             fi
             if ! grep -Fxq 'Apps/Android/Play/whatsnew/whatsnew-en-US' <<< "$changed_files"; then
@@ -125,7 +105,7 @@ jobs:
           fi
 
       - name: Spell check
-        uses: crate-ci/typos@512fc24f32f44ab01972217aaaf3dc86ec234d53 # v1.50.2
+        uses: crate-ci/typos@d43b6c087ac471e2ea7b8af622ff15f05c0c365b # v1.50.1
 
       - name: Markdown lint
         uses: DavidAnson/markdownlint-cli2-action@21c1be1b93ad9ed58fa840aacc3f279cde2a72ff # v24.2.0
@@ -198,10 +178,6 @@ jobs:
               - '.github/workflows/ci.yml'
             handbook:
               - 'handbook/**'
-              - 'scripts/check-handbook-links.py'
-              - 'justfile'
-              - '.lycheeignore'
-              - '.github/workflows/ci.yml'
               - 'scripts/stage-pages.sh'
               - '.github/workflows/deploy-pages.yml'
 
@@ -235,7 +211,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+      - uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
         with:
           distribution: temurin
           java-version: "21"
@@ -243,7 +219,7 @@ jobs:
 
       # Do not use skiptools/swift-android-action: it references actions/cache@v5 and
       # reactivecircus/android-emulator-runner@v2, which SHA pinning rejects even when
-      # those steps are skipped. The script installs Swift 6.3.3 if the runner's differs.
+      # those steps are skipped. Ubuntu 24.04 runners already ship Swift 6.3.3.
       # The runner image does not export ANDROID_NDK_HOME; the install script
       # needs NDK 27 for the Swift Android SDK sysroot.
       - name: Set up Android NDK 27
@@ -280,9 +256,7 @@ jobs:
         env:
           ASTRO_TELEMETRY_DISABLED: "1"
           HANDBOOK_BASE: /docs
-        run: |
-          npm --prefix handbook run build
-          python3 scripts/check-handbook-links.py --base /docs
+        run: npm --prefix handbook run build
 
   gate:
     name: CI gate

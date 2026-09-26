@@ -70,7 +70,7 @@ internal fun AssistToolCell(
             AssistToolGlyph(tool, tint, Modifier.size(19.dp))
         }
         Text(
-            tool.chipLabel,
+            tool.title,
             style = LiveType.mono(9f, FontWeight.Medium).copy(letterSpacing = 0.9.sp),
             color = tint,
             maxLines = 1,

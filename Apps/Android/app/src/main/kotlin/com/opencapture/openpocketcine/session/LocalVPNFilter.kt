@@ -16,12 +16,12 @@ object LocalVPNFilter {
     const val LIVE_HINT_DELAY_MS = 8_000L
 
     const val WIZARD_BANNER =
-        "Pause VPNs and ad blockers, or exclude this app. They can block the camera live feed."
+        "暂停 VPN 和广告拦截器，或将本应用加入排除名单。它们可能阻断相机实时画面。"
 
     const val LIVE_HINT =
-        "A VPN or ad blocker may be blocking the live feed. Pause it, or exclude this app, then try again."
+        "可能有 VPN 或广告拦截器在阻断实时画面。请暂停它，或将本应用加入排除名单，然后重试。"
 
-    const val JOIN_WIFI_PHONE_STEP = "Pause VPNs and ad blockers, or exclude this app"
+    const val JOIN_WIFI_PHONE_STEP = "暂停 VPN 和广告拦截器，或将本应用加入排除名单"
 
     fun shouldHintOnLiveWait(
         vpnActive: Boolean,

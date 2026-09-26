@@ -79,7 +79,7 @@ fun LiveTrackingCancelButton(
             .size(rect.width.dp, rect.height.dp)
             .clip(CircleShape)
             .chromeClickable(onClick = onClick)
-            .semantics { contentDescription = "Stop subject tracking" },
+            .semantics { contentDescription = "停止主体跟踪" },
         contentAlignment = Alignment.Center,
     ) {
         Box(

@@ -993,7 +993,7 @@ private fun AudioBody(status: CameraStatus, enabled: Boolean, selectedMode: Int,
                 options = CaptureLists.audioWindLabels,
                 selected = CaptureLists.audioWindLabel(status.windNr),
                 enabled = enabled,
-            ) { label -> model.setWindNr(label == "On") }
+            ) { label -> model.setWindNr(label == "开") }
         2 ->
             CheckedRows(
                 options = CaptureLists.audioDirLabels,
@@ -1007,7 +1007,7 @@ private fun AudioBody(status: CameraStatus, enabled: Boolean, selectedMode: Int,
                 options = CaptureLists.audioVocalLabels,
                 selected = CaptureLists.audioVocalLabel(status.vocalBoost),
                 enabled = enabled,
-            ) { label -> model.setVocalBoost(label == "On") }
+            ) { label -> model.setVocalBoost(label == "开") }
     }
 }
 
@@ -1094,30 +1094,30 @@ private fun initialSelectedMode(
 val LiveSheet.headerLabel: String
     get() =
         when (this) {
-            LiveSheet.ISO -> "ISO"
-            LiveSheet.SHUTTER -> "SHUTTER"
-            LiveSheet.WB -> "WB"
-            LiveSheet.FOCUS -> "FOCUS"
+            LiveSheet.ISO -> "ISO 感光度"
+            LiveSheet.SHUTTER -> "快门"
+            LiveSheet.WB -> "WB 白平衡"
+            LiveSheet.FOCUS -> "对焦"
             LiveSheet.APERTURE -> "APERTURE"
-            LiveSheet.EXPO -> "MODE"
-            LiveSheet.AUDIO -> "AUDIO"
-            LiveSheet.COLOR -> "COLOR"
-            LiveSheet.FORMAT -> "RESOLUTION"
+            LiveSheet.EXPO -> "模式"
+            LiveSheet.AUDIO -> "音频"
+            LiveSheet.COLOR -> "色彩"
+            LiveSheet.FORMAT -> "分辨率"
             LiveSheet.MODE -> "SHOOTING MODE"
         }
 
 val LiveSheet.subtitle: String
     get() =
         when (this) {
-            LiveSheet.ISO -> "Sensitivity"
-            LiveSheet.SHUTTER -> "Angle / speed"
-            LiveSheet.WB -> "Kelvin / auto / tint"
-            LiveSheet.FOCUS -> "AF-S / AF-C"
+            LiveSheet.ISO -> "感光度"
+            LiveSheet.SHUTTER -> "角度 / 速度"
+            LiveSheet.WB -> "色温 / 自动 / 色调"
+            LiveSheet.FOCUS -> "单次 / 连续"
             LiveSheet.APERTURE -> "Aperture strategy"
-            LiveSheet.EXPO -> "Exposure"
-            LiveSheet.AUDIO -> "Channel · wind · direction · vocal"
-            LiveSheet.COLOR -> "Color mode"
-            LiveSheet.FORMAT -> "Frame rate"
+            LiveSheet.EXPO -> "曝光"
+            LiveSheet.AUDIO -> "声道 · 风噪 · 指向 · 人声"
+            LiveSheet.COLOR -> "色彩模式"
+            LiveSheet.FORMAT -> "帧率"
             LiveSheet.MODE -> "Shooting mode"
         }
 
@@ -1328,12 +1328,12 @@ object IsoSheetLogic {
 
 object CaptureLists {
     /** iOS `ExpoMode.allCases.map(\.label)` — MODE sheet rows. */
-    val expoLabels: List<String> = listOf("Auto", "Manual")
+    val expoLabels: List<String> = listOf("自动", "手动")
 
     fun expoLabel(mode: Int): String =
         when (mode) {
-            CameraCommands.EXPO_AUTO -> "Auto"
-            CameraCommands.EXPO_MANUAL -> "Manual"
+            CameraCommands.EXPO_AUTO -> "自动"
+            CameraCommands.EXPO_MANUAL -> "手动"
             else -> "—"
         }
 
@@ -1341,8 +1341,8 @@ object CaptureLists {
 
     fun expoModeFromLabel(label: String): Int? =
         when (label) {
-            "Auto" -> CameraCommands.EXPO_AUTO
-            "Manual" -> CameraCommands.EXPO_MANUAL
+            "自动" -> CameraCommands.EXPO_AUTO
+            "手动" -> CameraCommands.EXPO_MANUAL
             else -> null
         }
 
@@ -1412,7 +1412,7 @@ object CaptureLists {
         selectedAspect: VideoAspect? = null,
     ): List<String> =
         when {
-            sheet == LiveSheet.ISO && offersIsoAuto -> listOf("Auto", "Manual")
+            sheet == LiveSheet.ISO && offersIsoAuto -> listOf("自动", "手动")
             sheet == LiveSheet.SHUTTER ->
                 shutterModeTabs(isEvSheet(sheet, status.expoMode), status.shootingMode)
             sheet == LiveSheet.WB -> CaptureLists.wbTabs
@@ -1507,19 +1507,19 @@ object CaptureLists {
         return next.takeIf { it != VideoFormat.current(status) }
     }
 
-    val audioTabs: List<String> = listOf("Channel", "Wind", "Dir", "Vocal")
-    val audioChannelLabels: List<String> = listOf("Stereo", "Mono", "Spatial")
-    val audioWindLabels: List<String> = listOf("Off", "On")
-    val audioDirLabels: List<String> = listOf("All", "Front", "Front+back")
-    val audioVocalLabels: List<String> = listOf("Off", "On")
+    val audioTabs: List<String> = listOf("声道", "风噪", "指向", "人声")
+    val audioChannelLabels: List<String> = listOf("立体声", "单声道", "空间音频")
+    val audioWindLabels: List<String> = listOf("关", "开")
+    val audioDirLabels: List<String> = listOf("全部", "前置", "前+后")
+    val audioVocalLabels: List<String> = listOf("关", "开")
 
     fun audioChannelLabel(value: Int): String? = CameraCommands.audioChannelLabel(value)
 
     fun audioChannelValue(label: String): Int? =
         when (label) {
-            "Mono" -> CameraCommands.AUDIO_MONO
-            "Stereo" -> CameraCommands.AUDIO_STEREO
-            "Spatial" -> CameraCommands.AUDIO_SPATIAL
+            "单声道" -> CameraCommands.AUDIO_MONO
+            "立体声" -> CameraCommands.AUDIO_STEREO
+            "空间音频" -> CameraCommands.AUDIO_SPATIAL
             else -> null
         }
 
@@ -1534,9 +1534,9 @@ object CaptureLists {
 
     fun audioDirValue(label: String): Int? =
         when (label) {
-            "All" -> 0
-            "Front" -> 1
-            "Front+back" -> 2
+            "全部" -> 0
+            "前置" -> 1
+            "前+后" -> 2
             else -> null
         }
 
@@ -1552,19 +1552,19 @@ object CaptureLists {
 
     fun shouldRefreshAudio(sheet: LiveSheet): Boolean = sheet == LiveSheet.AUDIO
 
-    const val FACE_PRIORITY_TITLE = "Face Priority"
+    const val FACE_PRIORITY_TITLE = "人脸优先"
     const val FACE_PRIORITY_HELP =
-        "On: EV follows faces to middle gray. Several faces use the median. First couple of seconds after a face appears are faster, then about 1 s. Off: put EV back to what it was, or 0.0."
-    const val NATIVE_ISO_HOP_TITLE = "Auto Native ISO"
+        "开：EV 跟随人脸回到中灰。多张脸取中位数。人脸刚出现的头几秒调整更快，之后约 1 秒一档。关：EV 恢复原值，或回到 0.0。"
+    const val NATIVE_ISO_HOP_TITLE = "自动原生 ISO"
     const val NATIVE_ISO_HOP_HELP =
-        "On: switching D-Log ↔ D-Log2 hops ISO to that curve's starred native if you were still on native. Off: keep the ISO you set."
+        "开：在 D-Log ↔ D-Log2 间切换时，若还在原生 ISO，会自动跳到该曲线标记的原生 ISO。关：保持你设置的 ISO 不变。"
 
     val evLabels: List<String> = EvComp.allCases.map { it.label }
 
     val kelvinValues: List<Int> = (2_000..10_000 step 100).toList()
     val kelvinLabels: List<String> = kelvinValues.map { "${it}K" }
-    val wbTabs: List<String> = listOf("Mode", "Kelvin", "Tint")
-    val wbModeRows: List<String> = listOf("Auto", "Custom")
+    val wbTabs: List<String> = listOf("模式", "色温", "色调")
+    val wbModeRows: List<String> = listOf("自动", "自定义")
     const val WB_TAB_MODE = 0
     const val WB_TAB_KELVIN = 1
     const val WB_TAB_TINT = 2
@@ -1593,8 +1593,8 @@ object CaptureLists {
 
     val colorWheelNano: List<Pair<Int, String>> =
         listOf(
-            CameraCommands.COLOR_NORMAL to "Normal 8-bit",
-            CameraCommands.COLOR_NORMAL10 to "Normal 10-bit",
+            CameraCommands.COLOR_NORMAL to "普通 8-bit",
+            CameraCommands.COLOR_NORMAL10 to "普通 10-bit",
             CameraCommands.COLOR_DLOG_M to "D-Log M 10-bit",
         )
 
@@ -1629,7 +1629,7 @@ object CaptureLists {
         if (isEvSheet || CameraCommands.isPhotoMode(shootingMode)) emptyList()
         else listOf("Speed", "Angle")
 
-    fun shutterHeaderTitle(isEvSheet: Boolean): String = if (isEvSheet) "EV" else "SHUTTER"
+    fun shutterHeaderTitle(isEvSheet: Boolean): String = if (isEvSheet) "EV" else "快门"
 
     fun shutterHeaderSubtitle(
         isEvSheet: Boolean,
@@ -1637,9 +1637,9 @@ object CaptureLists {
         facePriority: Boolean,
     ): String =
         when {
-            isEvSheet -> if (facePriority) "Face priority" else "Compensation"
-            isAngleSheet -> "Angle"
-            else -> "Speed"
+            isEvSheet -> if (facePriority) "人脸优先" else "补偿"
+            isAngleSheet -> "角度"
+            else -> "速度"
         }
 
     fun shutterWheelOptions(
@@ -1857,9 +1857,9 @@ object CaptureLists {
         if (status.wbMode == CameraCommands.WB_CUSTOM) WB_TAB_KELVIN else WB_TAB_MODE
 
     fun wbModeRowSelected(status: CameraStatus): String =
-        if (status.wbMode == CameraCommands.WB_CUSTOM) "Custom" else "Auto"
+        if (status.wbMode == CameraCommands.WB_CUSTOM) "自定义" else "自动"
 
-    fun wbSendsAuto(label: String): Boolean = label == "Auto"
+    fun wbSendsAuto(label: String): Boolean = label == "自动"
 
     fun wbDrumSelection(status: CameraStatus): String {
         val k = "${currentKelvin(status)}K"
@@ -1885,11 +1885,11 @@ object CaptureLists {
 
     fun tintLabel(tint: Int): String {
         val t = tint.coerceIn(-100, 100)
-        if (t == 0) return "Neutral"
+        if (t == 0) return "中性"
         return if (t > 0) "+$t" else "$t"
     }
 
-    fun tintApplyLabel(tint: Int): String = "Apply tint ${tint.coerceIn(-100, 100)}"
+    fun tintApplyLabel(tint: Int): String = "应用色调 ${tint.coerceIn(-100, 100)}"
 
     fun wbCustomFromTint(tint: Float, status: CameraStatus): Pair<Int, Int> =
         currentKelvin(status) to roundedTint(tint)
@@ -1971,7 +1971,7 @@ object CaptureLists {
     ): List<String> = colorWheel(family, status.availableColorModes, name).map { it.second }
 
     fun colorModeFromLabel(label: String, family: String = "pocket", name: String = ""): Int? {
-        if (label == "Normal 8-bit") return CameraCommands.COLOR_NORMAL
+        if (label == "普通 8-bit") return CameraCommands.COLOR_NORMAL
         if (label == "D-Log M") return CameraCommands.COLOR_DLOG_M
         return colorWheel(family, name = name).firstOrNull { it.second == label }?.first
             ?: colorWheelPocket.firstOrNull { it.second == label }?.first
@@ -2020,9 +2020,9 @@ object CaptureLists {
     fun storageLabel(status: CameraStatus, showDuration: Boolean): String {
         if (showDuration && !CameraCommands.isPhotoMode(status.shootingMode)) {
             return if (status.recordRemainingSec > 0) {
-                "${status.recordRemainingSec / 60} Min"
+                "${status.recordRemainingSec / 60} 分钟"
             } else {
-                "— Min"
+                "— 分钟"
             }
         }
         val free = if (status.storageFreeMb > 0) status.storageFreeMb else status.sdFreeMb
@@ -2038,7 +2038,7 @@ object CaptureLists {
 
     fun isoChipValue(status: CameraStatus): String =
         when {
-            status.isoIndex == 0 -> "Auto"
+            status.isoIndex == 0 -> "自动"
             status.iso > 0 -> "${status.iso}"
             status.isoIndex > 0 -> CameraCommands.isoLabel(status.isoIndex)
             else -> "—"
@@ -2046,8 +2046,8 @@ object CaptureLists {
 
     fun wbChipValue(status: CameraStatus): String =
         when (status.wbMode) {
-            CameraCommands.WB_CUSTOM -> if (status.wbKelvin > 0) "${status.wbKelvin}K" else "Custom"
-            CameraCommands.WB_AUTO -> "Auto"
+            CameraCommands.WB_CUSTOM -> if (status.wbKelvin > 0) "${status.wbKelvin}K" else "自定义"
+            CameraCommands.WB_AUTO -> "自动"
             else -> "—"
         }
 
@@ -2057,8 +2057,8 @@ object CaptureLists {
 
     fun wbChipWidest(): String = "10000K"
 
-    const val FOCUS_TAB_SINGLE = "AF-S"
-    const val FOCUS_TAB_CONTINUOUS = "AF-C"
+    const val FOCUS_TAB_SINGLE = "AF-S 单次"
+    const val FOCUS_TAB_CONTINUOUS = "AF-C 连续"
 
     /**
      * Nano / Atto have no AF-S / AF-C. Unknown camera defaults to Pocket (supported),

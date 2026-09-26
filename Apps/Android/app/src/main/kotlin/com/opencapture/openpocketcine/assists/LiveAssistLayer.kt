@@ -457,7 +457,7 @@ internal fun FalseColorReferenceRuler(state: LiveAssistState, colorMode: Int, mo
             }
         }
         Text(
-            "False Color",
+            "伪色",
             color = LiveDesign.text,
             fontSize = 8.5.sp,
             fontFamily = com.opencapture.openpocketcine.OpcFonts.sora,

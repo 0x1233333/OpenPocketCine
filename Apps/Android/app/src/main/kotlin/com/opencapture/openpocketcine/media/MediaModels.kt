@@ -321,10 +321,10 @@ enum class MediaLibrarySort {
     val menuLabel: String
         get() =
             when (this) {
-                NEWEST -> "Newest"
-                OLDEST -> "Oldest"
-                NAME -> "Name"
-                RATING -> "Rating"
+                NEWEST -> "最新"
+                OLDEST -> "最早"
+                NAME -> "名称"
+                RATING -> "评分"
             }
 }
 
@@ -366,9 +366,9 @@ enum class MediaThumbnailSize {
     val accessibilityLabel: String
         get() =
             when (this) {
-                SMALL -> "Small thumbnails"
-                MEDIUM -> "Medium thumbnails"
-                LARGE -> "Large thumbnails"
+                SMALL -> "小缩略图"
+                MEDIUM -> "中缩略图"
+                LARGE -> "大缩略图"
             }
 }
 
@@ -510,32 +510,32 @@ object MediaClipPresentation {
 
 /** Operator-facing media-browser copy. Never name a sister app. */
 object MediaLibraryCopy {
-    const val FILTER_EMPTY = "Nothing in this tab matches the filters."
-    const val EMPTY_ALL = "Nothing on this camera yet. Record a clip, then pull to refresh."
-    const val EMPTY_FAVORITES = "Nothing favorited yet. Star a clip to find it here."
-    const val EMPTY_VIDEOS = "No videos on this camera yet. Record a clip, then pull to refresh."
-    const val EMPTY_PHOTOS = "No photos on this camera yet. Capture a still, then pull to refresh."
-    const val DISCONNECTED = "Connect the camera to list clips on the body."
+    const val FILTER_EMPTY = "此标签页没有符合筛选条件的内容。"
+    const val EMPTY_ALL = "相机上还没有内容。录一段后下拉刷新。"
+    const val EMPTY_FAVORITES = "还没有收藏。给片段加星就会出现在这里。"
+    const val EMPTY_VIDEOS = "相机上还没有视频。录一段后下拉刷新。"
+    const val EMPTY_PHOTOS = "相机上还没有照片。拍一张后下拉刷新。"
+    const val DISCONNECTED = "连接相机以列出机身内的片段。"
     const val DISCONNECTED_EMPTY_CACHE =
-        "Nothing cached on this phone. Connect the camera to list clips on the body."
-    const val PROXY_TAG = "Proxy"
-    const val PROXY_HELP = "720p preview. Connect the camera to share the original."
+        "手机上还没有缓存。连接相机以列出机身内的片段。"
+    const val PROXY_TAG = "代理"
+    const val PROXY_HELP = "720p 预览。连接相机后可分享原片。"
 }
 
 object MediaOperatorCopy {
-    const val LISTING = "Listing camera clips…"
-    const val NOT_CONNECTED = "Connect the camera to list clips."
-    const val PLAYBACK_FAILED = "Camera did not enter playback."
+    const val LISTING = "正在列出相机片段…"
+    const val NOT_CONNECTED = "连接相机以列出片段。"
+    const val PLAYBACK_FAILED = "相机未进入回放。"
     const val BROWSING_ON_CAMERA = "Playback is open on the camera. Close to return to live view."
-    const val NO_CLIPS = "No clips on the camera."
-    const val LIST_FAILED = "Could not list camera clips."
-    const val NOT_DELETABLE = "That clip cannot be deleted from here."
-    const val DELETE_FAILED = "Could not delete that clip."
-    const val DOWNLOAD_FAILED = "Could not download that clip."
-    const val THUMB_FAILED = "Could not load that thumbnail."
-    const val CLIP_OPEN_FAILED = "Could not open that clip."
-    const val CLIP_LOADING = "Loading clip from camera…"
-    const val CLIP_NOT_CACHED = "This clip is not cached on the phone."
+    const val NO_CLIPS = "相机上没有片段。"
+    const val LIST_FAILED = "无法列出相机片段。"
+    const val NOT_DELETABLE = "无法在这里删除该片段。"
+    const val DELETE_FAILED = "无法删除该片段。"
+    const val DOWNLOAD_FAILED = "无法下载该片段。"
+    const val THUMB_FAILED = "无法加载该缩略图。"
+    const val CLIP_OPEN_FAILED = "无法打开该片段。"
+    const val CLIP_LOADING = "正在从相机加载片段…"
+    const val CLIP_NOT_CACHED = "该片段未缓存到手机。"
 }
 
 internal fun pathExtension(path: String): String {

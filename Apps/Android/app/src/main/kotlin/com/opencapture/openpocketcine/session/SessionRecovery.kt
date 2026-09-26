@@ -130,16 +130,16 @@ class SessionRecoveryPolicy(
 
 /** Operator-facing recovery copy. Never names a sister app or another brand. */
 object SessionRecoveryCopy {
-    const val RETRY_CONNECTION = "Retry connection"
-    const val OPERATOR_MENU = "Operator menu"
-    const val HELD_FRAME_BADGE = "NO LINK"
+    const val RETRY_CONNECTION = "重试连接"
+    const val OPERATOR_MENU = "操作员菜单"
+    const val HELD_FRAME_BADGE = "无连接"
 
     fun title(state: SessionRecoveryUi): String =
         when (state) {
             SessionRecoveryUi.Idle -> ""
-            is SessionRecoveryUi.Retrying -> "Reconnecting…"
-            is SessionRecoveryUi.WaitingForOperator -> "Camera disconnected"
-            is SessionRecoveryUi.PausedAfterDrops -> "Connection keeps dropping"
+            is SessionRecoveryUi.Retrying -> "正在重新连接…"
+            is SessionRecoveryUi.WaitingForOperator -> "相机已断开"
+            is SessionRecoveryUi.PausedAfterDrops -> "连接频繁掉线"
         }
 
     fun detail(state: SessionRecoveryUi, deviceName: String): String {
@@ -148,13 +148,13 @@ object SessionRecoveryCopy {
         return when (state) {
             SessionRecoveryUi.Idle -> ""
             is SessionRecoveryUi.Retrying ->
-                "$camera dropped off. Holding the last frame — attempt ${state.attempt} of ${state.maxAttempts}."
+                "$camera 掉线了。正在保持最后一帧——第 ${state.attempt}/${state.maxAttempts} 次尝试。"
             is SessionRecoveryUi.WaitingForOperator -> {
-                val tries = if (state.attemptsMade == 1) "1 try" else "${state.attemptsMade} tries"
-                "$camera didn't come back after $tries. The frame below is held, not live."
+                val tries = if (state.attemptsMade == 1) "1 次尝试" else "已尝试 ${state.attemptsMade} 次"
+                "$camera 在 $tries 次尝试后仍未恢复。下方画面是暂停帧，不是实时画面。"
             }
             is SessionRecoveryUi.PausedAfterDrops ->
-                "$camera reconnected but dropped ${state.drops} times in quick succession. Automatic retries are paused to protect the camera. The frame below is held, not live."
+                "$camera 已重连，但短时间内掉线了 ${state.drops} 次。为保护相机已暂停自动重试。下方画面是暂停帧，不是实时画面。"
         }
     }
 }

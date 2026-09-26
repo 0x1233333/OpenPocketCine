@@ -104,7 +104,7 @@ class HevcDecoder internal constructor(
         framesPresented.incrementAndGet()
         if (!_hasPicture.value) {
             _hasPicture.value = true
-            Log.i(TAG, "presented first picture")
+            Log.i(TAG, "已出首帧")
         }
     }
 

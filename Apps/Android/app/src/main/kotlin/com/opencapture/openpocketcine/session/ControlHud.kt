@@ -11,11 +11,11 @@ object ControlHud {
 
     /** Chip / pinch / color drum while rolling in D-Log2. No opcode names. */
     const val RECORDING_COLOR_LOCK_NOTE =
-        "Can't change color while recording — D-Log2 can't zoom"
+        "录制中无法切换色彩——D-Log2 下不能变焦"
 
     /** SET / GET timeout copy. iOS `requestCamera` and `fireCamera` pass announce=false. */
     fun timeoutNote(name: String, announce: Boolean): String? =
-        if (announce) "$name timed out" else null
+        if (announce) "$name 超时" else null
 
     /**
      * Center Y for the control toast. Parks under a mounted top bar when that
@@ -44,9 +44,9 @@ sealed class CameraReply {
         get() =
             when (this) {
                 Ok -> "ok"
-                WrongState -> "camera rejected that in this mode"
-                BadParameter -> "camera rejected that value"
-                Unsupported -> "camera does not support that command"
+                WrongState -> "当前模式下相机拒绝了该操作"
+                BadParameter -> "相机拒绝了该数值"
+                Unsupported -> "相机不支持该指令"
                 is Other -> "camera reply 0x%02X".format(code)
             }
 

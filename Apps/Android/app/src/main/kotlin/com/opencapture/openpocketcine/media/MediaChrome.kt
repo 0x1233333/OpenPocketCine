@@ -89,7 +89,7 @@ fun MediaCloseButton(
             .clip(CircleShape)
             .mediaGlass(CircleShape)
             .chromeClickable(enabled = enabled, onClick = onClick)
-            .semantics { contentDescription = "Close" },
+            .semantics { contentDescription = "关闭" },
         contentAlignment = Alignment.Center,
     ) {
         OpcIcon(
@@ -113,7 +113,7 @@ fun MediaBackButton(
             .clip(CircleShape)
             .mediaGlass(CircleShape)
             .chromeClickable(onClick = onClick)
-            .semantics { contentDescription = "Back" },
+            .semantics { contentDescription = "返回" },
         contentAlignment = Alignment.Center,
     ) {
         OpcIcon(
@@ -139,7 +139,7 @@ fun MediaFavoriteButton(
             .mediaGlass(CircleShape)
             .chromeClickable(onClick = onClick)
             .semantics {
-                contentDescription = if (favorite) "Remove from favorites" else "Add to favorites"
+                contentDescription = if (favorite) "取消收藏" else "加入收藏"
             },
         contentAlignment = Alignment.Center,
     ) {
@@ -340,7 +340,7 @@ fun MediaConfirmPopup(
                         .padding(vertical = 12.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text("Cancel", color = LiveDesign.muted, style = LiveType.ui(14f, FontWeight.SemiBold))
+                    Text("取消", color = LiveDesign.muted, style = LiveType.ui(14f, FontWeight.SemiBold))
                 }
                 Box(
                     Modifier

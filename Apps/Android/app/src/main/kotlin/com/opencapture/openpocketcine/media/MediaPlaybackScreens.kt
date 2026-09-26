@@ -229,7 +229,7 @@ fun MediaPhotoViewer(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 CircularProgressIndicator(color = LiveDesign.accent)
-                Text("Preparing image…", color = LiveDesign.muted, style = LiveType.ui(14f, FontWeight.Medium))
+                Text("正在准备图片…", color = LiveDesign.muted, style = LiveType.ui(14f, FontWeight.Medium))
             }
         }
 
@@ -304,7 +304,7 @@ fun MediaPhotoViewer(
 
         if (confirmDelete) {
             MediaConfirmPopup(
-                title = "Delete this photo from the camera?",
+                title = "从相机删除这张照片？",
                 confirmTitle = "Delete",
                 onDismiss = { confirmDelete = false },
                 onConfirm = {
@@ -844,7 +844,7 @@ fun MediaPlayerScreen(
                     if (canPrev) {
                         ClipNavButton(
                             icon = OpcIcon.CHEVRON_LEFT,
-                            label = "Previous clip",
+                            label = "上一个片段",
                             modifier = Modifier.align(Alignment.CenterStart)
                                 .padding(start = MonitorPlaybackLayout.clipNavEdgePadding().dp),
                         ) { goToAdjacent(-1) }
@@ -852,7 +852,7 @@ fun MediaPlayerScreen(
                     if (canNext) {
                         ClipNavButton(
                             icon = OpcIcon.CHEVRON_RIGHT,
-                            label = "Next clip",
+                            label = "下一个片段",
                             modifier = Modifier.align(Alignment.CenterEnd)
                                 .padding(end = MonitorPlaybackLayout.clipNavEdgePadding().dp),
                         ) { goToAdjacent(1) }
@@ -903,7 +903,7 @@ fun MediaPlayerScreen(
                         }
                         Text(
                             loadError
-                                ?: if (progress != null) "Buffering from camera…" else "Preparing playback…",
+                                ?: if (progress != null) "正在从相机缓冲…" else "正在准备回放…",
                             color = LiveDesign.muted,
                             style = LiveType.ui(14f, FontWeight.Medium),
                             modifier = Modifier.padding(top = 12.dp),
@@ -1111,7 +1111,7 @@ fun MediaPlayerScreen(
             // Inside the overlay window: in the host window it sits under the gesture well.
             if (confirmDelete) {
                 MediaConfirmPopup(
-                    title = "Delete this clip from the camera?",
+                    title = "从相机删除这个片段？",
                     confirmTitle = "Delete",
                     onDismiss = { confirmDelete = false },
                     onConfirm = {
@@ -1273,7 +1273,7 @@ private fun PlaybackConformButton(
     Box {
         PlaybackActionChip(
             OpcIcon.TIMER,
-            "Conform preview",
+            "变速还原预览",
             { onMenuOpenChange(true) },
             active = selected != null,
             enabled = availability.isAvailable,

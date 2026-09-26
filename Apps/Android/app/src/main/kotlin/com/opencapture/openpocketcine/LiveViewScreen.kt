@@ -676,7 +676,7 @@ fun LiveViewScreen(model: AppModel) {
                     ) {
                         CircularProgressIndicator(color = LiveDesign.text.copy(alpha = 0.72f))
                         Text(
-                            "WAITING FOR LIVE VIEW",
+                            "等待实时画面",
                             color = LiveDesign.text.copy(alpha = 0.72f),
                             style = LiveType.mono(15f, FontWeight.SemiBold),
                         )
