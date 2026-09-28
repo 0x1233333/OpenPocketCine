@@ -375,11 +375,16 @@ struct CapturePickerPanel: View {
             }
         case .wb:
             if selectedMode == 0 {
+                let awbLocked = model.session.autoWhiteBalanceLock != nil
                 choiceDrum(
-                    WhiteBalanceMode.allCases.map(\.label),
-                    selected: model.session.status.whiteBalance?.mode.label
+                    CaptureLists.whiteBalanceModeLabels(
+                        offersLock: awbLocked || model.session.canLockAutoWhiteBalance),
+                    selected: CaptureLists.whiteBalanceModeSelection(
+                        model.session.status.whiteBalance, awbLocked: awbLocked)
                 ) { label in
-                    if label == WhiteBalanceMode.auto.label {
+                    if label == CaptureLists.awbLock {
+                        model.session.lockAutoWhiteBalance()
+                    } else if label == WhiteBalanceMode.auto.label {
                         model.session.setWhiteBalanceAuto()
                     } else {
                         model.session.setWhiteBalanceCustom(
@@ -408,8 +413,11 @@ struct CapturePickerPanel: View {
                 }
             }
         case .exposure:
+            let aeLocked = model.session.autoExposureLock != nil
             choiceDrum(
-                ExpoMode.allCases.map(\.label), selected: model.session.status.expoMode?.label
+                CaptureLists.exposureLabels(aeLocked: aeLocked),
+                selected: CaptureLists.exposureSelection(
+                    model.session.status.expoMode, aeLocked: aeLocked)
             ) { label in
                 if let mode = ExpoMode.allCases.first(where: { $0.label == label }) {
                     model.session.setExpoMode(mode)
@@ -698,7 +706,10 @@ struct CapturePickerPanel: View {
             reseatShutterOrEv()
         case .wb:
             let mode = model.session.status.whiteBalance?.mode
-            selectedMode = (mode == nil || mode == .auto) ? 0 : 1
+            // AWB Lock is a Mode choice, not an active Kelvin.
+            let modeTab =
+                mode == nil || mode == .auto || model.session.autoWhiteBalanceLock != nil
+            selectedMode = modeTab ? 0 : 1
             let k = "\(currentKelvin)K"
             drumSelection =
                 (2_000...10_000).contains(model.session.status.whiteBalanceKelvin) ? k : ""
@@ -1251,8 +1262,32 @@ enum CaptureLists {
     static let nativeIsoHopHelp =
         "On: switching D-Log ↔ D-Log2 hops ISO to that curve's starred native if you were still on native. Off: keep the ISO you set."
 
-    static let kelvinValues = Array(stride(from: 2_000, through: 10_000, by: 100))
+    static let kelvinValues = WhiteBalance.kelvinLadder
     static let kelvinLabels = kelvinValues.map { "\($0)K" }
+    /// WB Mode drum entry left of Auto: Custom at the live Auto Kelvin. It stays
+    /// selected while the lock holds; Auto or Custom releases it.
+    static let awbLock = "AWB Lock"
+    /// WB tile while locked; `AWB Lock` would outgrow the tile's `10000K` width.
+    static let awbLockTile = "AWB-L"
+
+    static func whiteBalanceModeLabels(offersLock: Bool) -> [String] {
+        (offersLock ? [awbLock] : []) + WhiteBalanceMode.allCases.map(\.label)
+    }
+
+    static func whiteBalanceModeSelection(_ wb: WhiteBalance?, awbLocked: Bool) -> String? {
+        awbLocked ? awbLock : wb?.mode.label
+    }
+    /// EXPOSURE tile and drum entry left of Auto while the feed AE lock holds.
+    /// Auto or Manual releases it; the entry leaves the drum once released.
+    static let aeLock = "AE-L"
+
+    static func exposureLabels(aeLocked: Bool) -> [String] {
+        (aeLocked ? [aeLock] : []) + ExpoMode.allCases.map(\.label)
+    }
+
+    static func exposureSelection(_ mode: ExpoMode?, aeLocked: Bool) -> String? {
+        aeLocked ? aeLock : mode?.label
+    }
 
     static func kelvin(from label: String) -> Int? {
         Int(label.replacingOccurrences(of: "K", with: ""))

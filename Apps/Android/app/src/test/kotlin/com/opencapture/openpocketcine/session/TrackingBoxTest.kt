@@ -142,6 +142,14 @@ class TrackingBoxTest {
         assertEquals(LiveFeedFocusGesture.Kind.DISP_CLEAN, LiveFeedFocusGesture.classify(0f, 45f))
         assertEquals(LiveFeedFocusGesture.Kind.DISP_LIVE, LiveFeedFocusGesture.classify(0f, -45f))
         assertNull(LiveFeedFocusGesture.classify(4f, -3f, pinched = true))
+        assertEquals(
+            LiveFeedFocusGesture.Kind.AE_LOCK,
+            LiveFeedFocusGesture.classify(4f, 3f, armed = true, aeLockHeld = true),
+        )
+        assertEquals(
+            LiveFeedFocusGesture.Kind.TRACK,
+            LiveFeedFocusGesture.classify(30f, 8f, armed = true, aeLockHeld = true),
+        )
     }
 
     @Test
@@ -219,6 +227,23 @@ class TrackingBoxTest {
         assertEquals(camera.centerY, drawn.centerY, 1e-9)
         assertTrue(drawn.centerX < 0.5)
         assertTrue(camera.centerX > 0.5)
+    }
+
+    @Test
+    fun verticalFlipMapsBoxesAndCancelThroughTheUnderslungPicture() {
+        val camera = TrackingBox(0.1, 0.2, 0.3, 0.4)
+        val v = camera.flipped(horizontal = false, vertical = true)
+        assertEquals(0.1, v.x, 1e-9)
+        assertEquals(0.4, v.y, 1e-9)
+        val both = camera.flipped(horizontal = true, vertical = true)
+        assertEquals(0.6, both.x, 1e-9)
+        assertEquals(0.4, both.y, 1e-9)
+        val back = both.flipped(horizontal = true, vertical = true)
+        assertEquals(camera.x, back.x, 1e-9)
+        assertEquals(camera.y, back.y, 1e-9)
+        // Cancel sits on the drawn top-right corner: y follows the flipped top edge.
+        val cancel = LiveTrackingChrome.cancelRect(camera, 100f, 100f, mirrored = false, flippedVertically = true)
+        assertEquals(40f - LiveTrackingChrome.CANCEL_HIT_SIZE / 2f, cancel.y, 1e-3f)
     }
 
     @Test

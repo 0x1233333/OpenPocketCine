@@ -144,6 +144,7 @@ fun LiveViewScreen(model: AppModel) {
     val zoomDialReadout by model.session.zoomDialReadout.collectAsState()
     val zoomPinching by model.session.zoomPinching.collectAsState()
     val trackingHud by model.session.trackingHud.collectAsState()
+    val aeLock by model.session.aeLock.collectAsState()
     val poseViewFlip by model.session.gimbalPoseViewFlip.collectAsState()
     val poseInvertPan by model.session.gimbalPoseInvertPan.collectAsState()
     val gimbalLimitPulse by model.session.gimbalLimitPulse.collectAsState()
@@ -153,7 +154,9 @@ fun LiveViewScreen(model: AppModel) {
     var sheet by remember { mutableStateOf<LiveSheet?>(null) }
     val context = LocalContext.current
     val assist = model.assist
-    val wantedViewFlip = CameraCommands.liveViewFlip(poseViewFlip, assist.mirror)
+    val wantedViewFlip = CameraCommands.liveViewFlip(poseViewFlip, assist.mirrorsHorizontally)
+    // MIRROR Vertical has no pose latch, so it applies on the toggle.
+    val flipV = assist.flipsVertically
     var liveViewFlip by remember { mutableStateOf(wantedViewFlip) }
     LaunchedEffect(wantedViewFlip) {
         if (liveViewFlip == wantedViewFlip) return@LaunchedEffect
@@ -544,6 +547,7 @@ fun LiveViewScreen(model: AppModel) {
                 vector = GpuOverlayBus.vector,
                 uiScale = density.density,
                 pictureMirrored = liveViewFlip,
+                pictureFlippedVertically = flipV,
             )
         }
         val readoutRegions = remember { com.opencapture.monitorui.MonitorReadoutRegions() }
@@ -580,6 +584,7 @@ fun LiveViewScreen(model: AppModel) {
             ) {
                 LiveFeedPresenter(
                     mirrored = liveViewFlip,
+                    flippedVertically = flipV,
                     stretchToRect = desqueezeVisible,
                     backdrop = backdrop,
                     sourceIdentity = model.session.connectedCamera ?: model.session,
@@ -607,7 +612,8 @@ fun LiveViewScreen(model: AppModel) {
                     (pictureContent.x - layout.onFeed.x) * density.density,
                     (pictureContent.y - layout.onFeed.y) * density.density,
                     (pictureContent.maxX - layout.onFeed.x) * density.density,
-                    (pictureContent.maxY - layout.onFeed.y) * density.density), mirrored = liveViewFlip))
+                    (pictureContent.maxY - layout.onFeed.y) * density.density), mirrored = liveViewFlip,
+                flippedVertically = flipV))
 
             // iOS `LiveZoomPinchWell` sits under chip + scopes so direct drag
             // on WAVE / PARADE / HISTO / VECTOR still reaches MovableAssistPanel.
@@ -618,14 +624,17 @@ fun LiveViewScreen(model: AppModel) {
                     feed = ChromeRect(0f, 0f, gestureFrame.width, gestureFrame.height),
                     onTap = { point ->
                         val x = if (liveViewFlip) 1f - point.x else point.x
-                        model.session.handleFeedTap(x, point.y)
+                        val y = if (flipV) 1f - point.y else point.y
+                        model.session.handleFeedTap(x, y)
                     },
                     onSwipeClean = { clean -> if (!uiLocked) setClean(clean) },
                     onPinch = { mag -> model.session.updateZoomPinch(mag.toDouble()) },
                     onPinchEnd = { model.session.endZoomPinch() },
                     onTrack = { box ->
-                        model.session.startTracking(if (liveViewFlip) box.mirrored() else box)
+                        model.session.startTracking(box.flipped(liveViewFlip, flipV))
                     },
+                    onAeLock = { model.session.lockAutoExposure() },
+                    canLockAe = { model.session.canLockAutoExposure },
                 )
             }
 
@@ -637,7 +646,8 @@ fun LiveViewScreen(model: AppModel) {
                     tracking = trackingHud,
                     showTapFocusBox =
                         model.chromeSectionMounts(PocketDispSection.FOCUS_BOX) &&
-                            model.session.supportsTapFocus,
+                            (model.session.supportsTapFocus || aeLock != null),
+                    aeLocked = aeLock != null,
                     locked = uiLocked,
                     feedFrame = if (desqueezeVisible) pictureContent else layout.onFeed.fittedContent(
                         VideoResolution.fromRaw(status.resolutionCode)?.ratio ?: pictureAspect),
@@ -647,6 +657,7 @@ fun LiveViewScreen(model: AppModel) {
                     audioPlacementFrame = scopePlacement.copy(x = layout.safeLeading,
                         width = maxOf(0f, scopePlacement.maxX - layout.safeLeading)),
                     pictureMirrored = liveViewFlip,
+                    pictureFlippedVertically = flipV,
                     showsAudio = CaptureShutterPolicy.showsAudioControls(status.shootingMode),
                     onOpenOptions = { tool, frame ->
                         assist.longPressAnchor = frame
@@ -719,7 +730,8 @@ fun LiveViewScreen(model: AppModel) {
                 LiveLevelOverlay(
                     reading = model.session.levelReading,
                     // Picture-relative like the stick: TT180 mirrors the shown picture in both Selfie Flip states.
-                    viewFlip = CameraCommands.liveInvertPan(poseInvertPan, assist.mirror),
+                    // Either flip axis reverses the on-screen roll; both (180°) restores it.
+                    viewFlip = CameraCommands.liveInvertPan(poseInvertPan, assist.mirrorsHorizontally) != flipV,
                     feed = meterFeed,
                     viewport = ChromeRect(0f, 0f, vw, vh),
                     portrait = portrait,
@@ -743,8 +755,15 @@ fun LiveViewScreen(model: AppModel) {
                         feedWidth = layout.onFeed.width,
                         feedHeight = layout.onFeed.height,
                         mirrored = liveViewFlip,
+                        flippedVertically = flipV,
                         onClick = { model.session.cancelSubjectTracking() },
                     )
+                }
+            }
+            // iOS: beside the recenter key in both orientations, only while AE is locked.
+            if (!uiLocked && chromeInteractive && aeLock != null) {
+                Box(Modifier.liveModuleFrame(layout.aeUnlock).zIndex(3f)) {
+                    LiveAutoExposureUnlockButton(onClick = { model.session.unlockAutoExposure() })
                 }
             }
 
@@ -764,6 +783,8 @@ fun LiveViewScreen(model: AppModel) {
                     onAssistLongPress = { assist.configureTool = it },
                     chromeInteractive = chromeInteractive,
                     controlBusy = controlBusy,
+                    focusOffCenter = focusOffCenter,
+                    onFocusReset = { model.session.resetFocusPoint() },
                     fpsLabel = fpsLabel,
                     bars = bars,
                     sourceIsVertical = verticalPicture,
@@ -1138,6 +1159,7 @@ private fun View.unsplitMotionEvents() {
 @Composable
 private fun LiveFeedPresenter(
     mirrored: Boolean,
+    flippedVertically: Boolean,
     stretchToRect: Boolean,
     backdrop: MonitorBackdropFeed,
     sourceIdentity: Any,
@@ -1179,7 +1201,10 @@ private fun LiveFeedPresenter(
     LaunchedEffect(plan) { session.updatePlan(plan) }
     LaunchedEffect(stretchToRect) { session.setStretchToRect(stretchToRect) }
 
-    Box(modifier.graphicsLayer { scaleX = if (mirrored) -1f else 1f }) {
+    Box(modifier.graphicsLayer {
+        scaleX = if (mirrored) -1f else 1f
+        scaleY = if (flippedVertically) -1f else 1f
+    }) {
         key(gpuFailed) {
             AndroidView(
                 factory = { viewContext ->

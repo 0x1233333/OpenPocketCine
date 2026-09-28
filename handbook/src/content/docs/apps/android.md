@@ -52,6 +52,22 @@ as `EV`. Tap a value for the full details drawer;
 hold or drag for a compact dial. Lift to apply the selected value. Camera controls hold your selection while the
 camera confirms it, so an older status update does not briefly move the dial back.
 A rejected or unconfirmed change returns to the reported camera value after settling.
+Long-press the picture without moving (about 0.6 s, after the haptic) and lift
+to lock exposure while exposure is Auto: the focus box turns yellow with an
+**AE-L** tag, and a sun-and-open-lock key beside the focus recenter button
+returns exposure to Auto (in portrait it sits at the left, beside the View
+Assist tools). **EXPOSURE** reads **AE-L** while locked, and its picker lists
+**AE-L** left of Auto: choose Auto to return to Auto, or Manual to keep the
+locked values as ordinary Manual. The lock switches the camera to Manual at its
+current Auto ISO (nearest whole stop) and shutter; changing shooting mode or an
+Auto report from the camera also ends it. The haptic only comes when a lock is
+possible; a hold in Manual or while locked is silent. Dragging after the hold
+still draws a tracking box. White balance **Mode** and the WB tile's drag dial
+offer **AWB Lock** beside Auto while Auto reports a live Kelvin; it sets Custom
+at that Kelvin, snapped to the Kelvin drum, and keeps tint. While locked, WB
+stays on **AWB Lock** (the tile reads **AWB-L**); choose Auto to return to Auto
+or Custom to keep that Kelvin as ordinary Custom. A WB change on the camera
+also ends the lock. Neither is a camera-native lock and both await hardware testing.
 Use the top shooting-mode control in landscape or REC SETUP → Mode in portrait.
 Record and the Photo shutter have no shooting-mode long-press shortcut.
 In **Photo**, the capture control becomes a shutter and takes a photo immediately,
@@ -152,6 +168,17 @@ existing saved pins stay unchanged.
 LUTs and picture warnings follow the correction, and framing guides align with
 the corrected picture. Desqueeze changes only the display: recordings, shared
 files and scope measurements keep the original image.
+
+### Mirror
+
+Tap **MIRROR** in View Assist to flip the monitor; long-press for its options.
+**Horizontal** flips left-to-right for a camera pointed back at you and is on by
+default. **Vertical** flips top-to-bottom. Turn both on to turn the picture 180°,
+for an underslung camera such as one on a car mount. Tap to focus, drag to
+track, focus and face boxes, and the LEVEL roll reading follow the flipped
+picture. Mirror changes only the display: recordings and scopes stay
+unflipped, and Vertical leaves the joystick directions unchanged. Video
+playback uses the same axes with its own on/off choice.
 
 ## Level
 
@@ -470,6 +497,14 @@ Operator Setup over live view keeps the video GOP and the live SurfaceView;
 returning to the monitor must not leave a black well. Leaving live view,
 opening clips, or rotating must drop the Vulkan swapchain with the window —
 present after that is a skip, not a crash.
+
+Saved cameras connect over **Camera Wi-Fi** by default. **Add setup** on a
+camera card adds **Wi-Fi** (a router this phone joins too) or **Hotspot** (this
+phone's hotspot): the camera leaves its own access point for that network and
+the app finds it there by its Bluetooth identity. Tap a setup chip to connect
+over it; long-press a Wi-Fi or Hotspot chip to forget it. Choosing Camera
+Wi-Fi again restores the camera's access point first. If a router keeps the
+phone and camera apart (client isolation, MLO on Wi-Fi 7), use Hotspot.
 
 Wi-Fi passwords stay in Keystore, not saved-camera JSON. Pairing and live view
 need a **physical** Android phone.

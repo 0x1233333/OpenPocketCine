@@ -76,6 +76,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.opencapture.monitorui.MonitorAssistIcon
 import com.opencapture.monitorui.MonitorPalette
 import com.opencapture.monitorui.MonitorRecordLamp
 import com.opencapture.monitorui.MonitorRect
@@ -267,6 +268,7 @@ fun MultiviewScreen(model: AppModel, onClose: () -> Unit) {
         if (showNetwork) {
             MultiviewNetworkSetup(
                 session = session,
+                cameraSsids = model.savedCameras.mapNotNull { it.lastSSID }.toSet(),
                 cancel = {
                     showNetwork = false
                     if (!session.networkConfigured) closeStage()
@@ -321,7 +323,7 @@ private fun Modifier.rect(rect: MonitorRect): Modifier =
 @Composable
 private fun SessionControls(session: MultiviewSession, modifier: Modifier, onExit: () -> Unit) {
     com.opencapture.openpocketcine.MonitorChromeButton(
-        OpcIcon.CHEVRON_LEFT, "Exit Multiview", modifier,
+        OpcIcon.X, "Exit Multiview", modifier,
         enabled = !session.busy && !session.groupRecordingBusy, onClick = onExit,
     )
 }
@@ -384,12 +386,14 @@ internal fun MultiviewAssistPalette(
     }
     val glyph: @Composable (MultiviewTool, Color, Modifier) -> Unit = { tool, tint, iconModifier ->
         val icon = when (tool) {
-            MultiviewTool.LUT -> OpcIcon.PALETTE
+            MultiviewTool.LUT -> null
             MultiviewTool.FIT -> if (session.fill) OpcIcon.MINIMIZE else OpcIcon.MAXIMIZE
             MultiviewTool.LAYOUT -> if (session.layout == MultiviewLayout.GRID) OpcIcon.LAYOUT_LIST else OpcIcon.LAYOUT_GRID
             MultiviewTool.SETTINGS -> OpcIcon.SLIDERS_HORIZONTAL
         }
-        OpcIcon(icon, null, iconModifier, tint)
+        // LUT wears the View Assist LUT glyph, as on iOS.
+        if (icon == null) MonitorAssistIcon(MonitorAssistIcon.LUT, tint, iconModifier)
+        else OpcIcon(icon, null, iconModifier, tint)
     }
     if (fixed) {
         // Portrait Center stage: the same tools as a plain, always-visible column spanning
@@ -637,7 +641,7 @@ private fun TileView(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterVertically),
                 ) {
-                    OpcIcon(OpcIcon.CIRCLE_PLUS, null, Modifier.size(if (compact) 24.dp else 34.dp), LiveDesign.muted)
+                    OpcIcon(OpcIcon.PLUS, null, Modifier.size(if (compact) 24.dp else 34.dp), LiveDesign.muted)
                     Text("Add camera", color = LiveDesign.muted, style = LiveType.text(if (compact) 10f else 14f, FontWeight.SemiBold))
                 }
             } else if (!clean) {
@@ -839,7 +843,12 @@ private class TileTextureListener(
 // --- Network setup ---------------------------------------------------------------------------------
 
 @Composable
-private fun MultiviewNetworkSetup(session: MultiviewSession, cancel: () -> Unit, complete: () -> Unit) {
+private fun MultiviewNetworkSetup(
+    session: MultiviewSession,
+    cameraSsids: Set<String>,
+    cancel: () -> Unit,
+    complete: () -> Unit,
+) {
     val saved = remember { session.savedNetworks() }
     com.opencapture.openpocketcine.pairing.StationNetworkSetup(
         savedNetworks = saved,
@@ -856,6 +865,7 @@ private fun MultiviewNetworkSetup(session: MultiviewSession, cancel: () -> Unit,
             MultiviewNetworkStore.Network(session.ssid, "", session.usePhoneHotspot)
         } else null,
         warning = session.networkSetupError,
+        cameraSsids = cameraSsids,
     )
 }
 

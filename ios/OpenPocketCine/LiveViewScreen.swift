@@ -464,6 +464,7 @@ struct LiveViewScreen: View {
                     stick: Self.cgRect(self.gimbalCluster(layout).stick),
                     gimbalButton: Self.cgRect(self.gimbalCluster(layout).controls),
                     reset: resetAvailable ? layout.focusReset : .zero,
+                    aeUnlock: model.session.autoExposureLock != nil ? layout.aeUnlock : .zero,
                     cancel: trackingCancelRect(subject, in: layout),
                     calibrate: model.headTrackingEnabled
                         && OsmoMonitorPresentation.capabilities(model.session).headTracking
@@ -673,6 +674,13 @@ struct LiveViewScreen: View {
                 }
             }
             .zIndex(3)
+
+            if !interfaceLocked, chromeInteractive, model.session.autoExposureLock != nil {
+                LiveAutoExposureUnlockButton()
+                    .liveModuleFrame(layout.aeUnlock)
+                    .transition(.scale(scale: 0.6).combined(with: .opacity))
+                    .zIndex(3)
+            }
 
             LiveFocusScope { _, subject in
                 if !interfaceLocked, chromeInteractive, subject != nil {
@@ -952,7 +960,7 @@ private struct LiveFeedPane: View {
 
     private var liveEffects: LiveImageEffects {
         var fx = model.assist.effects.withFaceAF(model.session.wantsFaceAF)
-        fx.mirror = model.assist.isVisible(.mirror)
+        fx.mirror = model.assist.mirrorsHorizontally
         return fx
     }
 
@@ -1050,6 +1058,7 @@ private struct LiveFeedAssistsPane: View {
                 sceneFaces: showBox ? model.session.dimmedFaces : [],
                 showFocusChrome: showBox,
                 showTapFocusBox: model.session.supportsTapFocus,
+                aeLocked: model.session.autoExposureLock != nil,
                 sourceAspect: model.session.pictureAspect,
                 pictureAspect: CGFloat(
                     model.session.status.videoFormat?.resolution.ratio
@@ -1071,6 +1080,7 @@ private struct LiveFeedAssistsPane: View {
                         faces: model.session.dimmedFaces,
                         focusPoint: model.session.focusPoint,
                         mirrored: model.livePictureViewFlip,
+                        flippedVertically: model.assist.flipsVertically,
                         in: feed
                     )
                     Color.clear
@@ -1095,6 +1105,7 @@ enum LiveChromeEditGeometry {
         faces: [TrackingBox],
         focusPoint: CGPoint,
         mirrored: Bool,
+        flippedVertically: Bool = false,
         in feed: CGRect
     ) -> CGRect {
         let tracked: TrackingBox?
@@ -1105,11 +1116,7 @@ enum LiveChromeEditGeometry {
             tracked = faces.first
         }
         if let box = tracked {
-            let drawn =
-                mirrored
-                ? TrackingBox(
-                    x: 1 - box.x - box.width, y: box.y, width: box.width, height: box.height)
-                : box
+            let drawn = box.flipped(horizontal: mirrored, vertical: flippedVertically)
             return CGRect(
                 x: feed.minX + drawn.x * feed.width,
                 y: feed.minY + drawn.y * feed.height,
@@ -1119,9 +1126,10 @@ enum LiveChromeEditGeometry {
         }
         let side = min(feed.width, feed.height) * 0.14
         let x = mirrored ? 1 - focusPoint.x : focusPoint.x
+        let y = flippedVertically ? 1 - focusPoint.y : focusPoint.y
         return CGRect(
             x: feed.minX + x * feed.width - side / 2,
-            y: feed.minY + focusPoint.y * feed.height - side / 2,
+            y: feed.minY + y * feed.height - side / 2,
             width: side,
             height: side
         )
@@ -1293,7 +1301,8 @@ extension LiveViewScreen {
     {
         guard let subject else { return .zero }
         return LiveTrackingChrome.cancelRect(
-            box: subject, feed: layout.onFeed, mirrored: model.livePictureViewFlip)
+            box: subject, feed: layout.onFeed, mirrored: model.livePictureViewFlip,
+            flippedVertically: model.assist.flipsVertically)
     }
 }
 

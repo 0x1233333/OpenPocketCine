@@ -6,8 +6,47 @@ All notable changes to this project are documented here. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- MIRROR View Assist options on iOS and Android: **Horizontal** (on by
+  default, the existing flip) and **Vertical**. Both on turns the monitor 180°
+  for an underslung camera, such as on a car mount. Live View on every render
+  path, the glass backdrop, the Apple Watch preview and video playback follow
+  it; tap to focus, drag to track, focus and face boxes, the tracking cancel
+  key and LEVEL roll map through it. Recordings and scopes stay unflipped, and
+  Vertical does not change joystick directions.
+- Per-camera **setups** on Android **Your cameras** (discussion #406), matching
+  iOS: each saved camera keeps Camera Wi-Fi and can add **Wi-Fi** (a router this
+  phone joins too) or **Hotspot** (this phone's hotspot) from **Add setup**.
+  Setup chips switch between them, a progress bar shows the four connect steps
+  and a failed connect offers Edit setup, Try again or Camera Wi-Fi. The
+  station sequence moves out of Multiview into a shared Kotlin `StationJoin`,
+  and a Camera Wi-Fi connect after a setup restores the camera's access point
+  first.
+- AE lock on iOS and Android: a still long-press on the live picture locks Auto
+  exposure by pinning the camera's current ISO and shutter as Manual. The focus
+  box turns yellow with an AE-L tag, EXPOSURE reads AE-L, and a sun-and-lock
+  key beside the focus recenter button (left side in portrait) returns to Auto.
+  Choosing Auto or Manual under EXPOSURE also ends the lock; Manual keeps the
+  locked values. The press only buzzes when a lock is possible, so holding the
+  picture in Manual is silent. White balance Mode and the WB tile's drag dial
+  add AWB Lock left of Auto, which sets Custom at the camera's live Auto Kelvin
+  snapped to the Kelvin drum. While locked, WB stays on AWB Lock and the tile
+  reads AWB-L; Auto or Custom releases it, and a WB change on the camera ends
+  it. Neither uses a camera-native lock.
+
 ### Changed
 
+- Android icons match iOS on every shared control: Multiview's LUT tool uses
+  the View Assist LUT glyph and Exit an X, Live View battery, eye, tracking
+  cancel, Fit/Fill, ISO native star, WB Auto and Face Priority badges, the
+  recovery overlay, media selection and share, Settings reset and the Wi-Fi
+  setup rows use the iOS Lucide glyphs. A test keeps both icon sets identical.
+- The Android Wi-Fi and Hotspot setup wizard, on Multiview and on a saved
+  camera's Add setup, now matches iOS page for page: the same sheet and title
+  bar, choice cards, network groups, password and hotspot checklists, pinned
+  Connect button and Multiview's Shared Wi-Fi page. Saved cameras' own Wi-Fi
+  names are no longer offered as Multiview networks.
 - Camera, recording and settings tabs use only a bottom or left edge line with
   a highlighted selected segment, without boxes, fills or inter-tab dividers.
   Settings scroll content fades in opacity at available edges; the painted
@@ -75,6 +114,17 @@ All notable changes to this project are documented here. The format is based on
 
 ### Fixed
 
+- Gimbal joystick diagonals move as fast as straight pushes on iOS and Android.
+  Deadzone, response curve and sensitivity now act on the stick's throw length
+  and split back along its direction; per-axis curves ran a full 45 degree
+  throw at about 0.71x. A corner throw is clamped to the stick circle.
+- The AE lock haptic is a stronger double heavy tap on both platforms.
+- Android landscape Live View battery and link pills sit clear of the picture,
+  aligned with the Lock button, instead of overlapping the feed by 6 dp.
+- Android portrait Live View shows the Recenter focus button after an
+  off-centre focus tap, in the same slot as iOS: leading of the joystick, on
+  its bottom edge. The zoom chip (optical and digital-crop ranges) and the
+  portrait storage readout gain the same dark glow as iOS.
 - A selected shutter angle survives frame-rate changes in Live View, Multiview
   and preset format changes. The matching shutter time is sent after camera
   format confirmation; opening the picker no longer overwrites the saved angle

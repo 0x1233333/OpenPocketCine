@@ -281,7 +281,8 @@ object MonitorLayoutPolicy {
             if (tablet) cornerTop else settings.maxY + SETTINGS_MEDIA_GAP, button, button,
         )
         val lock = MonitorRect(12f, cornerTop, button, button)
-        val gauges = MonitorRect(18f, lock.maxY + 6f, 58f, 68f)
+        // Gauges share the lock's edge so a 19.5:9 phone's 16:9 picture starts at their trailing edge.
+        val gauges = MonitorRect(lock.x, lock.maxY + 6f, 58f, 68f)
         val statusX = max(77f, picture.x + 12f)
         val status = MonitorRect(
             statusX, (if (tablet) 4f else 0f) + controlInset,
@@ -310,6 +311,22 @@ object MonitorLayoutPolicy {
             assists, stick, zoom, gimbal, compass, MonitorRect(0f, 0f, 0f, 0f), focusReset,
             false, tablet, false, floor,
         )
+    }
+
+    /**
+     * iOS `FieldMonitorLayout.aeUnlock`: capsule 1.5x the Recenter key wide. Landscape:
+     * beside Recenter, toward the picture centre. Portrait: mirrored to the left, just
+     * right of the View Assist column on Recenter's baseline, clear of Fit/Fill (centred)
+     * and the joystick cluster at any width or joystick size.
+     */
+    fun aeUnlock(reset: MonitorRect, leadingColumnMaxX: Float, pictureMidX: Float, portrait: Boolean): MonitorRect {
+        val width = reset.height * 1.5f
+        val x = when {
+            portrait -> leadingColumnMaxX + 8f
+            reset.midX < pictureMidX -> reset.maxX + 8f
+            else -> reset.x - 8f - width
+        }
+        return MonitorRect(x, reset.y, width, reset.height)
     }
 
     /** 44 dp compass above the zoom row, trailing-aligned with the stick. */

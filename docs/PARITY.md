@@ -125,6 +125,7 @@ write the exception in the table in the same PR.
 | Assists | Toolbar 1:1 (LUT, PEAK, FALSE, ZEBRA, WAVE, PARADE, HISTO, VECTOR, LIGHTS, ND, AUDIO, GUIDES, GRID, CROSS, DE-SQ, MIRROR); collapsed palette ranked by use; expanded catalog; leading options inspector; WAVE hold-without-drag opens options; scope plate metrics (`ScopeMiniChrome`); ND is a small HUD chip that first opens in the center, directly draggable like other scope panels; long-press Units switches Stops / ND32 / ND 0.3 (suggestion only, not a SET); number fields in those options (Zebra Highlight / Midtone) lift above the keyboard; number-pad Done dismisses the pad (tap outside still dismisses the popup). GUIDES / GRID / CROSS map to the recorded picture rect (1:1 is the square inside a 16:9 live well), not letterbox padding. | Metal vs Vulkan vs GLES; Vision vs ML Kit Face Detection; native compositors; inspectors reuse existing scope products and bounded source samples | Existing effects: **physical** both; new chrome: UI 2.0 qualification below. Guide-to-picture geometry: core tests; **physical** pending both. |
 | Camera SETs | `CameraSetMailbox` fire-and-forget + 300 ms retransmit + 2 s settle; missed ACK does not revert HUD. FORMAT pin holds the chip/sheet until `cam_video_param_v2` reports the pair — other HUD copies are not confirmation. Empty `camcap_shutter` uses a documented video ladder (not the live 1/N alone) so Speed and Angle can SET; a published table still wins. WB `0x02/0x2C` Auto keeps tint (`00 00 00 <tint i16>`); Custom is kelvin+tint; one in flight (100 ms coalesce). COLOR drum follows the body (D-Log2 is Pocket 4 Pro only; Pocket 4 Normal/HDR/D-Log; Pocket 3 Normal/HDR/D-Log M; Nano 8-bit/10-bit/D-Log M). Auto ISO range floor is 50 on Pocket 3 / Pocket 4 and 100 on Pocket 4 Pro (wide); SET bytes unchanged. ISO D-Log ↔ D-Log2 hop; audio blobs and tap-focus stay round-trips. Two genuine SET timeouts in 5 s may rebuild UDP only when video **and** status are stale (encoder-pause with young `0x01` must not tear the socket). | JNI vs Swift `fireCamera` | **physical** both. Pocket 3 empty-cap shutter/FORMAT: core tests; physical pending. |
 | Zoom | Pocket 4 Pro single tap cycles 1× / 3× and double tap cycles 6× / 12×. Other cameras retain their supported single-tap stops. Hold opens the continuous logarithmic dial through the same coalesced pinch path and safety checks. Supported body stops: Pocket 4 Pro 1×/3×/6×/12×; Pocket 4 1×/2×/4×. Nano is a fixed 1× prime (DJI spec): `supportsZoom` is false, so the chip, disc, pinch and gamepad zoom are hidden or inert and no `0xB8` SET is sent (#413). Pocket 3 is per-FORMAT and measured on a body — 1080 1×/2×/4×, 2.7K and 2160 1:1 1×/2×/3×, 4K and 3K 1:1 1×/2× (see Pocket 3 zoom ceiling per FORMAT). A FORMAT whose ceiling is below the held stop walks the chip back and says so once — `4K caps zoom at 2×` — instead of dropping silently. SlowMo / TimeLapse / SuperNight drop digital zoom (Pro keeps 1×/3× optical). `CamFov` hybrid readout; pinch clamps to that max at 20 Hz without ACK wait. Idle D-Log2 hops to D-Log on the first step off 1× (`0x02/0x42`) and **holds every `0xB8` until `cam_image_effect` is D-Log** — color ACK and an optimistic HUD pin are not enough; the body ignores zoom while still D-Log2. The chip stays at live 1× until that hop lands. While rolling in D-Log2 the chip is gray (0.4, same as lock) but still hittable: tap and pinch toast `Can't change color while recording — D-Log2 can't zoom` and send neither zoom nor color. D-Log / Rec.709 / HLG still zoom while rolling. Chip / pinch must not drop the live picture (same-raster VPS is not an IDR hold; 4 s watchdog grace while the lens slews). | Hit-testing over SurfaceView vs SwiftUI | **physical** both |
+| AE / AWB lock | Still long-press (0.6 s, haptic) then lift on the feed locks Auto exposure: core `AutoExposureLock` pins `@16` ISO (nearest whole stop) and applied shutter as Manual; yellow focus box with `AE-L`; EXPOSURE tile reads `AE-L` and its drum adds `AE-L` left of Auto (Auto unlocks; Manual only drops the lock, no SET); sun + lock-open unlock key beside the focus recenter key while locked (portrait: right of the View Assist column, `FieldMonitorLayout.aeUnlock` / `MonitorLayoutPolicy.aeUnlock`), returning to Auto. The hold haptic fires only when a lock is possible; track arming is silent on both. Exposure-mode choice, shooting-mode change (unlock is sent first), disconnect or an Auto report clears it. WB Mode drum and WB quick dial add **AWB Lock** left of Auto while Auto reports `cam_image_effect` `@5`: Custom at that Kelvin snapped to core `WhiteBalance.kelvinLadder` (2000–10000 K, 100 K; the drum on both), same tint. Core `AutoWhiteBalanceLock` keeps AWB Lock selected (tile `AWB-L`, sheet opens on Mode) until Auto / Custom / Kelvin / tint is chosen (Custom at the same value sends nothing) or the camera reports another mode or Kelvin. No native `0x02/0x68` lock (no captured clear). | Android reads capture / holds / AWB target through JNI `exposureLockDecision`; iOS calls the core directly. | **physical** pending both |
 | Tracking | Long-press+drag search box `0x02/0xA6`; tap face bracket → ActiveTrack; green cancel X and focus-reset. Gamepad Triangle/Y tracks the AF-C face in frame, or cancels if already tracking. | Vision vs ML Kit Face Detection | **physical** both |
 | Motion Control speed | No operator rate calibration. No artificial speed ceiling; duration controls retain a 0.5 s floor. Native maximum repeatable speed is not yet qualified. | Both shells | **physical** both |
 | Head tracking | iOS: Controls **Head Tracking (Experimental)**, off by default. A Lucide compass above the right-side joystick cluster is **Calibrate Head Lock** (VoiceOver / settings keep that name). It captures shared forward from a still head and fresh native camera pose. The same 44 pt control becomes a square STOP. Nose direction maps to native pan/tilt targets; the native command horizon is 100 ms. Roll is readout only. STOP clears Head Lock. Manual control, Motion Control takes and inactive scenes take priority. Stale measurements and callbacks cannot keep driving. One motion request owns permission-pending startup; missing samples show motion/permission guidance and an explicit retry. Scopes may sit beneath the compass in either orientation. | Android has no AirPods IMU — no Controls row and no live compass. Layout helpers still park a `headTrack` region above the cluster. Native head response remains under physical qualification; [contract](head-tracking.md). | **physical** iOS |
@@ -221,8 +222,8 @@ Must match across shells. Do not keep a second copy in `ANDROID.md`.
   0.62 expanded, 0.82 info and 0.86 delivery. Text and icons use tighter,
   darker local black shadows, independently of the plate tint. Readout
   halos fade instead of clipping at the glyph or tile bounds.
-  Gimbal-controls icons retain the local glow. The joystick ring/knob instead
-  uses native difference compositing at rest, adapting bright/dark ink to the
+  Gimbal-controls icons and the zoom chip label retain the local glow. The
+  joystick ring/knob instead uses native difference compositing at rest, adapting bright/dark ink to the
   picture with no halo, image readback or sampling timer. Held ink stays cyan
   with normal compositing. Touch geometry and command cadence stay unchanged.
   Compact
@@ -1479,9 +1480,14 @@ portrait/landscape UI checks pass. Physical iPhone 16 Pro Max with a Pocket 4 Pr
 Wi-Fi from the camera's access point (live 23 s after the join), Camera Wi-Fi
 back (live in 13 s) and Wi-Fi again (24 s) all went live and stayed live.
 
-Exceptions: Android keeps the single camera Wi-Fi path; its Multiview already
-provisions the phone hotspot and a port would reuse `StationJoin` through the
-facade. The hotspot setup and Action 6 still need physical proof.
+Android has the same chips, Add setup sheet (the shared `StationNetworkSetup`
+form with per-camera copy), connect progress and failure actions. Its station
+sequence is a Kotlin `StationJoin` mirroring core, which Android Multiview now
+uses too; the session binds the datalink to the Wi-Fi `Network` (the hotspot
+path is unbound) and verifies `07/07` over UDP before registering. Exceptions:
+Android has no Personal Hotspot prompt, since it detects the tethering
+interface directly and a hotspot failure says so. The hotspot setup and Action 6
+still need physical proof on both platforms.
 
 ### Shared Multiview network wizard
 
@@ -1494,10 +1500,18 @@ ownership. Assigned cameras keep network setup read-only. Every new stage still
 requires an explicit network confirmation.
 
 iOS Add setup and Multiview share one `StationNetworkSetupView` and one camera
-scan implementation. Android's `StationNetworkSetup` accepts injected scan and
-connect actions; Android still has no per-camera Add setup entry point. OS
-permission and Settings affordances differ, and Android names the host source
-**Phone hotspot**. Passwords remain in the existing device-only stores. This
+scan implementation. Android's `StationNetworkSetup` is a 1:1 port for both
+Add setup and Multiview: the same large sheet (grabber, 38 dp top corners,
+full screen in landscape), inline title with Cancel/back, page stack, choice
+cards, grouped network rows, password and hotspot pages, Shared Wi-Fi page,
+copy, sizes and scan rules, checked side by side on an iPhone 16 Pro Max
+simulator and a Galaxy S25. Exceptions: Android copy says phone, hotspot and
+this phone where iOS says iPhone, Personal Hotspot and Keychain, with Android
+Settings paths; the bar title and buttons use the system font, drawn as iOS 26
+glass capsules; the spinner is Android's; there is no configured-SSID list
+(iOS `NEHotspotConfigurationManager`) and no in-wizard Location prompt, so a
+missing permission or Location off shows the Settings row instead. Passwords
+remain in the existing device-only stores. This
 changes setup only; live ACK, watchdog, decoder and enable budgets are unchanged.
 
 Automated qualification includes iOS Add setup and Multiview navigation/password

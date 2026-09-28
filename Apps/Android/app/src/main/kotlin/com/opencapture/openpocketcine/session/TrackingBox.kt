@@ -42,6 +42,10 @@ data class TrackingBox(
 
     fun mirrored(): TrackingBox = copy(x = 1.0 - x - width)
 
+    /** Swift `TrackingBox.flipped`: camera box to screen box (and back) through MIRROR. */
+    fun flipped(horizontal: Boolean, vertical: Boolean): TrackingBox =
+        copy(x = if (horizontal) 1.0 - x - width else x, y = if (vertical) 1.0 - y - height else y)
+
     companion object {
         const val MINIMUM_NORMALIZED_SIZE = 0.05
         const val MIMO_MINIMUM_SIDE = 0.09
@@ -523,8 +527,9 @@ object LiveTrackingChrome {
         feedWidth: Float,
         feedHeight: Float,
         mirrored: Boolean,
+        flippedVertically: Boolean = false,
     ): CancelRect {
-        val drawn = if (mirrored) box.mirrored() else box
+        val drawn = box.flipped(mirrored, flippedVertically)
         val rectRight = ((drawn.x + drawn.width) * feedWidth).toFloat()
         val rectTop = (drawn.y * feedHeight).toFloat()
         val s = CANCEL_HIT_SIZE
@@ -539,11 +544,13 @@ object LiveTrackingChrome {
 }
 
 object LiveFeedFocusGesture {
-    enum class Kind { TAP, TRACK, DISP_CLEAN, DISP_LIVE }
+    enum class Kind { TAP, TRACK, AE_LOCK, DISP_CLEAN, DISP_LIVE }
 
     const val TRACK_MINIMUM = 24f
     const val TRACK_HOLD_SEC = 0.20
     const val TRACK_HOLD_SLOP = 10f
+    /** A still press this long releases as AE lock instead of tap focus. */
+    const val AE_LOCK_HOLD_SEC = 0.6
 
     fun classify(
         dx: Float,
@@ -551,10 +558,17 @@ object LiveFeedFocusGesture {
         pinched: Boolean = false,
         armed: Boolean = false,
         swipeFloor: Float = 44f,
+        aeLockHeld: Boolean = false,
     ): Kind? {
         if (pinched) return null
         val distance = hypot(dx, dy)
-        if (armed) return if (distance >= TRACK_MINIMUM) Kind.TRACK else Kind.TAP
+        if (armed) {
+            return when {
+                distance >= TRACK_MINIMUM -> Kind.TRACK
+                aeLockHeld -> Kind.AE_LOCK
+                else -> Kind.TAP
+            }
+        }
         if (abs(dy) > abs(dx) + 8f && abs(dy) > swipeFloor) {
             return if (dy > 0f) Kind.DISP_CLEAN else Kind.DISP_LIVE
         }

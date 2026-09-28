@@ -6,6 +6,21 @@ import kotlin.test.assertTrue
 
 class MonitorLayoutPolicyTest {
     @Test
+    fun portraitAeUnlockClearsFitFillRecenterAndJoystick() {
+        fun overlaps(a: MonitorRect, b: MonitorRect) = a.x < b.maxX && b.x < a.maxX && a.y < b.maxY && b.y < a.maxY
+        for ((width, height) in listOf(360f to 800f, 393f to 852f, 412f to 915f)) {
+            for (joystick in MonitorJoystickSize.entries) {
+                val layout = MonitorLayoutPolicy.fieldMonitor(width, height, safeTop = 44f, safeBottom = 34f, joystick = joystick)
+                val unlock = MonitorLayoutPolicy.aeUnlock(layout.focusReset, layout.assists.maxX, layout.picture.midX, true)
+                for (other in listOf(layout.aspectToggle, layout.focusReset, layout.stick, layout.zoom, layout.gimbal, layout.assists)) {
+                    assertTrue(!overlaps(unlock, other), "$width $joystick $other")
+                }
+                assertTrue(unlock.maxX < width / 2f && unlock.maxY <= layout.values.y)
+            }
+        }
+    }
+
+    @Test
     fun phoneAndTabletPortraitValuesStayAboveSystemActions() {
         val devices = listOf(320f to 568f, 375f to 667f, 393f to 852f, 430f to 932f, 744f to 1133f, 1024f to 1366f)
         for ((width, height) in devices) for (aspect in listOf(16f / 9f, 1f, 9f / 16f)) {
@@ -248,6 +263,9 @@ class MonitorLayoutPolicyTest {
         assertEquals(layout.stick.maxX - 36f, layout.gimbal.x, .01f)
         assertTrue(layout.stick.maxX <= layout.record.x + .05f)
         assertEquals(8f, MonitorLayoutPolicy.landscapeBottomClearance(0f), .01f)
+        // Galaxy S25 landscape (780 x 360 dp): telemetry pills stay off the 16:9 picture.
+        val s25 = MonitorLayoutPolicy.fieldMonitor(780f, 360f, safeLeading = 59f, hasDisplayCutout = true)
+        assertTrue(s25.gauges.maxX <= s25.picture.x + .01f)
     }
 
 }

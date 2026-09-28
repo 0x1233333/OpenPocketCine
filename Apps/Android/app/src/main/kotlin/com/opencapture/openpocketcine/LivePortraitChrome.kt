@@ -209,6 +209,8 @@ fun LivePortraitChrome(
     onAssistLongPress: (LiveAssistTool) -> Unit,
     chromeInteractive: Boolean,
     controlBusy: Boolean,
+    focusOffCenter: Boolean,
+    onFocusReset: () -> Unit,
     fpsLabel: String = "—",
     bars: Int = 0,
     sourceIsVertical: Boolean = false,
@@ -255,7 +257,7 @@ fun LivePortraitChrome(
                     model.phoneBatteryPercent, status.batteryPercent, horizontal = !tablet)
             }
             if (model.chromeSectionMounts(PocketDispSection.STORAGE)) {
-                Row(Modifier.liveModuleFrame(ChromeRect(14f, if (tablet) 52f else gaugeTop, 120f, 28f)),
+                Row(Modifier.liveModuleFrame(ChromeRect(14f, if (tablet) 52f else gaugeTop, 120f, 28f)).monitorReadoutShadow(),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     SdCardGlyph(LiveDesign.text)
                     Text(portraitStorageLabel(status).substringBefore(" ·"), style = LiveType.mono(13.5f, FontWeight.SemiBold))
@@ -438,6 +440,12 @@ fun LivePortraitChrome(
                     else ChromeRect(0f, 0f, 0f, 0f),
                 uiLocked = uiLocked,
             )
+        }
+        // Same slot as landscape: leading of the stick, on its bottom edge (iOS `focusReset`).
+        if (!uiLocked && focusOffCenter && chromeInteractive) {
+            Box(Modifier.liveModuleFrame(layout.focusReset)) {
+                LiveFocusResetButton(onClick = onFocusReset)
+            }
         }
 
         Box(
@@ -634,12 +642,7 @@ fun LivePortraitAspectToggle(
             .semantics { contentDescription = if (fill) "Fit feed in frame" else "Fill frame with feed" },
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            if (fill) "FILL" else "FIT",
-            color = if (fill) LiveDesign.accent else LiveDesign.text,
-            style = LiveType.ui(9f, FontWeight.Bold),
-            maxLines = 1,
-        )
+        OpcIcon(if (fill) OpcIcon.MINIMIZE else OpcIcon.MAXIMIZE, null, Modifier.size(15.dp), LiveDesign.text)
     }
 }
 
@@ -662,14 +665,18 @@ fun LiveCaptureStrip(
 ) {
     val context = LocalContext.current
     val auto = status.expoMode == CameraCommands.EXPO_AUTO
+    val aeLocked = model?.session?.aeLock?.collectAsState()?.value != null
+    val awbLocked = model?.session?.awbLockKelvin?.collectAsState()?.value != null
     val shutter = captureShutterReadout(
         status,
         shutterUsesAngle,
         OperatorPrefs.shutterAngleDegrees(context),
     )
-    fun value(sheet: LiveSheet, label: String, readout: String, annotation: String? = null) =
+    fun value(sheet: LiveSheet, label: String, readout: String, annotation: String? = null,
+        valueIcon: OpcIcon? = null, badgeIcon: OpcIcon? = null) =
         com.opencapture.openpocketcine.monitor.MonitorValue(
             sheet.name, label, readout, selected = active == sheet, annotation = annotation,
+            valueIcon = valueIcon, badgeIcon = badgeIcon,
         )
     val values = buildList {
         add(value(LiveSheet.ISO, "ISO", CaptureLists.isoChipValue(status)))
@@ -677,9 +684,12 @@ fun LiveCaptureStrip(
             if (auto) MonitorExposureReadout.autoEvCaption(status.shutterDenom)
             else "SHUTTER",
             if (auto) EvComp.fromRaw(status.evComp)?.label ?: "—" else shutter,
-            if (auto && facePriority) "FACE" else null))
-        add(value(LiveSheet.EXPO, "EXPOSURE", if (status.expoMode == CameraCommands.EXPO_MANUAL) "M" else if (auto) "A" else "—"))
-        add(value(LiveSheet.WB, "WB", CaptureLists.wbChipValue(status)))
+            if (auto && facePriority) CaptureLists.FACE_PRIORITY_TITLE else null,
+            badgeIcon = if (auto && facePriority) OpcIcon.SCAN else null))
+        add(value(LiveSheet.EXPO, "EXPOSURE", if (aeLocked) CaptureLists.AE_LOCK
+            else if (status.expoMode == CameraCommands.EXPO_MANUAL) "M" else if (auto) "A" else "—"))
+        add(value(LiveSheet.WB, "WB", CaptureLists.wbChipValue(status, awbLocked),
+            valueIcon = if (CaptureLists.wbIsAuto(status) && !awbLocked) OpcIcon.APERTURE else null))
         if (showFocus) add(value(LiveSheet.FOCUS, "FOCUS", status.focusLabel))
         if (showAperture) add(value(LiveSheet.APERTURE, "APERTURE", ApertureStrategy.tileValue(status)))
         if (CaptureShutterPolicy.showsAudioControls(status.shootingMode)) {
