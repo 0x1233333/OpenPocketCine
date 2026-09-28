@@ -29,14 +29,18 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 /** [borrowing] builds a Live View model over a Multiview tile's decoder (iOS `CameraSession(borrowing:)`). */
-class AppModel(context: Context, borrowing: com.opencapture.openpocketcine.session.HevcDecoder? = null) {
+class AppModel(
+    context: Context,
+    borrowing: com.opencapture.openpocketcine.session.HevcDecoder? = null,
+    controlLease: com.opencapture.openpocketcine.session.MultiviewControlLease? = null,
+) {
     private val appContext = context.applicationContext
     init {
         DiagnosticCenter.install(appContext)
     }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val store = SharedPreferencesSavedCameraStore(context)
-    val session = PocketCameraSession(context, borrowing)
+    val session = PocketCameraSession(context, borrowing, controlLease)
     /** Set while this Live View borrows a Multiview tile; replaces the lock button. */
     var multiviewExit by mutableStateOf<(() -> Unit)?>(null)
     val assist = LiveAssistState.from(appContext)
@@ -80,6 +84,8 @@ class AppModel(context: Context, borrowing: com.opencapture.openpocketcine.sessi
     var virtualJoystickResponseCurve by mutableStateOf(
         OperatorPrefs.virtualJoystickResponseCurve(appContext),
     )
+        private set
+    var virtualJoystickSize by mutableStateOf(OperatorPrefs.virtualJoystickSize(appContext))
         private set
     val virtualJoystickMapping: CameraCommands.VirtualJoystickMapping
         get() =
@@ -257,6 +263,11 @@ class AppModel(context: Context, borrowing: com.opencapture.openpocketcine.sessi
     fun updateVirtualJoystickResponseCurve(value: CameraCommands.VirtualJoystickCurve) {
         virtualJoystickResponseCurve = value
         OperatorPrefs.setVirtualJoystickResponseCurve(appContext, value)
+    }
+
+    fun updateVirtualJoystickSize(value: com.opencapture.monitorui.MonitorJoystickSize) {
+        virtualJoystickSize = value
+        OperatorPrefs.setVirtualJoystickSize(appContext, value)
     }
 
     fun updatePortraitFeedAspect(value: PortraitFeedAspect) {

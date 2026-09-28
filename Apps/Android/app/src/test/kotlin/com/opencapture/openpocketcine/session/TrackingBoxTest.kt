@@ -4,6 +4,7 @@ import com.opencapture.openpocketcine.bridge.SwiftCore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class TrackingBoxTest {
@@ -16,8 +17,6 @@ class TrackingBoxTest {
         assertEquals(0x00, payload[2].toInt() and 0xFF)
         assertEquals(0x26, payload[3].toInt() and 0xFF)
         assertEquals(0x27, payload[4].toInt() and 0xFF)
-        assertEquals(21, CameraCommands.clearTracking().size)
-        assertTrue(CameraCommands.clearTracking().all { it == 0.toByte() })
         assertTrue(CameraCommands.pollTracking().contentEquals(byteArrayOf(0x00)))
         assertEquals(0x02A6, SwiftCore.waitKey(SwiftCore.CMD_SET_TRACKING_BOX))
         assertEquals(0x02A5, SwiftCore.waitKey(SwiftCore.CMD_POLL_TRACKING))
@@ -220,5 +219,36 @@ class TrackingBoxTest {
         assertEquals(camera.centerY, drawn.centerY, 1e-9)
         assertTrue(drawn.centerX < 0.5)
         assertTrue(camera.centerX > 0.5)
+    }
+
+    @Test
+    fun secondTapOnTheSameSpotStartsTracking() {
+        val taps = FeedDoubleTapTrack()
+        assertNull(taps.register(0.4, 0.5, 10.0))
+        assertEquals(TrackingBox.fromCenter(0.42, 0.51, 0.14, 0.25), taps.register(0.42, 0.51, 10.3))
+        // A third tap starts over rather than tracking again.
+        assertNull(taps.register(0.42, 0.51, 10.5))
+    }
+
+    @Test
+    fun slowOrDistantTapsOnlyFocus() {
+        val taps = FeedDoubleTapTrack()
+        assertNull(taps.register(0.4, 0.5, 0.0))
+        assertNull(taps.register(0.4, 0.5, 0.6), "too slow")
+        assertNull(taps.register(0.7, 0.5, 0.8), "different spot")
+        taps.reset()
+        assertNull(taps.register(0.7, 0.5, 0.9), "reset clears the first tap")
+    }
+
+    @Test
+    fun freshTrackIgnoresTheCameraPreviousSubject() {
+        val obj = TrackingBox.fromCenter(0.7, 0.5, 0.14, 0.25)
+        val face = TrackingBox.fromCenter(0.2, 0.3, 0.1, 0.15)
+        val lock = TrackingBox.fromCenter(0.72, 0.52, 0.1, 0.2)
+        assertFalse(TrackingStartPolicy.accepts(face, obj, 0.3))
+        assertTrue(TrackingStartPolicy.accepts(lock, obj, 0.3))
+        // After the settle window the camera's subject is trusted wherever it is.
+        assertTrue(TrackingStartPolicy.accepts(face, obj, 2.0))
+        assertTrue(TrackingStartPolicy.accepts(face, null, null))
     }
 }

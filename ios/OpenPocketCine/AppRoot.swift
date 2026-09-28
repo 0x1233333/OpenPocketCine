@@ -10,7 +10,10 @@ import UIKit
 @MainActor
 @Observable
 final class AppModel {
-    var session = CameraSession()
+    var session: CameraSession
+    init(session: CameraSession? = nil) {
+        self.session = session ?? CameraSession()
+    }
     @ObservationIgnored let watchRelay = WatchRelay()
     @ObservationIgnored private var watchRelayActivated = false
     var multiviewExit: (() -> Void)?
@@ -157,6 +160,9 @@ final class AppModel {
         OperatorPrefs.virtualJoystickResponseCurve
     {
         didSet { OperatorPrefs.virtualJoystickResponseCurve = virtualJoystickResponseCurve }
+    }
+    var virtualJoystickSize: MonitorJoystickSize = OperatorPrefs.virtualJoystickSize {
+        didSet { OperatorPrefs.virtualJoystickSize = virtualJoystickSize }
     }
     var virtualJoystickMapping: GimbalStick.Mapping {
         GimbalStick.Mapping(
@@ -820,7 +826,8 @@ struct AppRoot: View {
         .environment(\.font, LiveType.text(16))
         .environment(
             \.monitorHDRChromeGain,
-            model.hdrDisplayActive ? CGFloat(LiveHDRDisplay.presentGain) : 1)
+            model.hdrDisplayActive ? CGFloat(LiveHDRDisplay.presentGain) : 1
+        )
         .background {
             HDRChromeHost(enabled: model.hdrDisplayActive).allowsHitTesting(false)
         }

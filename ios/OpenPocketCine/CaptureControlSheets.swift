@@ -135,6 +135,11 @@ struct CapturePickerPanel: View {
     var preview: CaptureDrumPresentation? = nil
     var onSelectRecordingCategory: ((CaptureSheet) -> Void)? = nil
     var showsRecordingCategories: Bool = false
+    var prefixContent: AnyView? = nil
+    var subtitleOverride: String? = nil
+    var controlsEnabled = true
+    /// Controls only: a host such as Multiview's side panel owns glass, header and scrolling.
+    var chromeless = false
     var onClose: () -> Void
     @Environment(AppModel.self) private var model
     @Environment(\.interfaceLocked) private var interfaceLocked
@@ -169,38 +174,10 @@ struct CapturePickerPanel: View {
         let presented: Bool
     }
 
-    private var drumOptions: [String] {
-        switch sheet {
-        case .iso: isIsoAutoTab ? isoAutoDrumLabels : isoDrumLabels
-        case .shutter: isEvSheet ? evLabels : (isAngleSheet ? shutterAngleLabels : shutterLabels)
-        default: []
-        }
-    }
-
-    private var drumContext: DrumContext {
-        DrumContext(
-            cameraID: model.session.connectedCamera?.id, phase: model.session.phase.label,
-            sheet: sheet, mode: selectedMode, color: model.session.status.colorMode,
-            fps: model.session.status.fps, shutterDenoms: shutterDenoms,
-            snapshotIdentity: CaptureQuickSnapshot.primary(sheet, model: model)?.sourceIdentity,
-            focusTrack: sheet == .focus ? model.session.status.focusTrack : nil,
-            options: drumOptions)
-    }
-
-    private var canApplyDrum: Bool {
-        preview == nil && appeared && isPresented() && scenePhase == .active
-            && !interfaceLocked && !model.session.isLocked
-    }
-
-    var body: some View {
-        let kind: MonitorCapturePopupKind = preview == nil ? .details : .compact
-        MonitorCapturePanel(
-            title: headerTitle, subtitle: kind.subtitle ?? headerSubtitle,
-            maximumHeight: maximumHeight, bottomPadding: bottomPadding,
-            topPadding: topPadding, topCornerRadius: topCornerRadius,
-            bottomCornerRadius: bottomCornerRadius, kind: kind, edge: edge, close: onClose
-        ) {
-            VStack(alignment: .leading, spacing: 8) {
+    private var controls: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let prefixContent { prefixContent }
+            Group {
                 if let held = preview {
                     CaptureDrumWheel(
                         options: held.snapshot.options, selection: .constant(held.selection),
@@ -232,6 +209,46 @@ struct CapturePickerPanel: View {
                     if sheet == .iso { nativeIsoHopToggle }
                     if isEvSheet { facePriorityToggle }
                 }
+            }.disabled(!controlsEnabled)
+        }
+    }
+
+    private var drumOptions: [String] {
+        switch sheet {
+        case .iso: isIsoAutoTab ? isoAutoDrumLabels : isoDrumLabels
+        case .shutter: isEvSheet ? evLabels : (isAngleSheet ? shutterAngleLabels : shutterLabels)
+        default: []
+        }
+    }
+
+    private var drumContext: DrumContext {
+        DrumContext(
+            cameraID: model.session.connectedCamera?.id, phase: model.session.phase.label,
+            sheet: sheet, mode: selectedMode, color: model.session.status.colorMode,
+            fps: model.session.status.fps, shutterDenoms: shutterDenoms,
+            snapshotIdentity: CaptureQuickSnapshot.primary(sheet, model: model)?.sourceIdentity,
+            focusTrack: sheet == .focus ? model.session.status.focusTrack : nil,
+            options: drumOptions)
+    }
+
+    private var canApplyDrum: Bool {
+        controlsEnabled && preview == nil && appeared && isPresented() && scenePhase == .active
+            && !interfaceLocked && !model.session.isLocked
+    }
+
+    var body: some View {
+        let kind: MonitorCapturePopupKind = preview == nil ? .details : .compact
+        Group {
+            if chromeless {
+                controls
+            } else {
+                MonitorCapturePanel(
+                    title: headerTitle,
+                    subtitle: subtitleOverride ?? kind.subtitle ?? headerSubtitle,
+                    maximumHeight: maximumHeight, bottomPadding: bottomPadding,
+                    topPadding: topPadding, topCornerRadius: topCornerRadius,
+                    bottomCornerRadius: bottomCornerRadius, kind: kind, edge: edge, close: onClose
+                ) { controls }
             }
         }
         .environment(
@@ -789,13 +806,8 @@ struct CapturePickerPanel: View {
             }
             if isAngleSheet {
                 guard let degrees = ShutterAngle.parse(value) else { return }
-                let denom = ShutterAngle.denom(
-                    degrees: degrees,
-                    fps: model.session.status.fps,
-                    available: shutterDenoms)
                 enqueueDrumSend(value) {
-                    OperatorPrefs.shutterAngleDegrees = degrees
-                    model.session.setShutterDenom(denom)
+                    model.session.setShutterAngle(degrees)
                 }
                 return
             }
@@ -1017,10 +1029,6 @@ struct CapturePickerPanel: View {
                 return
             }
             let next = ShutterAngle.nearestLabel(denom: liveDenom, fps: fps)
-            if preview == nil {
-                OperatorPrefs.shutterAngleDegrees =
-                    ShutterAngle.parse(next) ?? ShutterAngle.defaultDegrees
-            }
             lastApplied = next
             drumSelection = next
             return

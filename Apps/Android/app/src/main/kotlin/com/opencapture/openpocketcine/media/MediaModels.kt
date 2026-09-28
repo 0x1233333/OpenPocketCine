@@ -159,23 +159,6 @@ object MediaHTTP {
             else -> null
         }
 
-    /**
-     * Ordered `(storage, path)` pairs to try when opening a clip. Winner storage first, then
-     * the other mount; listed/derived proxy first, original last.
-     */
-    fun playbackCandidates(file: MediaFile, firstStorage: Int): List<Pair<Int, String>> {
-        val stores = if (firstStorage == 0) listOf(0, 1) else listOf(1, 0)
-        val out = ArrayList<Pair<Int, String>>()
-        val seen = HashSet<String>()
-        for (path in previewPaths(file)) {
-            for (storage in stores) {
-                val key = "$storage\u0000$path"
-                if (seen.add(key)) out.add(storage to path)
-            }
-        }
-        return out
-    }
-
     fun isProxyPath(path: String): Boolean =
         when (pathExtension(path).uppercase(Locale.US)) {
             "LRF", "LRV", "XRF" -> true

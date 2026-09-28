@@ -293,8 +293,8 @@ space after rotation or resizing, including saved positions. Long-press a View A
   The gimbal stick
   and zoom chip sit together as a cluster at the lower right: above the camera
   values in portrait and over the picture in landscape, on iPhone and iPad. A
-  gimbal-controls button sits beside zoom (Pocket only). The button and joystick
-  use the same dark glow as the camera readouts to stay visible over bright footage.
+  gimbal-controls button sits beside zoom (Pocket only). The gimbal button keeps its dark readout glow; the joystick uses adaptive
+  bright/dark ink without a halo.
   Its trailing drawer
   has Mode, Speed and Ramp tabs, each with its own dial: Follow / Tilt locked / FPV / Direction Lock,
   Slow / Default / Fast, and stick ramp. The Motion Control footer opens the experimental editor for an A→B (optional C) take
@@ -329,7 +329,7 @@ space after rotation or resizing, including saved positions. Long-press a View A
   A toast says Gamepad connected or disconnected; unplug rests the
   stick. Operator Setup → Controls → Gamepad shows Connected / Not
   connected. Choose **Gimbal joystick → Left / Right** in the same Controls tab.
-  D-pad shutter changes also update the shutter-angle readout when angle display is selected.
+  D-pad shutter changes also update the shutter-angle readout when angle display is selected. A selected angle is retained when changing frame rate: 180° changes shutter time to 1/50 at 25 fps or 1/100 at 50 fps after the camera confirms the new format.
   A gimbal stop pulses only after the head moves then stalls
   (Haptics setting). Capture drums, the zoom disc, and duration
   dials pulse on coarse steps and whole-stop crossings (172° → 180°, 3×, whole seconds),
@@ -425,10 +425,23 @@ requests recording together without frame-accurate synchronization. See the
 session network selection, saved preferences and remaining physical checks. Pocket 3, Pocket 4 Pro and
 Nano preview and recording have been checked together on iPhone. Pocket 3
 recovery after an app switch required a full rejoin and roughly a minute in the
-recorded test. Android Multiview remains unavailable.
+recorded test. Android has the matching experimental Multiview stage.
 
-Tap Layout to switch Grid/Center stage; hold Layout for Shared Wi-Fi. Clean
-hides the upper session controls and assist palette; DISP restores them.
+Tap Layout to switch Grid/Center stage. Grid fills four portrait rows or two
+landscape columns. Portrait keeps a vertical right toolbar below the wide main
+feed in Center stage, with camera details inside each feed. Landscape Center
+stage enlarges the main 16:9 picture, overlays its readouts at the bottom, and
+puts the other cameras in a scrolling right strip. Content fades softly only at
+edges with more to scroll. Wi-Fi sits below Exit on the left; the tools reuse
+the collapsible View Assist palette. Grid keeps tools in the right control
+column, or left for a right-side cutout. DISP and Record retain Live View positions.
+
+New cameras start with Auto LUT on, HH:MM:SS timecode and Live View battery
+gauges. The **…** menu stays compact over the stage. Exit uses Live View Lock
+styling; Wi-Fi uses Settings styling and opens the shared network wizard.
+**Camera settings** opens a floating popup with a tab for each connected camera
+and Live View's setting controls. Camera, recording and settings tabs have one
+bottom or left edge with a highlighted selection, without tab boxes.
 
 Motion Control shows A, B and C with their reported pan, tilt and zoom, or
 **Not set**. The joystick remains usable while the editor is open, so you can

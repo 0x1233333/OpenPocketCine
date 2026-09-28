@@ -79,11 +79,12 @@ struct LiveViewScreen: View {
                 screenSize: windowGeometry.validSize)
             let layout = LiveMonitorLayout.fieldMonitor(
                 size: size, safeArea: safeArea,
-                sourceAspect: model.session.decoder.pictureAspect,
+                sourceAspect: model.session.pictureAspect,
                 fill: model.portraitFeedAspect == .fill && !model.assist.isVisible(.desqueeze),
                 showsValues: model.chromeSectionMounts(.cameraValues),
                 showsBottomBars: showsBottomBars,
-                topControlInset: windowGeometry.topControlInset)
+                topControlInset: windowGeometry.topControlInset,
+                joystick: model.virtualJoystickSize)
             Color.clear
                 .ignoresSafeArea()
                 .overlay(alignment: .topLeading) {
@@ -247,7 +248,7 @@ struct LiveViewScreen: View {
         let geometry =
             layout.presentation
             ?? FieldMonitorLayout(width: layout.viewport.width, height: layout.viewport.height)
-        MonitorCanvas(layout: geometry, sourceAspect: model.session.decoder.pictureAspect) {
+        MonitorCanvas(layout: geometry, sourceAspect: model.session.pictureAspect) {
             LiveFeedPane()
                 .opacity(model.session.isFeedWarming ? 0 : 1)
                 .transaction { $0.animation = nil }
@@ -456,7 +457,7 @@ struct LiveViewScreen: View {
                     feed: model.assist.isVisible(.desqueeze)
                         ? DesqueezeAssist.presentationRect(
                             sourceSize: CGSize(
-                                width: model.session.decoder.pictureAspect, height: 1),
+                                width: model.session.pictureAspect, height: 1),
                             in: layout.onFeed, effects: model.assist.effects)
                         : layout.onFeed,
                     chip: Self.cgRect(self.gimbalCluster(layout).zoom),
@@ -484,7 +485,7 @@ struct LiveViewScreen: View {
                         feed: model.assist.isVisible(.desqueeze)
                             ? DesqueezeAssist.presentationRect(
                                 sourceSize: CGSize(
-                                    width: model.session.decoder.pictureAspect, height: 1),
+                                    width: model.session.pictureAspect, height: 1),
                                 in: layout.onFeed, effects: model.assist.effects
                             )
                             .intersection(layout.onFeed)
@@ -531,7 +532,7 @@ struct LiveViewScreen: View {
             if let p = layout.presentation, p.portrait {
                 LiveDesign.background.frame(width: p.system.width, height: p.system.height)
                     .position(x: p.system.midX, y: p.system.midY).allowsHitTesting(false)
-                if !model.session.decoder.isVerticalPicture, editingMode == nil,
+                if !model.session.isVerticalPicture, editingMode == nil,
                     !model.assist.isVisible(.desqueeze)
                 {
                     LivePortraitAspectToggle(aspect: Bindable(model).portraitFeedAspect)
@@ -542,9 +543,12 @@ struct LiveViewScreen: View {
             }
 
             if let exit = model.multiviewExit {
-                Button(action: exit) {
-                    OpcIcon.layoutGrid.frame(width: 22, height: 22).frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
+                // Same glass button, size and slot as the Lock it replaces.
+                let side = layout.lock.width
+                MonitorChromeButton(
+                    "Return to Multiview", size: CGSize(width: side, height: side), action: exit
+                ) {
+                    OpcIcon.layoutGrid.frame(width: side * 29 / 54, height: side * 29 / 54)
                 }
                 .accessibilityLabel("Return to Multiview")
                 .accessibilityHidden(!liveChromeVisible || zoomDialMounted)
@@ -559,12 +563,16 @@ struct LiveViewScreen: View {
             if showsBatteries {
                 FieldMonitorGauges(
                     horizontal: layout.presentation?.portrait == true
-                        && layout.presentation?.tablet == false
+                        && layout.presentation?.tablet == false,
+                    showsLink: layout.presentation?.portrait != true
+                        || layout.presentation?.tablet == true
                 )
                 .chromeEditable(.batteries, editing: editingMode)
+                // The portrait row hugs the trailing edge; stacked pills hug the leading.
                 .frame(
                     width: layout.battery.width, height: layout.battery.height,
-                    alignment: .topLeading
+                    alignment: layout.presentation?.portrait == true
+                        && layout.presentation?.tablet == false ? .topTrailing : .topLeading
                 )
                 .position(x: layout.battery.midX, y: layout.battery.midY)
             }
@@ -623,10 +631,14 @@ struct LiveViewScreen: View {
             {
                 LiveGimbalStick(
                     enabled: !interfaceLocked && model.liveOperatorPanel == nil
-                        && chromeInteractive && !captureControlsPresented
+                        && chromeInteractive && !captureControlsPresented,
+                    frame: Self.cgRect(self.gimbalCluster(layout).stick),
+                    feed: layout.feed
                 )
                 .id("live-gimbal-stick")
-                .transaction { $0.animation = nil }
+                // Never animate across rotation (see PERFORMANCE.md), but let DISP
+                // fade it with the zoom chip and gimbal controls.
+                .transaction(value: orientationObserver.orientation) { $0.animation = nil }
                 .chromeEditable(.gimbalStick, editing: editingMode)
                 .liveModuleFrame(Self.cgRect(self.gimbalCluster(layout).stick))
                 .opacity(captureControlsPresented ? 0 : 1)
@@ -1038,11 +1050,11 @@ private struct LiveFeedAssistsPane: View {
                 sceneFaces: showBox ? model.session.dimmedFaces : [],
                 showFocusChrome: showBox,
                 showTapFocusBox: model.session.supportsTapFocus,
-                sourceAspect: model.session.decoder.pictureAspect,
+                sourceAspect: model.session.pictureAspect,
                 pictureAspect: CGFloat(
                     model.session.status.videoFormat?.resolution.ratio
                         ?? model.session.status.videoResolution?.ratio
-                        ?? model.session.decoder.pictureAspect),
+                        ?? model.session.pictureAspect),
                 pictureMirrored: model.livePictureViewFlip
             )
             .opacity(dimmed ? 0.3 : 1)
@@ -1052,7 +1064,7 @@ private struct LiveFeedAssistsPane: View {
             if model.chromeEditorMode != nil {
                 GeometryReader { proxy in
                     let feed = DesqueezeAssist.presentationRect(
-                        sourceSize: CGSize(width: model.session.decoder.pictureAspect, height: 1),
+                        sourceSize: CGSize(width: model.session.pictureAspect, height: 1),
                         in: CGRect(origin: .zero, size: proxy.size), effects: model.assist.effects)
                     let rect = LiveChromeEditGeometry.focusEditRect(
                         overlay: model.session.focusOverlay,
@@ -1255,7 +1267,7 @@ extension LiveViewScreen {
     private func meterFeed(_ layout: LiveMonitorLayout) -> CGRect {
         model.assist.isVisible(.desqueeze)
             ? DesqueezeAssist.presentationRect(
-                sourceSize: CGSize(width: model.session.decoder.pictureAspect, height: 1),
+                sourceSize: CGSize(width: model.session.pictureAspect, height: 1),
                 in: layout.onFeed, effects: model.assist.effects
             )
             .intersection(layout.onFeed)

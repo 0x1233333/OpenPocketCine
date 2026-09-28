@@ -158,7 +158,7 @@ One present in flight still holds. Android uses window HDR headroom rather than
 a float swapchain. Extra panel nits cost power and heat — leave it off on set.
 
 Metal present is latest-wins with **one drawable in flight**
-(`FeedPresentPolicy.maxInFlightMetalPresents`). Do not block MainActor on
+(`CIFeedView.presentLatestBake` guard in `LiveMonitorFx.swift`). Do not block MainActor on
 `nextDrawable` — LUT 50/50 plus PEAK / FALSE / ZEBRA pipelined baker
 completions and froze ingest until force-quit (#218). Acquire on a dedicated
 serial worker. Prepare Core Image / native upscaling on that worker too: native
@@ -341,9 +341,15 @@ when size or insets change. SwiftUI consumes the snapshot through the environmen
 No geometry polling or frame-tick subscription is added; same-size landscape
 rotations still update the physical cutout edges.
 
-The UI 2.0 joystick uses the reference white/cyan treatment. Its former 150 ms
-image-luminance sampling loop and Core Image readback are removed; movement,
+The resting joystick uses native difference blending on its ring and knob to
+switch between bright and dark ink over the picture; held ink is cyan. No dark
+halo, image-luminance sampling, Core Image readback or timer is added. Movement,
 release and the existing transport cadence are unchanged.
+
+Multiview scrolling retains each camera display host and decoder. Native scroll
+geometry moves and clips secondary feeds locally; edge alpha masks reveal the
+existing background. Settings uses the same opacity-only treatment. Scroll
+updates do not publish camera state or add image sampling.
 
 ## iOS media cache scheduling
 

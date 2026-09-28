@@ -105,6 +105,9 @@ final class CameraSession {
     @ObservationIgnored var lastKeyframeAge = "—"
     /// OpenZCine `NativeAppModel.liveFPS` — measured live-view delivery, or LINK/FAIL/RECOV.
     var liveFPS = "—"
+    /// Observable mirror of the decoded raster (`HevcDecoder` is not observable).
+    private(set) var pictureAspect: CGFloat = LiveChromeMetrics.feedAspect
+    private(set) var isVerticalPicture = false
     /// OpenZCine `NativeAppModel.liveSignalBars` — 0–4 from `LinkSignalBars` + link-health score.
     var liveSignalBars = 0
     @ObservationIgnored private var frameRate = FrameRateSampler()
@@ -408,6 +411,11 @@ final class CameraSession {
     @ObservationIgnored private var lastFaceAt: Date?
     @ObservationIgnored private var lastFaceHitAt: Date?
     @ObservationIgnored private var lastTapFocusAt: Date?
+    /// Operator tap only; camera-adopted points do not start the stale-echo hold.
+    @ObservationIgnored private var lastFocusTapAt: Date?
+    @ObservationIgnored private var feedDoubleTap = FeedDoubleTapTrack()
+    /// The operator's latest ActiveTrack box, until the camera reports it.
+    @ObservationIgnored private var trackingRequest: (box: TrackingBox, at: Date)?
     private var faceAFArmed = false
     @ObservationIgnored private var faceAFArmTask: Task<Void, Never>?
     /// First GOP has rolled past the IDR grace. Later stalls are the watchdog.
@@ -499,7 +507,8 @@ final class CameraSession {
     @ObservationIgnored private var expoGeneration: UInt64 = 0
     @ObservationIgnored private var audioPin: AudioPin?
     /// After a local res+fps / color SET, ignore subscribe snapshots that have not caught up.
-    @ObservationIgnored private var formatPin: (expected: VideoFormat, deadline: Date)?
+    @ObservationIgnored private var formatPin:
+        (expected: VideoFormat, deadline: Date, shutterAngle: Double?, angleDeadline: Date)?
     @ObservationIgnored private var captureModeGeneration: UInt64 = 0
     @ObservationIgnored private var formatRequestGeneration: UInt64 = 0
     /// FORMAT sheet: skip reseat while `0x02/0x18` is in flight.
@@ -529,14 +538,27 @@ final class CameraSession {
     @ObservationIgnored private var wasRecording = false
     @ObservationIgnored let decoder: HevcDecoder
     var isMultiviewBorrowed = false
+    private(set) var isMultiviewControlsOnly = false
+    @ObservationIgnored var multiviewControlAdmission: (() -> Bool)?
+    private var admitsMultiviewControl: Bool {
+        !isMultiviewControlsOnly || multiviewControlAdmission?() == true
+    }
 
     /// The live-view display layer, for the SwiftUI `VideoView`.
     var videoLayer: AVSampleBufferDisplayLayer { decoder.displayLayer }
 
-    init(borrowing sharedDecoder: HevcDecoder? = nil, cameraMedia: CameraMedia? = nil) {
+    init(
+        borrowing sharedDecoder: HevcDecoder? = nil, cameraMedia: CameraMedia? = nil,
+        controlsOnly: Bool = false
+    ) {
         self.cameraMedia = cameraMedia ?? CameraMedia()
         self.decoder = sharedDecoder ?? HevcDecoder()
         gimbalStickMapping = GimbalStickMapping()
+        if sharedDecoder != nil, controlsOnly {
+            isMultiviewBorrowed = true
+            isMultiviewControlsOnly = true
+            return
+        }
         syncGimbalPose()
         if sharedDecoder != nil {
             isMultiviewBorrowed = true
@@ -563,6 +585,15 @@ final class CameraSession {
                     liveViewEnableSends: self.liveViewEnableSends)
             else { return }
             self.sendRecoverEnable(force: true, reason: "assist VT start")
+        }
+        decoder.onPictureSizeChanged = { [weak self] in
+            guard let self else { return }
+            if self.pictureAspect != self.decoder.pictureAspect {
+                self.pictureAspect = self.decoder.pictureAspect
+            }
+            if self.isVerticalPicture != self.decoder.isVerticalPicture {
+                self.isVerticalPicture = self.decoder.isVerticalPicture
+            }
         }
         decoder.onParameterSetsChanged = { [weak self] in
             guard let self else { return }
@@ -595,23 +626,42 @@ final class CameraSession {
         isFeedWarming = decoder.lastPresentedAt == nil
     }
     func adoptMultiviewPose(_ pose: GimbalStickMapping) {
-        guard isMultiviewBorrowed else { return }
+        guard isMultiviewBorrowed, !isMultiviewControlsOnly else { return }
         gimbalStickMapping = pose
         syncGimbalPose()
     }
     func noteMultiviewFrame() {
-        guard isMultiviewBorrowed else { return }
+        guard isMultiviewBorrowed, !isMultiviewControlsOnly else { return }
         noteLiveFrame()
     }
     func receiveMultiview(_ frame: Duml.Frame) {
         guard isMultiviewBorrowed else { return }
         applyIncomingStatus(frame)
+        guard !isMultiviewControlsOnly else { return }
         // Per tile status frame: an unchanged write re-renders the tile chrome.
         let warming = decoder.lastPresentedAt == nil
         if warming != isFeedWarming { isFeedWarming = warming }
     }
     func releaseMultiview() {
         guard isMultiviewBorrowed else { return }
+        formatPin = nil
+        if isMultiviewControlsOnly {
+            // Detach only this editor's commands. The tile keeps its transport,
+            // decoder callbacks, frame samples, pose and recovery ownership.
+            datalink = nil
+            multiviewControlAdmission = nil
+            phase = .idle
+            inflight.removeAll()
+            inflightPending.removeAll()
+            lateWait.removeAll()
+            coalesceScheduled.removeAll()
+            setMailbox.reset()
+            pairingHold.removeAll()
+            audioTail?.cancel()
+            audioTail = nil
+            failAllWaiters(CancellationError())
+            return
+        }
         endGimbalStick(cancelMove: true)
         stopTrackingPoll()
         tapFocusTask?.cancel()
@@ -1391,8 +1441,16 @@ final class CameraSession {
     }
 
     private func route(_ frame: Duml.Frame) {
+        if isMultiviewControlsOnly,
+            CameraParam.isSelfieFlipGetReply(
+                set: frame.cmdSet, cmd: frame.cmdId, payload: frame.payload)
+        {
+            return
+        }
         // First-time pairing approval arrives as a request; answer it or the camera drops the link.
-        if frame.cmdSet == 0x07, frame.cmdId == 0x46, frame.flags == Duml.flagRequest {
+        if !isMultiviewControlsOnly, frame.cmdSet == 0x07, frame.cmdId == 0x46,
+            frame.flags == Duml.flagRequest
+        {
             ble.send(Commands.pairApprovalAck(seq: frame.seq))
         }
         // Pid 0x38 GET is untracked. Completing the shared 0x8E waiter here
@@ -1632,6 +1690,9 @@ final class CameraSession {
     }
 
     func setShootingMode(_ mode: ShootingMode) {
+        guard !isMultiviewControlsOnly || (admitsMultiviewControl && !status.isRecording) else {
+            return
+        }
         captureModeGeneration &+= 1
         let modeGeneration = captureModeGeneration
         let sessionGeneration = controlGeneration
@@ -1734,6 +1795,10 @@ final class CameraSession {
     }
 
     func setExpoMode(_ mode: ExpoMode) {
+        if mode != .manual {
+            formatPin?.shutterAngle = nil
+            clearExpoPin(shutter: true)
+        }
         let previous = status.expoMode
         pinExpo(mode: mode)
         status.expoMode = mode
@@ -2359,6 +2424,17 @@ final class CameraSession {
 
     /// Drop `cam_expo_param` snapshots that still show the pre-SET ISO / shutter / EV / mode.
     private func absorbStaleExpo(_ incoming: inout CameraStatus, reported: CameraStatus) {
+        defer {
+            // Exposure reports cannot confirm the requested FORMAT, even when
+            // an early report happens to contain the desired denominator.
+            if let pin = formatPin, let angle = pin.shutterAngle,
+                Date() < pin.angleDeadline, incoming.expoMode == .manual
+            {
+                incoming.shutterDenom = ShutterAngle.denom(
+                    degrees: angle, fps: pin.expected.frameRate.fps,
+                    available: incoming.availableShutterDenoms)
+            }
+        }
         guard var pin = expoPin else { return }
         if Date() >= pin.deadline {
             expoPin = nil
@@ -2400,17 +2476,25 @@ final class CameraSession {
         expoPin = pinIsEmpty(pin) ? nil : pin
     }
 
-    private func absorbStaleFormat(_ incoming: inout CameraStatus, reportedThisFrame: Bool) {
-        guard let pin = formatPin else { return }
-        if Date() >= pin.deadline {
+    private func absorbStaleFormat(_ incoming: inout CameraStatus, reportedThisFrame: Bool)
+        -> Double?
+    {
+        guard let pin = formatPin else { return nil }
+        let deadline = pin.shutterAngle == nil ? pin.deadline : pin.angleDeadline
+        if Date() >= deadline {
             formatPin = nil
-            return
+            if pin.shutterAngle != nil {
+                controlNote = "Frame rate unconfirmed; choose the shutter angle again"
+            }
+            return nil
         }
         if !VideoFormat.absorbStale(
             incoming: &incoming, expected: pin.expected, reportedThisFrame: reportedThisFrame)
         {
             formatPin = nil
+            return pin.shutterAngle
         }
+        return nil
     }
 
     private func absorbStaleColor(_ incoming: inout CameraStatus, reported: CameraStatus) {
@@ -2442,6 +2526,8 @@ final class CameraSession {
     /// Manual-expo rides the same socket right before the shutter SET (Mimo never
     /// round-trips between them; the camera applies datagrams in arrival order).
     func setShutterDenom(_ denom: Int) {
+        // A direct speed choice supersedes an angle waiting for FORMAT.
+        formatPin?.shutterAngle = nil
         if status.expoMode != .manual {
             pinExpo(mode: .manual)
             fireCamera(
@@ -2457,6 +2543,47 @@ final class CameraSession {
                 ControlLiveLog.line(
                     "shutter: SET 1/\(denom) ack=\(ok ? "ok" : (self?.controlNote ?? "failed"))")
             })
+    }
+
+    /// Angle is operator intent, never a value inferred back from delayed telemetry.
+    func setShutterAngle(_ degrees: Double) {
+        guard admitsMultiviewControl, datalink != nil, datalink?.isRebuilding != true else {
+            controlNote = "not live"
+            return
+        }
+        guard !status.isPhoto else { return }
+        if let pin = formatPin,
+            Date() >= (pin.shutterAngle == nil ? pin.deadline : pin.angleDeadline)
+        {
+            formatPin = nil
+        }
+        let angle = ShutterAngle.nearestDegrees(degrees)
+        OperatorPrefs.shutterAngleDegrees = angle
+        let denom = ShutterAngle.denom(
+            degrees: angle, fps: status.fps, available: status.availableShutterDenoms)
+        if formatPin != nil, status.expoMode == .manual, !status.isPhoto {
+            formatPin?.shutterAngle = angle
+            pinExpo(shutter: denom)
+            status.shutterDenom = denom
+            return
+        }
+        let previous = status.shutterDenom
+        status.shutterDenom = denom
+        setShutterDenom(denom)
+        if controlNote == "not live" { status.shutterDenom = previous }
+    }
+
+    private func rematchShutterAngle(_ degrees: Double?) {
+        guard let degrees, OperatorPrefs.shutterUsesAngle,
+            status.expoMode == .manual, !status.isPhoto, admitsMultiviewControl,
+            datalink != nil, datalink?.isRebuilding != true
+        else { return }
+        let denom = ShutterAngle.denom(
+            degrees: degrees, fps: status.fps, available: status.availableShutterDenoms)
+        status.shutterDenom = denom
+        let note = controlNote
+        setShutterDenom(denom)
+        if controlNote == nil { controlNote = note }
     }
 
     func setWhiteBalanceAuto(tint: Int? = nil) {
@@ -2713,6 +2840,9 @@ final class CameraSession {
     func setVideoFormat(
         resolution: VideoResolution, frameRate: VideoFrameRate, fromOperator: Bool = true
     ) {
+        guard !isMultiviewControlsOnly || (admitsMultiviewControl && !status.isRecording) else {
+            return
+        }
         guard currentShootingMode?.offersVideoFormat != false else { return }
         let format = VideoFormat(resolution: resolution, frameRate: frameRate)
         if fromOperator,
@@ -2725,15 +2855,30 @@ final class CameraSession {
         let previousFormat = status.videoFormat
         let previousRes = status.videoResolution
         let previousFps = status.fps
+        let previousShutter = status.shutterDenom
+        let angle = ShutterAngle.rematchesFormat(
+            usesAngle: OperatorPrefs.shutterUsesAngle, manual: status.expoMode == .manual,
+            isPhoto: status.isPhoto, previousFps: previousFps, nextFps: format.frameRate.fps,
+            alreadyPending: formatPin?.shutterAngle != nil)
+            ? formatPin?.shutterAngle ?? OperatorPrefs.shutterAngleDegrees : nil
         formatRequestGeneration &+= 1
         let requestGeneration = formatRequestGeneration
         let modeGeneration = captureModeGeneration
         let sessionGeneration = controlGeneration
-        formatPin = (format, Date().addingTimeInterval(2))
+        // The dependent shutter has a bounded confirmation window beyond the
+        // normal two-second FORMAT projection; no separate command task owns it.
+        let now = Date()
+        formatPin = (format, now.addingTimeInterval(2), angle, now.addingTimeInterval(8))
         var next = status
         next.videoResolution = format.resolution
         next.videoFormat = format
         next.fps = format.frameRate.fps
+        if let angle {
+            let denom = ShutterAngle.denom(
+                degrees: angle, fps: next.fps, available: next.availableShutterDenoms)
+            pinExpo(shutter: denom)
+            next.shutterDenom = denom
+        }
         status = next
         fireCamera(
             Commands.setVideoFormat(
@@ -2750,28 +2895,15 @@ final class CameraSession {
                 self.status.videoFormat = previousFormat
                 self.status.videoResolution = previousRes
                 self.status.fps = previousFps
+                if self.formatPin?.shutterAngle != nil {
+                    self.status.shutterDenom = previousShutter
+                    self.clearExpoPin(shutter: true)
+                }
                 self.formatPin = nil
             })
-        // `fireCamera` clears the note on its way out and only writes one when
-        // the SET could not go. Hold that failure aside: the shutter rematch
-        // below sends again and would clear it along with anything written here.
-        let formatSendNote = controlNote
-        // Angle mode is ours: keep the chosen degrees and rewrite 1/N for the new fps.
-        if OperatorPrefs.shutterUsesAngle, previousFps != status.fps, status.expoMode != .auto {
-            let denom = ShutterAngle.denom(
-                degrees: OperatorPrefs.shutterAngleDegrees,
-                fps: status.fps,
-                available: status.availableShutterDenoms)
-            if denom != status.shutterDenom {
-                setShutterDenom(denom)
-            }
-        }
-        // Settle the note once both sends are done. A failure from either send
-        // outranks the ceiling note, which is only worth showing when the
-        // format change actually went.
-        if let formatSendNote {
-            controlNote = formatSendNote
-        } else if controlNote == nil {
+        // The matching format subscribe owns the shutter rematch. A parallel
+        // shutter SET can land on the old encoder and be reset by FORMAT.
+        if controlNote == nil {
             controlNote = CamFov.ceilingNote(
                 size: format.resolution.sizeTitle,
                 held: zoomCycleFrom,
@@ -3106,11 +3238,13 @@ final class CameraSession {
     }
 
     var programmedZoomUnavailableReason: String? {
-        GimbalProgramZoom(program: gimbalProgram, model: connectedCamera?.model, status: status).failureReason
+        GimbalProgramZoom(program: gimbalProgram, model: connectedCamera?.model, status: status)
+            .failureReason
     }
 
     var canRunProgrammedMove: Bool {
-        programmedZoomUnavailableReason == nil && !isFeedWarming && !isLiveVideoStale && gimbalProgram.canRun
+        programmedZoomUnavailableReason == nil && !isFeedWarming && !isLiveVideoStale
+            && gimbalProgram.canRun
             && [gimbalProgram.a, gimbalProgram.b, gimbalProgram.c]
                 .compactMap { $0 }.allSatisfy { $0.nativePitchDeg != nil }
     }
@@ -3182,8 +3316,10 @@ final class CameraSession {
             self.nativeTargetGeneration &+= 1
             let token = self.nativeTargetGeneration
             self.nativeMoveToken = token
-            let zoom = take.changesZoom ? GimbalProgramZoom(
-                program: take, model: self.connectedCamera?.model, status: self.status) : nil
+            let zoom =
+                take.changesZoom
+                ? GimbalProgramZoom(
+                    program: take, model: self.connectedCamera?.model, status: self.status) : nil
             if let reason = zoom?.failureReason {
                 self.cancelProgrammedMove()
                 self.controlNote = reason
@@ -3218,7 +3354,9 @@ final class CameraSession {
     }
 
     func restartProgrammedMove() {
-        guard gimbalControlSceneActive, !isLocked, gimbalMoveRunning, gimbalMovePaused else { return }
+        guard gimbalControlSceneActive, !isLocked, gimbalMoveRunning, gimbalMovePaused else {
+            return
+        }
         cancelProgrammedMove()
         runProgrammedMove()
     }
@@ -3304,12 +3442,20 @@ final class CameraSession {
     }
 
     /// Feed tap: inside the AF-C face box → ActiveTrack SET with that rect.
+    /// A second tap on the same spot → ActiveTrack there (Mimo / on-camera).
     /// Anywhere else → tap-to-focus.
     func handleFeedTap(at normalized: CGPoint) {
         let x = min(max(Double(normalized.x), 0), 1)
         let y = min(max(Double(normalized.y), 0), 1)
         if let box = FaceTrackTap.boxIfTapped(
             overlay: focusOverlay, x: x, y: y, sceneFaces: dimmedFaces)
+        {
+            feedDoubleTap.reset()
+            startTracking(box)
+            return
+        }
+        if let box = feedDoubleTap.register(
+            x: x, y: y, at: Date.timeIntervalSinceReferenceDate)
         {
             startTracking(box)
             return
@@ -3331,6 +3477,7 @@ final class CameraSession {
         cancelTracking(sendClear: isTrackingActive)
         // Hold the tap reticle so AF-C face detect cannot hide it immediately.
         lastTapFocusAt = Date()
+        lastFocusTapAt = Date()
         faceBox = nil
         faceTarget = nil
         lastFaceHitAt = nil
@@ -3377,6 +3524,7 @@ final class CameraSession {
         lastSubjectPushAt = nil
         searchBox = box
         subjectBox = nil
+        trackingRequest = (box, Date())
         isTracking = false
         trackingSawLock = false
         faceBox = nil
@@ -3517,6 +3665,7 @@ final class CameraSession {
         if sendClear { lastOperatorClearAt = Date() }
         lastLiveTrackingAt = nil
         lastSubjectPushAt = nil
+        trackingRequest = nil
         guard sendClear, had, datalink != nil else { return }
         fireCamera(Commands.clearTrackingBox(), name: "Track clear")
     }
@@ -3576,7 +3725,8 @@ final class CameraSession {
             TrackingClearPolicy.shouldApplyLivePush(
                 operatorClearedAt: lastOperatorClearAt, now: Date())
         else { return }
-        guard let box = TrackingBox.parseLivePush(payload) else { return }
+        guard let box = TrackingBox.parseLivePush(payload), acceptsTrackingReport(box)
+        else { return }
         lastSubjectPushAt = Date()
         // Per ActiveTrack push: unchanged writes would still re-render the
         // tracking layer, so publish only what moved.
@@ -3593,7 +3743,9 @@ final class CameraSession {
         guard
             CameraFocusPolicy.shouldAdopt(
                 currentX: Double(focusPoint.x), currentY: Double(focusPoint.y),
-                cameraX: x, cameraY: y)
+                cameraX: x, cameraY: y,
+                secondsSinceTap: fromTrackingBox
+                    ? nil : lastFocusTapAt.map { Date().timeIntervalSince($0) })
         else { return }
         focusPoint = CGPoint(x: x, y: y)
         guard !fromTrackingBox else { return }
@@ -3798,6 +3950,18 @@ final class CameraSession {
         var lastHit: Date
     }
 
+    /// Drop the camera's previous subject until it reports the operator's new box.
+    private func acceptsTrackingReport(_ box: TrackingBox) -> Bool {
+        guard let request = trackingRequest else { return true }
+        guard
+            TrackingStartPolicy.accepts(
+                box, requested: request.box,
+                secondsSinceRequest: Date().timeIntervalSince(request.at))
+        else { return false }
+        trackingRequest = nil
+        return true
+    }
+
     private func smoothedSubject(toward box: TrackingBox) -> TrackingBox {
         let now = Date()
         let dt = lastLiveTrackingAt.map { now.timeIntervalSince($0) } ?? .infinity
@@ -3812,6 +3976,7 @@ final class CameraSession {
         else { return }
         switch TrackingPoll.parse(payload) {
         case .locked(let cameraBox):
+            if let cameraBox, !acceptsTrackingReport(cameraBox) { break }
             if !isTracking { isTracking = true }
             trackingSawLock = true
             if let cameraBox {
@@ -3874,7 +4039,9 @@ final class CameraSession {
         onFail: (@MainActor () -> Void)? = nil,
         onSettle: (@MainActor (Bool) -> Void)? = nil
     ) {
-        guard !Task.isCancelled, datalink != nil, datalink?.isRebuilding != true else {
+        guard !Task.isCancelled, admitsMultiviewControl,
+            datalink != nil, datalink?.isRebuilding != true
+        else {
             controlNote = "not live"
             onFail?()
             onSettle?(false)
@@ -3928,6 +4095,7 @@ final class CameraSession {
     }
 
     private func transmit(_ send: InflightSend, kind: String) {
+        guard admitsMultiviewControl else { return }
         let seq = datalink?.send(send.frame) ?? 0
         let key = Duml.opcodeKey(set: send.frame.cmdSet, cmd: send.frame.cmdId)
         // A skipped UDP write returns seq 0 and lastWriteLanded=false — do
@@ -4059,7 +4227,7 @@ final class CameraSession {
         guard !Task.isCancelled,
             Self.audioControlGeneration.map({ $0 == generation }) ?? true
         else { return false }
-        guard datalink != nil, datalink?.isRebuilding != true else {
+        guard admitsMultiviewControl, datalink != nil, datalink?.isRebuilding != true else {
             controlNote = "not live"
             return false
         }
@@ -4075,6 +4243,7 @@ final class CameraSession {
                 timeout: timeout,
                 consumeHold: false
             ) {
+                guard self.admitsMultiviewControl else { return }
                 let seq = self.datalink?.send(frame) ?? 0
                 if logSend {
                     ControlLiveLog.line(
@@ -4112,8 +4281,9 @@ final class CameraSession {
         let formatReported =
             reported.videoFormat != nil
             || reported.videoResolution != nil || reported.fps > 0
-        absorbStaleFormat(&next, reportedThisFrame: formatReported)
+        let angle = absorbStaleFormat(&next, reportedThisFrame: formatReported)
         status = next
+        rematchShutterAngle(angle)
         let parsed = CameraReply.parse(reply.payload)
         ControlLiveLog.line(
             "control: got \(name) \(opcode) seq=\(reply.seq) flags=0x\(String(reply.flags, radix: 16)) payload=\(Duml.hex(reply.payload)) success=\(parsed.isSuccess)\(late ? " late-hold" : "")"
@@ -5917,7 +6087,7 @@ final class CameraSession {
             if isBrowsingMedia { ingestMediaListFrame(frame) }
             return
         }
-        if frame.cmdSet == 0x02, frame.cmdId == 0x89 {
+        if !isMultiviewControlsOnly, frame.cmdSet == 0x02, frame.cmdId == 0x89 {
             applyLiveTrackingPush(frame.payload)
         }
         var s = status
@@ -5945,12 +6115,22 @@ final class CameraSession {
             formatPin = nil
         }
         absorbStaleExpo(&s, reported: reported)
+        if s.expoMode == .auto, formatPin?.shutterAngle != nil {
+            formatPin?.shutterAngle = nil
+            clearExpoPin(shutter: true)
+        }
         absorbStaleAudio(&s, reported: reported)
         let formatReported =
             reported.videoFormat != nil
             || reported.videoResolution != nil || reported.fps > 0
-        absorbStaleFormat(&s, reportedThisFrame: formatReported)
+        let angle = absorbStaleFormat(&s, reportedThisFrame: formatReported)
         absorbStaleColor(&s, reported: reported)
+        if isMultiviewControlsOnly {
+            if status != s { status = s }
+            rematchShutterAngle(angle)
+            settleLateFromSubscribe()
+            return
+        }
         if frame.cmdSet == 0x04, frame.cmdId == 0x05 {
             requestGimbalParams()
             if frame.payload.count == 50, let family = s.gimbalModeFamily {
@@ -6048,6 +6228,7 @@ final class CameraSession {
             }
         }
         status = s
+        rematchShutterAngle(angle)
         confirmZoomColorHopIfReady()
         if flipReply || flipChanged {
             if flipChanged {

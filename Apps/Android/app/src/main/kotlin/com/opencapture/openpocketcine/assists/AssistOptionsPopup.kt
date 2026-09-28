@@ -1,5 +1,8 @@
 package com.opencapture.openpocketcine.assists
 
+import com.opencapture.monitorui.MonitorTab
+import com.opencapture.monitorui.monitorTabStrip
+import com.opencapture.monitorui.monitorScrollFade
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -98,6 +101,7 @@ fun AssistOptionsPopup(
     val isLut = tool == LiveAssistTool.LUT
     val panelPad = AssistLongPress.PANEL_PAD_DP.dp
     val panelGap = AssistLongPress.PANEL_GAP_DP.dp
+    val panelScroll = rememberScrollState()
     Column(
         modifier
             .then(if (embedded) Modifier.fillMaxWidth() else Modifier.widthIn(max = width).width(width))
@@ -110,7 +114,7 @@ fun AssistOptionsPopup(
                 },
             )
             .then(if (embedded) Modifier else Modifier.pickerPanelGlass(CardShape).padding(panelPad))
-            .then(if (embedded && !isLut) Modifier.verticalScroll(rememberScrollState()) else Modifier),
+            .then(if (embedded && !isLut) Modifier.monitorScrollFade(panelScroll).verticalScroll(panelScroll) else Modifier),
         verticalArrangement = Arrangement.spacedBy(panelGap),
     ) {
         if (!embedded) {
@@ -129,8 +133,9 @@ fun AssistOptionsPopup(
                 )
             }
         }
+        val lutScroll = rememberScrollState()
         Column(
-            Modifier.then(if (isLut) Modifier.weight(1f).verticalScroll(rememberScrollState()) else Modifier),
+            Modifier.then(if (isLut) Modifier.weight(1f).monitorScrollFade(lutScroll).verticalScroll(lutScroll) else Modifier),
             verticalArrangement = Arrangement.spacedBy(panelGap),
         ) {
             if (embedded) {
@@ -171,11 +176,12 @@ fun AssistOptionsPopup(
                     )
                 }
             } else {
+                val optionsScroll = rememberScrollState()
                 Column(
                     Modifier
                         .then(if (embedded) Modifier else Modifier.weight(1f, fill = false))
                         .fillMaxWidth()
-                        .then(if (!embedded && cap != null) Modifier.verticalScroll(rememberScrollState()) else Modifier),
+                        .then(if (!embedded && cap != null) Modifier.monitorScrollFade(optionsScroll).verticalScroll(optionsScroll) else Modifier),
                 ) {
                     if (tool == LiveAssistTool.WAVE || tool == LiveAssistTool.PARADE) {
                         AssistOptionsBody(tool, state, colorMode)
@@ -509,12 +515,17 @@ private fun NdOptions(state: LiveAssistState) {
 @Composable
 private fun GuidesOptions(state: LiveAssistState) {
     val haptics = LocalOperatorHaptics.current
-    SettingsSegmented(
-        options = GuideFamily.entries.map { it.label },
-        selected = state.guideFamily.label,
-    ) {
-        haptics.selection()
-        state.updateGuideFamily(GuideFamily.fromPersisted(it))
+    Row(Modifier.fillMaxWidth().monitorTabStrip()) {
+        GuideFamily.entries.forEachIndexed { index, family ->
+            val active = state.guideFamily == family
+            MonitorTab(active, {
+                haptics.selection()
+                state.updateGuideFamily(family)
+            }, Modifier.weight(1f), separator = index > 0, accessibilityLabel = family.label) {
+                Text(family.label, color = if (active) LiveDesign.accent else LiveDesign.muted,
+                    style = LiveType.ui(13f, FontWeight.SemiBold), maxLines = 1)
+            }
+        }
     }
     Spacer(Modifier.height(10.dp))
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

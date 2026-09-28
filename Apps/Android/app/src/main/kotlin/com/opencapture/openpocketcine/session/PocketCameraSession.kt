@@ -6,6 +6,7 @@ import android.util.Log
 import android.view.Surface
 import com.opencapture.openpocketcine.CaptureLists
 import com.opencapture.openpocketcine.CaptureShutterPolicy
+import com.opencapture.openpocketcine.ShutterAngle
 import com.opencapture.openpocketcine.GamepadOperatorAction
 import com.opencapture.openpocketcine.GamepadShutterSync
 import com.opencapture.openpocketcine.EvComp
@@ -42,6 +43,7 @@ import com.opencapture.openpocketcine.pairing.CameraApJoiner
 import com.opencapture.openpocketcine.pairing.CameraWifiCredentialStore
 import com.opencapture.openpocketcine.pairing.CameraWifiResolution
 import com.opencapture.openpocketcine.pairing.WifiLowLatencyLock
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -145,7 +147,14 @@ internal suspend fun ensureEndpointCommandCurrent(currentGeneration: Long) {
  * BLE → pair → Wi-Fi creds → camera AP → datalink → live HEVC/AVC.
  * Mirrors iOS `CameraSession` recovery, feed watchdog, and operator commands.
  */
-class PocketCameraSession(context: Context, borrowing: HevcDecoder? = null) : CameraSessionSeam {
+class PocketCameraSession(
+    context: Context, borrowing: HevcDecoder? = null,
+    private val controlLease: MultiviewControlLease? = null,
+) : CameraSessionSeam {
+    init { require(controlLease == null || borrowing != null) }
+    internal val isMultiviewControlOnly: Boolean get() = controlLease != null
+    private fun controlLeaseAllows(): Boolean = controlLease?.allows() != false
+
     private val appContext = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     val ble = BleLink(context)
@@ -156,6 +165,9 @@ class PocketCameraSession(context: Context, borrowing: HevcDecoder? = null) : Ca
     /** Main-thread instrumentation observes actual ACKs/timeouts, never the optimistic HUD. */
     internal var debugCameraSetResult: ((Int, Boolean) -> Unit)? = null
     internal val pendingCameraSetCount: Int get() = inflight.size + inflightPending.size
+    internal fun pendingCameraSetExtra(kind: Int): String? =
+        inflight[SwiftCore.waitKey(kind)]?.extra
+            ?: inflightPending[SwiftCore.waitKey(kind)]?.extra
     private val videoHistory = LiveSessionVideoHistory()
     /**
      * Multiview lends a tile's decoder and verified transport to Live View.
@@ -459,6 +471,9 @@ class PocketCameraSession(context: Context, borrowing: HevcDecoder? = null) : Ca
     private var faceBox: TrackingBox? = null
     private var sceneFaces: List<TrackingBox> = emptyList()
     private var lastTapFocusAt: Long? = null
+    /** The operator's latest ActiveTrack box, until the camera reports it. */
+    private var trackingRequest: TrackingBox? = null
+    private var trackingRequestAt: Long? = null
     private var lastOperatorClearAt: Long? = null
     private var lastSubjectPushAt: Long? = null
     private var lastLiveTrackingAt: Long? = null
@@ -596,6 +611,7 @@ class PocketCameraSession(context: Context, borrowing: HevcDecoder? = null) : Ca
     }
 
     fun attachSurface(surface: Surface?) {
+        if (isMultiviewControlOnly) return
         if (isMultiviewBorrowed) {
             // The returning tile may already own the decoder; only drop our own output.
             if (surface == null) borrowedSurface?.let(decoder::detachSurface) else decoder.attachSurface(surface)
@@ -616,27 +632,36 @@ class PocketCameraSession(context: Context, borrowing: HevcDecoder? = null) : Ca
     }
 
     fun adoptMultiviewPose(pose: GimbalStickMapping) {
-        if (!isMultiviewBorrowed) return
+        if (!isMultiviewBorrowed || isMultiviewControlOnly) return
         gimbalStickMapping = pose
         syncGimbalPose()
     }
 
     fun receiveMultiview(frame: DumlFrame) {
-        if (!isMultiviewBorrowed) return
+        if (!isMultiviewBorrowed || !controlLeaseAllows()) return
         ingestDatalinkFrame(frame)
     }
 
     fun releaseMultiview() {
+        formatPin = null
         if (!isMultiviewBorrowed) return
-        endGimbalStick()
-        cancelProgrammedMove()
-        cancelTracking()
-        faceAFArmJob?.cancel()
-        faceAFArmJob = null
+        controlLease?.invalidate()
+        if (!isMultiviewControlOnly) {
+            endGimbalStick()
+            cancelProgrammedMove()
+            cancelTracking()
+            faceAFArmJob?.cancel()
+            faceAFArmJob = null
+        }
         inflight.clear()
         inflightPending.clear()
         failAllWaiters(kotlinx.coroutines.CancellationException("Multiview took the camera back"))
         datalink = null
+        if (isMultiviewControlOnly) {
+            connectedCamera = null
+            _phase.value = ConnectionPhase.IDLE
+            scope.cancel()
+        }
     }
 
     override fun disconnect() {
@@ -2377,9 +2402,16 @@ class PocketCameraSession(context: Context, borrowing: HevcDecoder? = null) : Ca
             formatPin = null
         }
         next = CamFov.absorb(next)
-        next = absorbStaleFormat(next, reported.resolutionCode >= 0 && reported.fpsIndex >= 0)
-        next = absorbStaleColor(next, reported)
+        // Reconcile the explicit Manual pin before accepting an Auto report.
         next = absorbStaleExpo(next, reported)
+        if (next.expoMode == CameraCommands.EXPO_AUTO && formatPin?.shutterAngle != null) {
+            formatPin?.shutterAngle = null
+            clearExpoPin(shutter = true)
+        }
+        val (formatStatus, angleRematch) =
+            absorbStaleFormat(next, reported.resolutionCode >= 0 && reported.fpsIndex >= 0)
+        next = formatStatus
+        next = absorbStaleColor(next, reported)
         next = absorbStaleWhiteBalance(next, reported.wbMode >= 0 &&
             (reported.wbMode != CameraCommands.WB_CUSTOM || reported.wbKelvin >= 2000))
         next = absorbStaleFocus(next, reported.focusMode >= 0, reported.focusTrack >= 0)
@@ -2390,6 +2422,30 @@ class PocketCameraSession(context: Context, borrowing: HevcDecoder? = null) : Ca
             )
             aperturePin = remaining
             if (held != null) next = next.copy(apertureStrategy = held)
+        }
+        if (frame.cmdSet == 0x02 && frame.cmdId == 0xA0) {
+            val (updated, blob) = StatusExtras.applyAudioDsp(frame.payload, next)
+            next = updated
+            if (blob != null) {
+                audioDspBlob = blob
+                next = next.applyingAudioBlob(blob)
+            }
+        }
+        audioPin?.let { pin ->
+            val (held, nextPin) =
+                pin.absorb(
+                    next,
+                    _status.value,
+                    SystemClock.elapsedRealtime(),
+                    reportedValues = reported,
+                )
+            next = held
+            audioPin = nextPin
+        }
+        if (isMultiviewControlOnly) {
+            if (next != prev) { telemetryStatus = next; _status.value = next }
+            rematchShutterAngle(angleRematch)
+            return
         }
         if (next.selfieFlip != prev.selfieFlip) {
             gimbalStickMapping = gimbalStickMapping.copy(selfieFlip = next.selfieFlip == true)
@@ -2447,25 +2503,6 @@ class PocketCameraSession(context: Context, borrowing: HevcDecoder? = null) : Ca
             applyTrackingPoll(frame.payload)
         }
         if (lastTapFocusAt != null) refreshTrackingHud()
-        if (frame.cmdSet == 0x02 && frame.cmdId == 0xA0) {
-            val (updated, blob) = StatusExtras.applyAudioDsp(frame.payload, next)
-            next = updated
-            if (blob != null) {
-                audioDspBlob = blob
-                next = next.applyingAudioBlob(blob)
-            }
-        }
-        audioPin?.let { pin ->
-            val (held, nextPin) =
-                pin.absorb(
-                    next,
-                    _status.value,
-                    SystemClock.elapsedRealtime(),
-                    reportedValues = reported,
-                )
-            next = held
-            audioPin = nextPin
-        }
         if (wasRecording && !next.isRecording) {
             cancelProgrammedMove()
         }
@@ -2497,6 +2534,7 @@ class PocketCameraSession(context: Context, borrowing: HevcDecoder? = null) : Ca
             _status.value = next
             publishFaceDetectWanted()
         }
+        rematchShutterAngle(angleRematch)
         confirmZoomColorHopIfReady()
     }
 
@@ -2916,13 +2954,24 @@ class PocketCameraSession(context: Context, borrowing: HevcDecoder? = null) : Ca
             )
         }
 
+    private val feedDoubleTap = FeedDoubleTapTrack()
+
+    /**
+     * Feed tap: inside the AF-C face box → ActiveTrack with that rect. A second
+     * tap on the same spot → ActiveTrack there (Mimo / on-camera). Else tap-focus.
+     */
     fun handleFeedTap(x: Float, y: Float) {
         val nx = x.coerceIn(0f, 1f).toDouble()
         val ny = y.coerceIn(0f, 1f).toDouble()
         val hud = _trackingHud.value
         val box = FaceTrackTap.boxIfTapped(hud.overlay, nx, ny, hud.dimmedFaces)
         if (box != null) {
+            feedDoubleTap.reset()
             startTracking(box)
+            return
+        }
+        feedDoubleTap.register(nx, ny, SystemClock.elapsedRealtime() / 1000.0)?.let {
+            startTracking(it)
             return
         }
         when (LiveFeedTapPolicy.action(supportsTapFocus, tappedFace = false)) {
@@ -2947,6 +2996,8 @@ class PocketCameraSession(context: Context, borrowing: HevcDecoder? = null) : Ca
         lastSubjectPushAt = null
         searchBox = box
         subjectBox = null
+        trackingRequest = box
+        trackingRequestAt = SystemClock.elapsedRealtime()
         isTracking = false
         trackingSawLock = false
         faceBox = null
@@ -3344,6 +3395,7 @@ class PocketCameraSession(context: Context, borrowing: HevcDecoder? = null) : Ca
     }
 
     fun setShutterDenom(denom: Int) {
+        formatPin?.shutterAngle = null
         if (_status.value.expoMode != CameraCommands.EXPO_MANUAL) {
             val previousExpo = _status.value.expoMode
             pinExpo(expoMode = CameraCommands.EXPO_MANUAL)
@@ -3377,8 +3429,46 @@ class PocketCameraSession(context: Context, borrowing: HevcDecoder? = null) : Ca
         )
     }
 
+    /** Only explicit angle choices write the saved intent; delayed telemetry never does. */
+    fun setShutterAngle(degrees: Double) {
+        val dl = datalink
+        if (!controlLeaseAllows() || dl == null || !endpointCommandAdmission.allows(dl.isClosed, dl.isRebuilding)) {
+            _controlNote.value = "not live"
+            return
+        }
+        if (CameraCommands.isPhotoMode(_status.value.shootingMode)) return
+        if (formatPin?.let { SystemClock.elapsedRealtime() >= it.activeDeadline } == true) formatPin = null
+        val angle = ShutterAngle.nearestDegrees(degrees)
+        OperatorPrefs.setShutterAngleDegrees(appContext, angle)
+        val current = _status.value
+        val denom = ShutterAngle.denom(angle, current.fps, current.availableShutterDenoms)
+        if (formatPin != null && current.expoMode == CameraCommands.EXPO_MANUAL &&
+            !CameraCommands.isPhotoMode(current.shootingMode)) {
+            formatPin?.shutterAngle = angle
+            pinExpo(shutterDenom = denom)
+            _status.value = current.copy(shutterDenom = denom)
+            return
+        }
+        setShutterDenom(denom)
+    }
+
+    private fun rematchShutterAngle(degrees: Double?) {
+        if (degrees == null || !OperatorPrefs.shutterUsesAngle(appContext)) return
+        val current = _status.value
+        val dl = datalink
+        if (current.expoMode != CameraCommands.EXPO_MANUAL || CameraCommands.isPhotoMode(current.shootingMode) ||
+            !controlLeaseAllows() || dl == null || !endpointCommandAdmission.allows(dl.isClosed, dl.isRebuilding)) return
+        val note = _controlNote.value
+        setShutterDenom(ShutterAngle.denom(degrees, current.fps, current.availableShutterDenoms))
+        if (_controlNote.value == null) _controlNote.value = note
+    }
+
     fun setExpoMode(mode: Int) {
         val extra = CameraCommands.expoWireExtra(mode) ?: return
+        if (mode != CameraCommands.EXPO_MANUAL) {
+            formatPin?.shutterAngle = null
+            clearExpoPin(shutter = true)
+        }
         val previous = _status.value.expoMode
         pinExpo(expoMode = mode)
         _status.value = _status.value.copy(expoMode = mode)
@@ -3571,27 +3661,28 @@ class PocketCameraSession(context: Context, borrowing: HevcDecoder? = null) : Ca
             )
         ) return false
         val modeAtSet = previous.shootingMode
+        val angle = if (ShutterAngle.rematchesFormat(
+                usesAngle = OperatorPrefs.shutterUsesAngle(appContext),
+                manual = previous.expoMode == CameraCommands.EXPO_MANUAL,
+                isPhoto = CameraCommands.isPhotoMode(previous.shootingMode),
+                previousFps = previous.fps, nextFps = format.frameRate.fps,
+                alreadyPending = formatPin?.shutterAngle != null,
+            )) formatPin?.shutterAngle ?: OperatorPrefs.shutterAngleDegrees(appContext) else null
+        val shutter = angle?.let { ShutterAngle.denom(it, format.frameRate.fps, previous.availableShutterDenoms) }
         val pin =
             FormatPin(
                 expected = format,
                 deadlineElapsedRealtime = SystemClock.elapsedRealtime() + 2_000L,
+                shutterAngle = angle,
             )
         formatPin = pin
+        if (shutter != null) pinExpo(shutterDenom = shutter)
         _status.value =
             previous.copy(
                 resolutionCode = format.resolution.rawValue,
                 fpsIndex = format.frameRate.rawValue,
                 fps = format.frameRate.fps,
-            )
-        val rematch =
-            CaptureLists.rematchShutterDenomAfterFps(
-                usesAngle = OperatorPrefs.shutterUsesAngle(appContext),
-                degrees = OperatorPrefs.shutterAngleDegrees(appContext),
-                previousFps = previous.fps,
-                nextFps = format.frameRate.fps,
-                expoMode = previous.expoMode,
-                currentDenom = previous.shutterDenom,
-                available = previous.availableShutterDenoms,
+                shutterDenom = shutter ?: previous.shutterDenom,
             )
         fireKind(
             SwiftCore.CMD_SET_VIDEO_FORMAT,
@@ -3609,22 +3700,15 @@ class PocketCameraSession(context: Context, borrowing: HevcDecoder? = null) : Ca
                             resolutionCode = previous.resolutionCode,
                             fpsIndex = previous.fpsIndex,
                             fps = previous.fps,
+                            shutterDenom = if (pin.shutterAngle != null) previous.shutterDenom else live.shutterDenom,
                         )
+                    if (pin.shutterAngle != null) clearExpoPin(shutter = true)
                 }
                 formatPin = null
             },
         )
-        // [fireKind] clears the note on its way out and only writes one when the
-        // SET could not go. Hold that failure aside: the shutter rematch below
-        // sends again and would clear it along with anything written here.
-        val formatSendNote = _controlNote.value
-        if (rematch != null) setShutterDenom(rematch)
-        // Settle the note once both sends are done. A failure from either send
-        // outranks the ceiling note, which is only worth showing when the format
-        // change actually went.
-        if (formatSendNote != null) {
-            _controlNote.value = formatSendNote
-        } else if (_controlNote.value == null) {
+        // Only actual format telemetry releases the shutter SET on the existing mailbox.
+        if (_controlNote.value == null) {
             _controlNote.value =
                 CamFov.ceilingNote(
                     format.resolution.sizeTitle,
@@ -3643,16 +3727,23 @@ class PocketCameraSession(context: Context, borrowing: HevcDecoder? = null) : Ca
         return setVideoFormat(format)
     }
 
-    private fun absorbStaleFormat(incoming: CameraStatus, formatReported: Boolean): CameraStatus {
+    private fun absorbStaleFormat(incoming: CameraStatus, formatReported: Boolean): Pair<CameraStatus, Double?> {
+        val pending = formatPin
+        val now = SystemClock.elapsedRealtime()
         val (next, remaining) =
             VideoFormat.absorbStale(
                 incoming,
                 formatPin,
-                SystemClock.elapsedRealtime(),
+                now,
                 formatReported,
             )
         formatPin = remaining
-        return next
+        val angle = if (pending != null && remaining == null && formatReported &&
+            now < pending.activeDeadline) pending.shutterAngle else null
+        if (pending?.shutterAngle != null && now >= pending.activeDeadline) {
+            _controlNote.value = "Frame rate unconfirmed; choose the shutter angle again"
+        }
+        return next to angle
     }
 
     private fun absorbStaleColor(incoming: CameraStatus, reported: CameraStatus): CameraStatus {
@@ -3663,11 +3754,19 @@ class PocketCameraSession(context: Context, borrowing: HevcDecoder? = null) : Ca
     }
 
     private fun absorbStaleExpo(incoming: CameraStatus, reported: CameraStatus): CameraStatus {
-        val pin = expoPin ?: return incoming
-        val (next, remaining) =
-            pin.absorb(incoming, _status.value, SystemClock.elapsedRealtime(), reportedValues = reported)
+        val now = SystemClock.elapsedRealtime()
+        val pin = expoPin
+        val (next, remaining) = pin?.absorb(incoming, _status.value, now, reportedValues = reported)
+            ?: (incoming to null)
         expoPin = remaining
-        return next
+        val format = formatPin
+        val angle = format?.shutterAngle
+        // Exposure is a different stream of reports; even a matching shutter
+        // cannot release the angle until the requested FORMAT itself is reported.
+        return if (format != null && angle != null && now < format.activeDeadline &&
+            next.expoMode == CameraCommands.EXPO_MANUAL) {
+            next.copy(shutterDenom = ShutterAngle.denom(angle, format.expected.frameRate.fps, next.availableShutterDenoms))
+        } else next
     }
 
     private fun absorbStaleShootingMode(incoming: CameraStatus, reported: Boolean): CameraStatus {
@@ -4571,6 +4670,7 @@ class PocketCameraSession(context: Context, borrowing: HevcDecoder? = null) : Ca
         if (sendClear) lastOperatorClearAt = SystemClock.elapsedRealtime()
         lastLiveTrackingAt = null
         lastSubjectPushAt = null
+        trackingRequest = null
         refreshTrackingHud()
         if (!sendClear || !had || datalink == null) return
         fireKind(SwiftCore.CMD_CLEAR_TRACKING_BOX, null, "Track clear")
@@ -4622,10 +4722,20 @@ class PocketCameraSession(context: Context, borrowing: HevcDecoder? = null) : Ca
         refreshTrackingHud()
     }
 
+    /** Drop the camera's previous subject until it reports the operator's new box. */
+    private fun acceptsTrackingReport(box: TrackingBox, now: Long): Boolean {
+        val requested = trackingRequest ?: return true
+        val since = trackingRequestAt?.let { (now - it) / 1000.0 }
+        if (!TrackingStartPolicy.accepts(box, requested, since)) return false
+        trackingRequest = null
+        return true
+    }
+
     private fun applyLiveTrackingPush(payload: ByteArray) {
         val now = SystemClock.elapsedRealtime()
         if (!TrackingClearPolicy.shouldApplyLivePush(lastOperatorClearAt, now)) return
         val box = TrackingBox.parseLivePush(payload) ?: return
+        if (!acceptsTrackingReport(box, now)) return
         lastSubjectPushAt = now
         subjectBox = smoothedSubject(box)
         isTracking = true
@@ -4641,6 +4751,7 @@ class PocketCameraSession(context: Context, borrowing: HevcDecoder? = null) : Ca
         if (!TrackingClearPolicy.shouldApplyLivePush(lastOperatorClearAt, now)) return
         when (val poll = TrackingPoll.parse(payload)) {
             is TrackingPoll.Locked -> {
+                if (poll.box?.let { acceptsTrackingReport(it, now) } == false) return
                 isTracking = true
                 trackingSawLock = true
                 val cameraBox = poll.box
@@ -4794,7 +4905,7 @@ class PocketCameraSession(context: Context, borrowing: HevcDecoder? = null) : Ca
     ): Boolean {
         ensureEndpointCommandCurrent(audioGeneration)
         val dl = datalink
-        if (dl == null || !endpointCommandAdmission.allows(dl.isClosed, dl.isRebuilding)) {
+        if (!controlLeaseAllows() || dl == null || !endpointCommandAdmission.allows(dl.isClosed, dl.isRebuilding)) {
             _controlNote.value = "not live"
             return false
         }
@@ -4846,7 +4957,7 @@ class PocketCameraSession(context: Context, borrowing: HevcDecoder? = null) : Ca
         onSettle: ((Boolean) -> Unit)? = null,
     ) {
         val dl = datalink
-        if (dl == null || !endpointCommandAdmission.allows(dl.isClosed, dl.isRebuilding)) {
+        if (!controlLeaseAllows() || dl == null || !endpointCommandAdmission.allows(dl.isClosed, dl.isRebuilding)) {
             _controlNote.value = "not live"
             onFail?.invoke()
             onSettle?.invoke(false)
@@ -4892,10 +5003,13 @@ class PocketCameraSession(context: Context, borrowing: HevcDecoder? = null) : Ca
     }
 
     private fun transmit(send: InflightSend) {
+        if (!controlLeaseAllows()) return
         val dl = datalink ?: return
         pairingHold.remove(SwiftCore.waitKey(send.kind))
         try {
-            lastCameraSetAt = SystemClock.elapsedRealtime()
+            val sentAt = SystemClock.elapsedRealtime()
+            lastCameraSetAt = sentAt
+            controlLease?.noteSet(sentAt)
             dl.sendCommand(send.kind, send.extra)
             Log.i(TAG, "control: send ${send.name}")
         } catch (e: Exception) {
@@ -5021,7 +5135,7 @@ class PocketCameraSession(context: Context, borrowing: HevcDecoder? = null) : Ca
     ): Boolean {
         ensureEndpointCommandCurrent(audioGeneration)
         val dl = datalink
-        if (dl == null || !endpointCommandAdmission.allows(dl.isClosed, dl.isRebuilding)) {
+        if (!controlLeaseAllows() || dl == null || !endpointCommandAdmission.allows(dl.isClosed, dl.isRebuilding)) {
             _controlNote.value = "not live"
             return false
         }
@@ -5138,7 +5252,6 @@ internal object LiveViewEnablePolicy {
     const val COMMAND_TIMEOUT_REBUILD_COUNT = 2
     const val FIRST_PICTURE_RESEND_MS = 2_000L
     const val FORMAT_POKE_MIN_SETTLE_MS = 800L
-    const val STALLED_FORMAT_RESEND_MS = 5_000L
     const val FORMAT_STALL_MS = 2_000L
     const val HANDSHAKE_RETRY_PAUSE_MS = 500L
     const val HANDSHAKE_OPEN_RETRY_LIMIT = 6
@@ -5632,8 +5745,6 @@ internal object LiveViewEnablePolicy {
         return ingestArmed
     }
 
-    fun shouldUseCapturedLiveStartForMediaResume(): Boolean = true
-
     /** Pocket: `0x02/0x68` `08` immediately before `0x09/0xa8`. Not Nano. */
     fun shouldSendLiveViewPrepare(usesNanoLiveViewGate: Boolean): Boolean =
         coreFlag(
@@ -5656,11 +5767,6 @@ internal object LiveViewEnablePolicy {
             "shouldContinueFirstPictureAfterStrayPlayback",
             "{\"hasPicture\":$hasPicture}",
         ) { !hasPicture }
-
-    /**
-     * Mimo 20260828: HEVC at join+17 ms. Do not wait a DUML ACK before arming.
-     */
-    fun shouldWaitForLiveViewAckBeforeArm(): Boolean = false
 
     fun shouldKeepaliveRebuildUDP(
         flowNeedsRebuild: Boolean,
@@ -5886,25 +5992,5 @@ internal object LiveViewEnablePolicy {
             }
         state.lastActionAt = now
         return action
-    }
-
-    /** Legacy gate used by tests: first-picture 2 s, stalled format 5 s — never 1 Hz. */
-    fun shouldResendEnable(
-        videoPackets: Int,
-        nowElapsedRealtime: Long,
-        lastIdrRequest: Long,
-        hasFormat: Boolean,
-        decoderErrors: Int,
-        streamStartedAt: Long?,
-    ): Boolean {
-        if (videoPackets == 0) {
-            return nowElapsedRealtime - lastIdrRequest >= FIRST_PICTURE_RESEND_MS
-        }
-        val started = streamStartedAt ?: nowElapsedRealtime
-        val stalled =
-            (decoderErrors > 0 && !hasFormat) ||
-                (!hasFormat && nowElapsedRealtime - started > FORMAT_STALL_MS)
-        if (!stalled) return false
-        return nowElapsedRealtime - lastIdrRequest >= STALLED_FORMAT_RESEND_MS
     }
 }

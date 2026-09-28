@@ -384,6 +384,59 @@ object LiveFeedTapPolicy {
         }
 }
 
+/**
+ * Right after an operator ActiveTrack SET the camera can still push its previous
+ * subject (often a face). Drawing that paints the lock on the wrong thing, then
+ * slides it across to the new target. Mirrors Swift `TrackingStartPolicy`.
+ */
+object TrackingStartPolicy {
+    const val SETTLE_SECONDS = 1.5
+    const val PADDING = 0.05
+
+    fun accepts(push: TrackingBox, requested: TrackingBox?, secondsSinceRequest: Double?): Boolean {
+        if (requested == null || secondsSinceRequest == null) return true
+        if (secondsSinceRequest < 0 || secondsSinceRequest >= SETTLE_SECONDS) return true
+        return push.intersectionOverUnion(requested) > 0 ||
+            requested.contains(push.centerX, push.centerY, PADDING)
+    }
+}
+
+/**
+ * Double-tap the same spot, as in Mimo and on the camera: the first tap
+ * focuses as usual, the second starts ActiveTrack on a box centred there.
+ */
+class FeedDoubleTapTrack {
+    private var lastX = 0.0
+    private var lastY = 0.0
+    private var lastAt: Double? = null
+
+    /** The tracking box when this tap completes a double tap, otherwise `null`. */
+    fun register(x: Double, y: Double, at: Double): TrackingBox? {
+        val last = lastAt
+        if (last != null && at >= last && at - last <= WINDOW && hypot(x - lastX, y - lastY) <= RADIUS) {
+            lastAt = null
+            return TrackingBox.fromCenter(x, y, BOX_WIDTH, BOX_HEIGHT)
+        }
+        lastX = x
+        lastY = y
+        lastAt = at
+        return null
+    }
+
+    fun reset() {
+        lastAt = null
+    }
+
+    companion object {
+        const val WINDOW = 0.45
+        /** Feed-normalised distance that still counts as the same spot. */
+        const val RADIUS = 0.06
+        /** Roughly square on a 16:9 picture; the camera's tracker finds the subject. */
+        const val BOX_WIDTH = 0.14
+        const val BOX_HEIGHT = 0.25
+    }
+}
+
 object FaceTrackTap {
     const val HIT_PADDING = 0.03
 

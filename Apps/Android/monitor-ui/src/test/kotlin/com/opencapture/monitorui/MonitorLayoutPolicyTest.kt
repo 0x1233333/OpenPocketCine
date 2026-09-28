@@ -99,7 +99,7 @@ class MonitorLayoutPolicyTest {
         val landPhone = MonitorLayoutPolicy.landscapeAssists(390f, false)
         assertEquals(14f, landPhone.x)
         assertEquals(phoneSide + MonitorLayoutPolicy.ASSIST_HORIZONTAL_INSETS, landPhone.width)
-        assertEquals(phoneSide * 2f + 11f, landPhone.height)
+        assertEquals(phoneSide * 2f + 8f + MonitorLayoutPolicy.ASSIST_SPACING, landPhone.height)
         assertEquals(390f - 8f, landPhone.maxY, .01f)
         val filter = MonitorLayoutPolicy.mediaFilterPopup(956f, 440f, 0f, 59f, 21f, 59f)
         assertTrue(filter.maxY <= 440f - 21f)
@@ -116,7 +116,7 @@ class MonitorLayoutPolicyTest {
         assertEquals(390f - 31f, landHome.maxY, .01f)
         val landTablet = MonitorLayoutPolicy.landscapeAssists(744f, true)
         assertEquals(tabletSide + MonitorLayoutPolicy.ASSIST_HORIZONTAL_INSETS, landTablet.width)
-        assertEquals(tabletSide * 2f + 11f, landTablet.height)
+        assertEquals(tabletSide * 2f + 8f + MonitorLayoutPolicy.ASSIST_SPACING, landTablet.height)
         assertEquals(744f - 8f, landTablet.maxY, .01f)
     }
 
@@ -131,18 +131,18 @@ class MonitorLayoutPolicyTest {
     @Test
     fun portraitStatusRowSitsBelowTheSafeTopAndTheFeedCentersOnTheCanvas() {
         val notched = MonitorLayoutPolicy.portrait(393f, 852f, 59f, 34f, false, true, 16f / 9f)
-        assertEquals(51f, notched.status.y, .05f)
+        assertEquals(59f, notched.status.y, .05f)
         assertEquals(44f, notched.status.height, .05f)
         assertTrue(notched.status.maxY <= notched.picture.y + .05f)
         assertEquals(852f / 2f, notched.picture.y + notched.picture.height / 2f, .5f)
         assertTrue(notched.picture.maxY < notched.values.y)
 
         val classic = MonitorLayoutPolicy.portrait(375f, 667f, 20f, 0f, false, true, 16f / 9f)
-        assertEquals(12f, classic.status.y, .05f)
+        assertEquals(20f, classic.status.y, .05f)
         assertTrue(classic.status.maxY <= classic.picture.y + .05f)
 
         val maxPhone = MonitorLayoutPolicy.portrait(440f, 956f, 62f, 34f, false, true, 16f / 9f)
-        assertEquals(54f, maxPhone.status.y, .05f)
+        assertEquals(62f, maxPhone.status.y, .05f)
         assertTrue(maxPhone.status.maxY <= maxPhone.picture.y + .05f)
         assertEquals(956f / 2f, maxPhone.picture.y + maxPhone.picture.height / 2f, .5f)
         assertTrue(maxPhone.picture.maxY < maxPhone.values.y)
@@ -188,10 +188,10 @@ class MonitorLayoutPolicyTest {
         val zoom = MonitorLayoutPolicy.portraitZoom(stick)
         val gimbal = MonitorLayoutPolicy.portraitGimbal(stick, zoom)
         val headTrack = MonitorLayoutPolicy.headTrack(stick, zoom)
-        assertEquals(MonitorRect(289f, 596f, 88f, 88f), stick)
-        assertEquals(MonitorRect(289f, 552f, 44f, 36f), zoom)
-        assertEquals(MonitorRect(341f, 552f, 36f, 36f), gimbal)
-        assertEquals(MonitorRect(333f, 500f, 44f, 44f), headTrack)
+        assertEquals(MonitorRect(276f, 583f, 101f, 101f), stick)
+        assertEquals(MonitorRect(276f, 539f, 44f, 36f), zoom)
+        assertEquals(MonitorRect(341f, 539f, 36f, 36f), gimbal)
+        assertEquals(MonitorRect(333f, 487f, 44f, 44f), headTrack)
     }
 
     @Test
@@ -240,8 +240,8 @@ class MonitorLayoutPolicyTest {
         assertEquals(14f + 70f + 28f, layout.values.x, .01f)
         assertEquals(layout.values.x, 874f - layout.values.maxX, .01f)
         assertEquals(12f, layout.lock.x, .01f)
-        assertEquals(49f, layout.gauges.width, .01f)
-        assertEquals(52f, layout.gauges.height, .01f)
+        assertEquals(58f, layout.gauges.width, .01f)
+        assertEquals(68f, layout.gauges.height, .01f)
         assertEquals(44f, layout.zoom.width, .01f)
         assertEquals(36f, layout.zoom.height, .01f)
         assertEquals(layout.stick.x, layout.zoom.x, .01f)
