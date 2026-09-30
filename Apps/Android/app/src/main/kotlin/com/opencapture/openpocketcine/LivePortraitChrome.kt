@@ -670,7 +670,7 @@ fun LivePortraitAspectToggle(
             .background(Color.Black.copy(alpha = 0.55f))
             .border(1.dp, LiveDesign.hairline, CircleShape)
             .chromeClickable(enabled = !locked, onClick = onClick)
-            .semantics { contentDescription = if (fill) "Fit feed in frame" else "Fill frame with feed" },
+            .semantics { contentDescription = if (fill) "画面适配取景框" else "画面填满全屏" },
         contentAlignment = Alignment.Center,
     ) {
         OpcIcon(if (fill) OpcIcon.MINIMIZE else OpcIcon.MAXIMIZE, null, Modifier.size(15.dp), LiveDesign.text)
@@ -786,7 +786,7 @@ fun LivePortraitAssistRail(
                 .clip(CircleShape)
                 .monitorGlass(CircleShape)
                 .chromeClickable(enabled = !locked) { onExpandedChange(true) }
-                .semantics { contentDescription = "Show view assists" },
+                .semantics { contentDescription = "显示画面辅助" },
             contentAlignment = Alignment.Center,
         ) {
             SliderHorizontal3Glyph(LiveDesign.text, Modifier.size(18.dp))
@@ -805,7 +805,7 @@ fun LivePortraitAssistRail(
                 .align(Alignment.CenterHorizontally)
                 .size(36.dp, 28.dp)
                 .chromeClickable(enabled = !locked) { onExpandedChange(false) }
-                .semantics { contentDescription = "Hide view assists" },
+                .semantics { contentDescription = "隐藏画面辅助" },
             contentAlignment = Alignment.Center,
         ) {
             ChevronLeftGlyph(LiveDesign.accent, Modifier.size(13.dp))
@@ -855,7 +855,7 @@ fun LivePortraitRecOptionsButton(
                 .clip(CircleShape)
                 .monitorGlass(CircleShape)
                 .chromeClickable(enabled = !locked) { open = !open }
-                .semantics { contentDescription = "Recording options" },
+                .semantics { contentDescription = "录制选项" },
             contentAlignment = Alignment.Center,
         ) {
             VideoGlyph(LiveDesign.text.copy(alpha = 0.86f))
@@ -940,7 +940,7 @@ private fun LivePortraitRailTool(
     ) {
         AssistToolGlyph(tool = tool, tint = tint, modifier = Modifier.size(19.dp))
         Text(
-            tool.chipLabel,
+            tool.title,
             color = tint,
             fontSize = 9.sp,
             fontFamily = com.opencapture.openpocketcine.OpcFonts.sora,

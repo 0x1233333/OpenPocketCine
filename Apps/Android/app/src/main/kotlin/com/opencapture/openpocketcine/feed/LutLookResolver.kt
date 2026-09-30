@@ -32,7 +32,7 @@ internal object LutLookResolver {
             "officialDLog" -> LutLookSource.Asset("DJI_Official_Pocket4P_DLog_Rec709_33.cube")
             "officialDLog2" -> LutLookSource.Asset("DJI_Official_Pocket4P_DLog2_Rec709_33.cube")
             "creativeMono", "creativeContrast", "creativeWarm", "creativeCool" ->
-                LutLookSource.Creative(LutCatalog.creativeName(selection) ?: "Mono")
+                LutLookSource.Creative(LutCatalog.creativeName(selection) ?: "单色")
             "djiDLog" -> LutLookSource.Asset("DJI_Official_Pocket4P_DLog_Rec709_33.cube")
             "djiDLog2" -> LutLookSource.Asset("DJI_Official_Pocket4P_DLog2_Rec709_33.cube")
             "djiDLogM" -> LutLookSource.Asset(dLogMFile(cameraName))
@@ -57,9 +57,9 @@ internal object LutLookResolver {
         source: LutLookSource,
     ): String {
         val title = LutCatalog.titleFor(selection)
-        if (!enabled) return "Off · $title"
+        if (!enabled) return "关闭 · $title"
         if (selection == LutCatalog.AUTO || selection == LutCatalog.DJI_AUTO) {
-            return "Auto · ${sourceTitle(source)}"
+            return "自动 · ${sourceTitle(source)}"
         }
         return title
     }
@@ -67,20 +67,20 @@ internal object LutLookResolver {
     /** iOS `LUTResolver.autoCaption`. */
     fun autoCaption(source: LutLookSource): String =
         when (source) {
-            LutLookSource.Off -> "No matching look for this color / camera"
+            LutLookSource.Off -> "该色彩模式/机型没有匹配的 LUT"
             is LutLookSource.Asset -> {
                 val title = sourceTitle(source)
                 val official =
                     LutCatalog.officialDji.any { it.fileName == source.fileName }
-                if (official) "Applying official $title" else "Applying $title"
+                if (official) "正在应用官方 $title" else "正在应用 $title"
             }
-            is LutLookSource.Custom -> "Applying ${LutCatalog.displayName(source.fileName)}"
-            is LutLookSource.Creative -> "Applying ${source.name}"
+            is LutLookSource.Custom -> "正在应用 ${LutCatalog.displayName(source.fileName)}"
+            is LutLookSource.Creative -> "正在应用 ${source.name}"
         }
 
     fun sourceTitle(source: LutLookSource): String =
         when (source) {
-            LutLookSource.Off -> "Off"
+            LutLookSource.Off -> "关"
             is LutLookSource.Asset ->
                 LutCatalog.officialBuiltInLooks.firstOrNull { it.fileName == source.fileName }?.title
                     ?: LutCatalog.officialDji.firstOrNull { it.fileName == source.fileName }?.title

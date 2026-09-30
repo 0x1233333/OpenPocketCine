@@ -107,35 +107,35 @@ object StartupConnectionCopy {
         when {
             isReconnecting &&
                 (phase == ConnectionPhase.SCANNING || phase == ConnectionPhase.IDLE) ->
-                "Connecting"
+                "连接中"
             else ->
                 when (phase) {
-                    ConnectionPhase.IDLE -> if (isDiscovering) "Looking" else "Ready"
-                    ConnectionPhase.SCANNING -> "Looking"
-                    ConnectionPhase.CONNECTING_GATT -> "Connecting"
+                    ConnectionPhase.IDLE -> if (isDiscovering) "查找中" else "就绪"
+                    ConnectionPhase.SCANNING -> "查找中"
+                    ConnectionPhase.CONNECTING_GATT -> "连接中"
                     ConnectionPhase.PAIRING,
                     ConnectionPhase.AWAITING_APPROVAL,
-                    -> "Pairing"
-                    ConnectionPhase.READING_WIFI_CREDS -> "Reading"
-                    ConnectionPhase.JOINING_WIFI -> "Joining"
-                    ConnectionPhase.OPENING_DATALINK -> "Connecting"
-                    ConnectionPhase.LIVE -> "Connected"
-                    ConnectionPhase.FAILED -> "Ready"
+                    -> "配对中"
+                    ConnectionPhase.READING_WIFI_CREDS -> "读取中"
+                    ConnectionPhase.JOINING_WIFI -> "加入中"
+                    ConnectionPhase.OPENING_DATALINK -> "连接中"
+                    ConnectionPhase.LIVE -> "已连接"
+                    ConnectionPhase.FAILED -> "就绪"
                 }
         }
 
     fun phaseLabel(phase: ConnectionPhase, failure: String?): String =
         when (phase) {
-            ConnectionPhase.IDLE -> "Idle"
-            ConnectionPhase.SCANNING -> "Scanning for camera…"
-            ConnectionPhase.CONNECTING_GATT -> "Connecting (Bluetooth)…"
-            ConnectionPhase.PAIRING -> "Pairing…"
-            ConnectionPhase.AWAITING_APPROVAL -> "Approve on the camera screen"
-            ConnectionPhase.READING_WIFI_CREDS -> "Reading Wi-Fi credentials…"
-            ConnectionPhase.JOINING_WIFI -> "Joining camera Wi-Fi…"
-            ConnectionPhase.OPENING_DATALINK -> "Opening datalink…"
+            ConnectionPhase.IDLE -> "空闲"
+            ConnectionPhase.SCANNING -> "正在搜索相机…"
+            ConnectionPhase.CONNECTING_GATT -> "正在连接（蓝牙）…"
+            ConnectionPhase.PAIRING -> "正在配对…"
+            ConnectionPhase.AWAITING_APPROVAL -> "在相机屏幕上确认"
+            ConnectionPhase.READING_WIFI_CREDS -> "正在读取 Wi-Fi 信息…"
+            ConnectionPhase.JOINING_WIFI -> "正在加入相机 Wi-Fi…"
+            ConnectionPhase.OPENING_DATALINK -> "正在打开数据链路…"
             ConnectionPhase.LIVE -> "Connected"
-            ConnectionPhase.FAILED -> "Failed: ${failure.orEmpty()}"
+            ConnectionPhase.FAILED -> "失败：${failure.orEmpty()}"
         }
 
     fun wizardStep(phase: ConnectionPhase): Int =
@@ -184,7 +184,7 @@ object StartupConnectionCopy {
             return withDjiAppsTip("The camera didn't respond in time. Check Bluetooth and try again.", trimmed)
         }
         if (lower.contains("disconnected")) {
-            return "The camera ended the connection. Try again."
+            return "相机断开了连接。请重试。"
         }
         return trimmed
     }
@@ -200,8 +200,8 @@ fun StartupHeader(
 ) {
     val busyTitles =
         setOf(
-            "Looking", "Pairing", "Reconnecting", "Starting", "Reading", "Discovering",
-            "Preparing", "Joining", "Connecting",
+            "查找中", "配对中", "Reconnecting", "Starting", "读取中", "Discovering",
+            "Preparing", "加入中", "连接中",
         )
     val statusColor =
         if (isBusy || statusTitle in busyTitles) StartupColors.accent else StartupColors.ready
@@ -260,7 +260,7 @@ private fun StartupLegalLink(label: String, onClick: () -> Unit) {
         style = startupType(11f, FontWeight.Medium),
         maxLines = 1,
         modifier =
-            Modifier.semantics { contentDescription = "$label policy" }
+            Modifier.semantics { contentDescription = "$label 策略" }
                 .clickable(role = Role.Button, onClick = onClick)
                 .padding(horizontal = 3.dp, vertical = 5.dp),
     )
@@ -270,10 +270,10 @@ private fun StartupLegalLink(label: String, onClick: () -> Unit) {
 fun StartupWizardProgress(currentStep: Int, totalSteps: Int) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row {
-            Text("Setup", color = StartupColors.muted, style = startupType(10f, FontWeight.SemiBold))
+            Text("设置", color = StartupColors.muted, style = startupType(10f, FontWeight.SemiBold))
             Spacer(Modifier.weight(1f))
             Text(
-                "Step $currentStep of $totalSteps",
+                "第 $currentStep / $totalSteps 步",
                 color = StartupColors.dim,
                 style = startupType(10f, FontWeight.Medium),
             )
@@ -526,7 +526,7 @@ fun StartupYourCamerasButton(
         Spacer(Modifier.width(7.dp))
         StartupGlyph(StartupGlyphKind.CAMERA, tint = StartupColors.ink, modifier = Modifier.size(13.dp))
         Spacer(Modifier.width(7.dp))
-        Text("Your cameras", color = StartupColors.ink, style = startupType(14f, FontWeight.SemiBold), maxLines = 1)
+        Text("你的相机", color = StartupColors.ink, style = startupType(14f, FontWeight.SemiBold), maxLines = 1)
     }
 }
 

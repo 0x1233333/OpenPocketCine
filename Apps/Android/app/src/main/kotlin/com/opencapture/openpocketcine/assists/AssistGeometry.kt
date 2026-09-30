@@ -83,7 +83,7 @@ object GridAssist {
     val phiFractions = floatArrayOf(0.382f, 0.618f)
     const val STROKE_OPACITY = 0.22f
     const val STROKE_WIDTH_DP = 1f
-    val optionLabels = listOf("Thirds", "Phi Grid", "Diagonal")
+    val optionLabels = listOf("三分线", "φ 网格", "对角线")
 
     fun segments(
         feed: AssistRect,
@@ -145,13 +145,13 @@ object CrosshairAssist {
     const val ARM_LENGTH_DP = 40f
     const val STROKE_WIDTH_DP = 1.4f
     const val OPACITY = 0.65f
-    const val HELP = "Tap the toolbar button to show or hide the centre crosshair."
+    const val HELP = "点工具栏按钮显示/隐藏中心十字线。"
 }
 
 object MirrorAssist {
     const val EXPLANATION =
         "Flips the monitor for a camera pointed back at you or mounted upside down. " +
-            "The recording and the scopes are never mirrored."
+            "录制画面和示波器不会镜像。"
     const val HORIZONTAL_HELP = "Left-to-right, for a camera pointed back at you."
     const val VERTICAL_HELP = "Top-to-bottom, for an underslung mount. Both on turns it 180°."
 
@@ -161,7 +161,7 @@ object MirrorAssist {
 object AudioAssist {
     const val PANEL_WIDTH_DP = 28f
     const val PANEL_HEIGHT_DP = 168f
-    const val HELP = "Meters the camera's audio. Available while live view is up."
+    const val HELP = "显示相机音频电平。实时画面开启时可用。"
     const val FLOOR_DB = -60.0
     const val YELLOW_FROM_DB = -18.0
     const val RED_FROM_DB = -6.0
@@ -247,11 +247,11 @@ object HistogramAssist {
     const val TRAFFIC_LAMP_HEIGHT = 15f
     const val TRAFFIC_OUTER_PAD = 6f
     const val TRAFFIC_LINE_GAP = 4f
-    const val TRAFFIC_LIGHTS_TITLE = "Traffic Lights"
+    const val TRAFFIC_LIGHTS_TITLE = "红绿灯提示"
     const val TRAFFIC_LIGHTS_HELP = "Show small RGB edge blocks for crushed and clipped channels. Clip lights from about a third of a stop under the camera's clip, the same point zebra 100% and CineStop use."
-    const val COMPENSATION_TITLE = "Crush/Clip Compensation"
+    const val COMPENSATION_TITLE = "截止/削波补偿"
     const val COMPENSATION_HELP =
-        "Stops of crush/clip tolerance before a traffic light glows. Shared with the goal-post meter."
+        "红绿灯点亮前的暗部截止/高光削波容差档数。与门柱电平表共用。"
 
     val trafficGutter: Float
         get() = TRAFFIC_OUTER_PAD + TRAFFIC_LAMP_WIDTH + TRAFFIC_LINE_GAP
@@ -297,7 +297,7 @@ object ParadeAssist {
 object VectorscopeAssist {
     fun intensity(brightness: Int): Double = brightness.coerceIn(0, 200) / 100.0
 
-    fun chip(zoom: VectorscopeZoom): String = "MON · ${zoom.label.uppercase()}"
+    fun chip(zoom: VectorscopeZoom): String = "监视 · ${zoom.label.uppercase()}"
 }
 
 object VectorscopeGraticule {
@@ -682,8 +682,8 @@ object FalseColorReference {
     fun axisLabels(scale: FalseColorScale): List<String> =
         when (scale) {
             FalseColorScale.SCENE_STOPS -> emptyList()
-            FalseColorScale.STOPS, FalseColorScale.IRE -> listOf("crush", "18%", "skin", "clip")
-            FalseColorScale.LIMITS -> listOf("crushed", "midtones untouched", "clipped")
+            FalseColorScale.STOPS, FalseColorScale.IRE -> listOf("暗部截止", "18%", "肤色", "高光削波")
+            FalseColorScale.LIMITS -> listOf("暗部截止", "中间调不变", "高光削波")
         }
 
     fun segments(scale: FalseColorScale, transfer: MonitorTransfer, rec709: Boolean = false): List<Segment> =

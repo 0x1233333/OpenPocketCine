@@ -1,7 +1,7 @@
 package com.opencapture.openpocketcine.media
 
 /**
- * Leave camera playback and bring live view back — Mimo's "Back to live view".
+ * Leave camera playback and bring live view back — Mimo's "返回实时画面".
  *
  * `0x02/0x0c` `01 01 00 00` exits playback. Enable (`0x09/0xa8`) while still in
  * playback ACKs `E0`/`D6` and produces no video. Keep exiting until the

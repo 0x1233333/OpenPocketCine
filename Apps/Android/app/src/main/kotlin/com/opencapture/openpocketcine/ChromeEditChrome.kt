@@ -46,8 +46,8 @@ fun ChromeEditBanner(
     ) {
         OpcIcon(OpcIcon.EYE, null, Modifier.size(11.dp), LiveDesign.accent)
         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-            Text("Editing ${mode.title}", color = LiveDesign.text, style = LiveType.ui(11.5f, FontWeight.SemiBold))
-            Text("Tap an eye to show or hide it", color = LiveDesign.muted, style = LiveType.ui(10f))
+            Text("正在编辑：${mode.title}", color = LiveDesign.text, style = LiveType.ui(11.5f, FontWeight.SemiBold))
+            Text("点眼睛图标显示/隐藏对应项", color = LiveDesign.muted, style = LiveType.ui(10f))
         }
         Box(
             Modifier
@@ -56,7 +56,7 @@ fun ChromeEditBanner(
                 .chromeClickable(onClick = onDone)
                 .padding(horizontal = 12.dp, vertical = 6.dp),
         ) {
-            Text("Done", color = LiveDesign.background, style = LiveType.ui(11.5f, FontWeight.Bold))
+            Text("完成", color = LiveDesign.background, style = LiveType.ui(11.5f, FontWeight.Bold))
         }
     }
 }

@@ -478,7 +478,7 @@ class BleLink(context: Context) {
         return FoundCamera(
             id = id,
             address = address,
-            name = name ?: "DJI camera",
+            name = name ?: "DJI 相机",
             model = model,
             modelId = modelId,
         )
@@ -494,7 +494,7 @@ class BleLink(context: Context) {
                             "warning", "ble", "connectionState",
                             "ble: connection state status=$status newState=$newState connectSettled=${connectSettled.get()}",
                         )
-                        finishConnect(IllegalStateException("the camera disconnected"))
+                        finishConnect(IllegalStateException("相机已断开"))
                         notifyLinkLostIfSettled(attempt)
                         closeGatt(IllegalStateException("the camera disconnected"))
                     } else if (newState == BluetoothProfile.STATE_CONNECTED) {

@@ -1,0 +1,63 @@
+name: Android APK
+
+# Personal-use debug APK build for the fork. Mirrors the Android job of
+# ci.yml (same Swift Android SDK id, same NDK 27 sysroot) but only runs
+# assembleDebug and uploads the APK as a workflow artifact.
+#
+# .ci/debug.keystore is a stable debug keystore (storepass "android", alias
+# "androiddebugkey") so every build signs identically and can update-install
+# over the previous APK. It is public in this repo on purpose — personal
+# sideload use only.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    name: Build debug APK
+    runs-on: ubuntu-latest
+    env:
+      SWIFT_ANDROID_SDK_ID: swift-6.3.3-RELEASE_android
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # Stable debug signature for update-installs between builds.
+      - name: Install stable debug keystore
+        run: |
+          mkdir -p "$HOME/.android"
+          cp .ci/debug.keystore "$HOME/.android/debug.keystore"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # Ubuntu runners already ship Swift 6.3.3; the Swift Android SDK needs
+      # an NDK 27 sysroot (same as ci.yml).
+      - name: Set up Android NDK 27
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r27c
+          link-to-sdk: true
+
+      - name: Install Swift Android SDK
+        run: ./scripts/ci-install-swift-android.sh
+
+      - name: Build debug APK
+        working-directory: Apps/Android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenPocketCine-debug-apk
+          path: Apps/Android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 30
